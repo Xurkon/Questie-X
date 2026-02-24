@@ -174,9 +174,10 @@ do
         local count = 0
 
         local function ProcessQuestId(questId)
+            local _QuestiePlayer = QuestiePlayer or QuestieLoader:ImportModule("QuestiePlayer")
             if (not QuestieCorrections.hiddenQuests[questId]) then
-                if QuestiePlayer.HasRequiredRace(QuestieDB.QueryQuestSingle(questId, "requiredRaces"))
-                    and QuestiePlayer.HasRequiredClass(QuestieDB.QueryQuestSingle(questId, "requiredClasses")) then
+                if _QuestiePlayer.HasRequiredRace(QuestieDB.QueryQuestSingle(questId, "requiredRaces"))
+                    and _QuestiePlayer.HasRequiredClass(QuestieDB.QueryQuestSingle(questId, "requiredClasses")) then
                     local zoneOrSort = QuestieDB.QueryQuestSingle(questId, "zoneOrSort")
                     local requiredSkill = QuestieDB.QueryQuestSingle(questId, "requiredSkill")
 

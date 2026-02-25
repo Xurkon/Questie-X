@@ -1220,21 +1220,13 @@ end
 
 ---@param objective any
 function QuestieQuest.ShouldHideObjective(objective)
-    local hideCondition = objective.HideCondition
-    if not hideCondition then
+    if not objective.HideCondition then
         return false
     end
 
-    if hideCondition.hideIfQuestActive then
-        local questId = hideCondition.hideIfQuestActive
-        if QuestiePlayer.currentQuestlog[questId] or (Questie.db and Questie.db.char and Questie.db.char.complete and Questie.db.char.complete[questId]) then
-            return true
-        end
-    end
-
-    if hideCondition.hideIfQuestComplete then
-        local questId = hideCondition.hideIfQuestComplete
-        if Questie.db and Questie.db.char and Questie.db.char.complete and Questie.db.char.complete[questId] then
+    if objective.HideCondition.hideIfQuestActive then
+        local questId = objective.HideCondition.hideIfQuestActive
+        if QuestiePlayer.currentQuestlog[questId] then
             return true
         end
     end
@@ -1656,8 +1648,7 @@ function QuestieQuest:PopulateQuestLogInfo(quest)
                         AlreadySpawned = {},
                         Update = _QuestieQuest.ObjectiveUpdate,
                         Coordinates = quest.ObjectiveData[objectiveIndex].Coordinates, -- Only for type "event"
-                        RequiredRepValue = quest.ObjectiveData[objectiveIndex].RequiredRepValue,
-                        HideCondition = quest.ObjectiveData[objectiveIndex].HideCondition
+                        RequiredRepValue = quest.ObjectiveData[objectiveIndex].RequiredRepValue
                     }
                 end
 

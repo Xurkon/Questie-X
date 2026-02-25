@@ -2724,7 +2724,7 @@ function QuestieWotlkQuestFixes:Load()
         [12924] = {
             [questKeys.objectives] = {{{30099,"Fjorn's Anvil Brought to Dun Niffelem"}}},
             [questKeys.extraObjectives] = {
-                {nil, Questie.ICON_TYPE_TALK, l10n("Pick up 'You Can't Miss Him' (12966)"), 0, {{"monster", 30105}}, {["hideIfQuestActive"] = 12966}},
+                {nil, Questie.ICON_TYPE_TALK, l10n("Ask King Jokkum to allow Thorim's armor to be reforged and pick up 'You Can't Miss Him' (12966)"), 0, {{"monster", 30105}}},
             },
         },
         [12925] = {
@@ -2828,7 +2828,6 @@ function QuestieWotlkQuestFixes:Load()
         [12966] = {
             [questKeys.preQuestGroup] = {12915,12956},
             [questKeys.requiredMinRep] = {1119,0},
-            [questKeys.finishedBy] = {{30127}},
         },
         [12967] = {
             [questKeys.objectives] = {{{30120}}},
@@ -2917,7 +2916,7 @@ function QuestieWotlkQuestFixes:Load()
             [questKeys.objectives] = {nil,nil,nil,nil,{{{30273,30268,30274},30273,}}},
         },
         [13010] = {
-            [questKeys.objectives] = {{{30105, nil, {["hideIfQuestActive"] = 12966}}},nil,nil,{1119,3000}},
+            [questKeys.objectives] = {{{30105}},nil,nil,{1119,3000}},
         },
         [13011] = {
             [questKeys.name] = "Culling Jorcuttar",

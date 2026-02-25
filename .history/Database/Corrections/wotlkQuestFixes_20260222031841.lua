@@ -2828,7 +2828,7 @@ function QuestieWotlkQuestFixes:Load()
         [12966] = {
             [questKeys.preQuestGroup] = {12915,12956},
             [questKeys.requiredMinRep] = {1119,0},
-            [questKeys.finishedBy] = {{30127}},
+            [questKeys.finishers] = {{30127}},
         },
         [12967] = {
             [questKeys.objectives] = {{{30120}}},

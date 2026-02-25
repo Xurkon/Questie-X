@@ -1275,8 +1275,7 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
                     QO.ObjectiveData[#QO.ObjectiveData+1] = {
                         Type = "monster",
                         Id = creatureObjective[1],
-                        Text = creatureObjective[2],
-                        HideCondition = creatureObjective[3],
+                        Text = creatureObjective[2]
                     }
                 end
             end
@@ -1288,8 +1287,7 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
                     QO.ObjectiveData[#QO.ObjectiveData+1] = {
                         Type = "object",
                         Id = objectObjective[1],
-                        Text = objectObjective[2],
-                        HideCondition = objectObjective[3],
+                        Text = objectObjective[2]
                     }
                 end
             end
@@ -1301,8 +1299,7 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
                     QO.ObjectiveData[#QO.ObjectiveData+1] = {
                         Type = "item",
                         Id = itemObjective[1],
-                        Text = itemObjective[2],
-                        HideCondition = itemObjective[3],
+                        Text = itemObjective[2]
                     }
                 end
             end

@@ -782,6 +782,36 @@ EbonholdDB.questData = EbonholdDB.questData or {
 
         [30] = 1, -- Kill count (only 1 rare needed)
     },
+
+    -- Quest 50176: Arathi Trophy
+    -- Kill 1 rare in Arathi Highlands
+    [50176] = {
+        [1] = "Arathi Trophy",     -- Quest name
+        [2] = { nil, { 600600 } }, -- startedBy: {{npcIds}, {objectIds}, {itemIds}}
+        [4] = 25,                  -- Quest level
+        [5] = 20,                  -- Min level
+        [17] = 45,                 -- Zone (Arathi Highlands)
+        [8] = {
+            "This is a custom objective. Upon completion, you will automatically receive the assigned reward. If you die, the quest will be removed from your quest log. This quest is automatically rewarded upon completion.",
+            "Kill 1 Rare in Arathi Highlands"
+        },
+        [10] = {
+            nil, -- [1] creatureObjective (not used)
+            nil, -- [2] objectObjective (not used)
+            nil, -- [3] itemObjective (not used)
+            nil, -- [4] reputationObjective (not used)
+            {    -- [5] killCreditObjective
+                {
+                    -- 10 rare NPCs in Arathi Highlands
+                    { 2598, 2603, 2600, 2604, 2606, 2779, 2605, 2609, 2602, 2601 }, 
+                    2606,                                                           -- RootId: Nimar the Slayer (representative rare)
+                    "Rare slain"
+                }
+            }
+        },
+
+        [30] = 1, -- Kill count (only 1 rare needed)
+    },
     [50150] = {
         [1] = "Storm Peak Orders",
         [2] = { nil, { 600600 } },
@@ -795,9 +825,35 @@ EbonholdDB.questData = EbonholdDB.questData or {
         [9] = { "Complete 6 Quests", nil },
     },
 
+    -- Quest 50195: Blade's Edge Trophy
+    -- Kill 1 rare in Blade's Edge Mountains
+    [50195] = {
+        [1] = "Blade's Edge Trophy", -- Quest name
+        [2] = { nil, { 600600 } },   -- startedBy: {{npcIds}, {objectIds}, {itemIds}}
+        [4] = 70,                    -- Quest level
+        [5] = 67,                    -- Min level
+        [17] = 3522,                 -- Zone (Blade's Edge Mountains)
+        [8] = {
+            "This is a custom objective. Upon completion, you will automatically receive the assigned reward. If you die, the quest will be removed from your quest log. This quest is automatically rewarded upon completion.",
+            "Kill 1 Rare in Blade's Edge Mountains"
+        },
+        [10] = {
+            nil, -- [1] creatureObjective (not used)
+            nil, -- [2] objectObjective (not used)
+            nil, -- [3] itemObjective (not used)
+            nil, -- [4] reputationObjective (not used)
+            {    -- [5] killCreditObjective
+                {
+                    -- 3 rare NPCs in Blade's Edge Mountains
+                    { 18690, 18692, 18693 }, 
+                    18692,                                                          -- RootId: Hemathion (representative rare)
+                    "Rare slain"
+                }
+            }
+        },
 
-
-
+        [30] = 1, -- Kill count (only 1 rare needed)
+    },
 
 }
 

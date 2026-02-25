@@ -1,10 +1,12 @@
 # Changelog
 
-## v9.8.5
+## v9.8.6
 
 ### New Ebonhold Quests
-- **Outland**: Blade's Edge Trophy (includes missing Blade's Edge Mountains spawn tracking data for Morcrush, Hemathion, Speaker Mar'grom).
-- **Azeroth**: Arathi Trophy (includes missing Arathi Highlands spawn tracking data for Darbel Montrose, Singer, Foulbelly, Ruul Onestone, Kovork, Molok the Crusher, Zalas Witherbark, Nimar the Slayer, Geomancer Flintdagger, Prince Nazjak).
+- **Outland**: Blade's Edge Trophy (includes missing Blade's Edge Mountains spawn tracking data for Morcrush, Hemathion, Speaker Mar'grom). Fel Scars of Nagrand (includes missing Nagrand spawn tracking data for Voidwalker Minions, etc). Netherstorm Trophy (includes missing Netherstorm spawn tracking data for Nuramoc, Ever-Core the Punisher, Chief Engineer Lorthander).
+- **Northrend**: Borean Trophy (includes missing Borean Tundra spawn tracking data for Fumblub Gearwind, Icehorn, Old Crystalbark).
+- **Kalimdor**: Teldrassil Trophy (includes missing Teldrassil spawn tracking data for Threggil, Blackmoss the Fetid, Duskstalker, Uruson, Fury Shelda, Grimmaw). Darkshore Defense (complete 6 quests in Darkshore). Bloodmyst Recovery (complete 6 quests in Bloodmyst Isle).
+- **Azeroth**: Arathi Trophy (includes missing Arathi Highlands spawn tracking data for Darbel Montrose, Singer, Foulbelly, Ruul Onestone, Kovork, Molok the Crusher, Zalas Witherbark, Nimar the Slayer, Geomancer Flintdagger, Prince Nazjak). Elwynn Errands (complete 6 quests in Elwynn Forest). Modan Trophy (includes missing Loch Modan spawn tracking data for Grizlak, Magosh, Large Loch Crocolisk, Shanda the Spinner, Lord Condar, Emogg the Crusher, Boss Galgosh). Redridge Resolve (complete 6 quests in Redridge Mountains). Westfall Trophy (includes missing Westfall spawn tracking data for Foe Reaper 4000, Marisa du'Paige, Vultros, Brack, Brainwashed Noble, Leprithus, Master Digger, Sergeant Brashclaw, Slark). Wetlands Trophy (includes missing Wetlands spawn tracking data for Dragonmaw Battlemaster, Razormaw Matriarch, Garneg Charskull, Gnawbone, Sludginn, Ma'ruk Wyrmscale, Leech Widow, Mirelow).
 
 ## v9.8.4
 

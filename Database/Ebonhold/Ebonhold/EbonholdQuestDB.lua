@@ -677,6 +677,35 @@ EbonholdDB.questData = EbonholdDB.questData or {
         },
         [9] = { "Complete 6 quests in Sholazar Basin", nil },
     },
+    -- Quest 50154: Teldrassil Trophy
+    -- Kill 1 rare in Teldrassil
+    [50154] = {
+        [1] = "Teldrassil Trophy", -- Quest name
+        [2] = { nil, { 600600 } }, -- startedBy: {{npcIds}, {objectIds}, {itemIds}}
+        [4] = 1,                   -- Min level
+        [5] = 10,                  -- Quest level
+        [17] = 141,                -- Zone (Teldrassil)
+        [8] = {
+            "This is a custom objective. Upon completion, you will automatically receive the assigned reward. If you die, the quest will be removed from your quest log. This quest is automatically rewarded upon completion.",
+            "Kill 1 Rare in Teldrassil"
+        },
+        [10] = {
+            nil, -- [1] creatureObjective (not used)
+            nil, -- [2] objectObjective (not used)
+            nil, -- [3] itemObjective (not used)
+            nil, -- [4] reputationObjective (not used)
+            {    -- [5] killCreditObjective
+                {
+                    -- 6 rare NPCs in Teldrassil
+                    { 14432, 3535, 14430, 14428, 14431, 14429 },
+                    3535, -- RootId: Blackmoss the Fetid (representative rare)
+                    "Rare slain"
+                }
+            }
+        },
+
+        [30] = 1, -- Kill count
+    },
 
     -- Quest 50099: Shadow of Teldrassil
     -- Complete 6 quests in Teldrassil (Any Quest)
@@ -693,6 +722,36 @@ EbonholdDB.questData = EbonholdDB.questData or {
         [9] = { "Complete 6 quests in Teldrassil", nil },
     },
 
+    -- Quest 50103: Darkshore Defense
+    -- Complete 6 quests in Darkshore (Any Quest)
+    [50103] = {
+        [1] = "Darkshore Defense", -- Quest name
+        [2] = { nil, { 600600 } }, -- startedBy: {{npcIds}, {objectIds}, {itemIds}}
+        [4] = 10,                  -- Min level
+        [5] = 1,                   -- Quest level
+        [17] = 331,                -- Zone (Darkshore)
+        [8] = {
+            "This quest requires completing any 6 quests in Darkshore. The quest will automatically complete once the objective is met.",
+            "Complete 6 quests in Darkshore"
+        },
+        [9] = { "Complete 6 quests in Darkshore", nil },
+    },
+
+    -- Quest 50104: Bloodmyst Recovery
+    -- Complete 6 quests in Bloodmyst Isle (Any Quest)
+    [50104] = {
+        [1] = "Bloodmyst Recovery", -- Quest name
+        [2] = { nil, { 600600 } }, -- startedBy: {{npcIds}, {objectIds}, {itemIds}}
+        [4] = 10,                  -- Min level
+        [5] = 1,                   -- Quest level
+        [17] = 3525,               -- Zone (Bloodmyst Isle)
+        [8] = {
+            "This quest requires completing any 6 quests in Bloodmyst Isle. The quest will automatically complete once the objective is met.",
+            "Complete 6 quests in Bloodmyst Isle"
+        },
+        [9] = { "Complete 6 quests in Bloodmyst Isle", nil },
+    },
+
     -- Quest 50108: Trials of Durotar
     -- Complete 6 quests in Durotar (Any Quest)
     [50108] = {
@@ -706,6 +765,35 @@ EbonholdDB.questData = EbonholdDB.questData or {
             "Complete 6 quests in Durotar"
         },
         [9] = { "Complete 6 quests in Durotar", nil },
+    },
+    -- Quest 50097: Elwynn Errands
+    -- Complete 6 quests in Elwynn Forest (Any Quest)
+    [50097] = {
+        [1] = "Elwynn Errands",    -- Quest name
+        [2] = { nil, { 600600 } }, -- startedBy: {{npcIds}, {objectIds}, {itemIds}}
+        [4] = 1,                   -- Min level
+        [5] = 1,                   -- Quest level
+        [17] = 12,                 -- Zone (Elwynn Forest)
+        [8] = {
+            "This quest requires completing any 6 quests in Elwynn Forest. The quest will automatically complete once the objective is met.",
+            "Complete 6 quests in Elwynn Forest"
+        },
+        [9] = { "Complete 6 quests in Elwynn Forest", nil },
+    },
+
+    -- Quest 50105: Redridge Resolve
+    -- Complete 6 quests in Redridge Mountains (Any Quest)
+    [50105] = {
+        [1] = "Redridge Resolve",  -- Quest name
+        [2] = { nil, { 600600 } }, -- startedBy: {{npcIds}, {objectIds}, {itemIds}}
+        [4] = 10,                  -- Min level
+        [5] = 1,                   -- Quest level
+        [17] = 44,                 -- Zone (Redridge Mountains)
+        [8] = {
+            "This quest requires completing any 6 quests in Redridge Mountains. The quest will automatically complete once the objective is met.",
+            "Complete 6 quests in Redridge Mountains"
+        },
+        [9] = { "Complete 6 quests in Redridge Mountains", nil },
     },
 
     -- Quest 50111: Song of the Woods
@@ -721,6 +809,96 @@ EbonholdDB.questData = EbonholdDB.questData or {
             "Complete 6 quests in Eversong Woods"
         },
         [9] = { "Complete 6 quests in Eversong Woods", nil },
+    },
+
+    -- Quest 50157: Modan Trophy
+    -- Kill 1 rare in Loch Modan
+    [50157] = {
+        [1] = "Modan Trophy",      -- Quest name
+        [2] = { nil, { 600600 } }, -- startedBy: {{npcIds}, {objectIds}, {itemIds}}
+        [4] = 10,                  -- Min level
+        [5] = 10,                  -- Quest level
+        [17] = 38,                 -- Zone (Loch Modan)
+        [8] = {
+            "This is a custom objective. Upon completion, you will automatically receive the assigned reward. If you die, the quest will be removed from your quest log. This quest is automatically rewarded upon completion.",
+            "Kill 1 Rare in Loch Modan"
+        },
+        [10] = {
+            nil, -- [1] creatureObjective (not used)
+            nil, -- [2] objectObjective (not used)
+            nil, -- [3] itemObjective (not used)
+            nil, -- [4] reputationObjective (not used)
+            {    -- [5] killCreditObjective
+                {
+                    -- 7 rare NPCs in Loch Modan
+                    { 1425, 1399, 2476, 14266, 14268, 14267, 1398 },
+                    1425, -- RootId: Grizlak (representative rare)
+                    "Rare slain"
+                }
+            }
+        },
+
+        [30] = 1, -- Kill count
+    },
+
+    -- Quest 50156: Westfall Trophy
+    -- Kill 1 rare in Westfall
+    [50156] = {
+        [1] = "Westfall Trophy",   -- Quest name
+        [2] = { nil, { 600600 } }, -- startedBy: {{npcIds}, {objectIds}, {itemIds}}
+        [4] = 10,                  -- Min level
+        [5] = 10,                  -- Quest level
+        [17] = 40,                 -- Zone (Westfall)
+        [8] = {
+            "This is a custom objective. Upon completion, you will automatically receive the assigned reward. If you die, the quest will be removed from your quest log. This quest is automatically rewarded upon completion.",
+            "Kill 1 Rare in Westfall"
+        },
+        [10] = {
+            nil, -- [1] creatureObjective (not used)
+            nil, -- [2] objectObjective (not used)
+            nil, -- [3] itemObjective (not used)
+            nil, -- [4] reputationObjective (not used)
+            {    -- [5] killCreditObjective
+                {
+                    -- 9 rare NPCs in Westfall
+                    { 573, 599, 462, 520, 596, 572, 1424, 506, 519 },
+                    573, -- RootId: Foe Reaper 4000 (representative rare)
+                    "Rare slain"
+                }
+            }
+        },
+
+        [30] = 1, -- Kill count
+    },
+
+    -- Quest 50162: Wetlands Trophy
+    -- Kill 1 rare in Wetlands
+    [50162] = {
+        [1] = "Wetlands Trophy",   -- Quest name
+        [2] = { nil, { 600600 } }, -- startedBy: {{npcIds}, {objectIds}, {itemIds}}
+        [4] = 10,                  -- Min level
+        [5] = 10,                  -- Quest level
+        [17] = 11,                 -- Zone (Wetlands)
+        [8] = {
+            "This is a custom objective. Upon completion, you will automatically receive the assigned reward. If you die, the quest will be removed from your quest log. This quest is automatically rewarded upon completion.",
+            "Kill 1 Rare in Wetlands"
+        },
+        [10] = {
+            nil, -- [1] creatureObjective (not used)
+            nil, -- [2] objectObjective (not used)
+            nil, -- [3] itemObjective (not used)
+            nil, -- [4] reputationObjective (not used)
+            {    -- [5] killCreditObjective
+                {
+                    -- 8 rare NPCs in Wetlands
+                    { 1037, 1140, 2108, 14425, 14433, 2090, 1112, 14424 },
+                    1037, -- RootId: Dragonmaw Battlemaster (representative rare)
+                    "Rare slain"
+                }
+            }
+        },
+
+        [30] = 1, -- Kill count
     },
 
     -- Quest 50153: Morogh Trophy
@@ -853,6 +1031,96 @@ EbonholdDB.questData = EbonholdDB.questData or {
         },
 
         [30] = 1, -- Kill count (only 1 rare needed)
+    },
+
+    -- Quest 50044: Fel Scars of Nagrand
+    -- Kill 40 demons in Nagrand
+    [50044] = {
+        [1] = "Fel Scars of Nagrand", -- Quest name
+        [2] = { nil, { 600600 } },   -- startedBy: {{npcIds}, {objectIds}, {itemIds}}
+        [4] = 64,                    -- Min level
+        [5] = 67,                    -- Quest level
+        [17] = 3518,                 -- Zone (Nagrand)
+        [8] = {
+            "This is a custom objective. Upon completion, you will automatically receive the assigned reward. If you die, the quest will be removed from your quest log. This quest is automatically rewarded upon completion.",
+            "Kill 40 Demons in Nagrand"
+        },
+        [10] = {
+            nil, -- [1] creatureObjective (not used)
+            nil, -- [2] objectObjective (not used)
+            nil, -- [3] itemObjective (not used)
+            nil, -- [4] reputationObjective (not used)
+            {    -- [5] killCreditObjective
+                {
+                    -- 14 demon NPCs in Nagrand
+                    { 18683, 17151, 17981, 22357, 18567, 17152, 18535, 18661, 22362, 22394, 18536, 18401, 18660, 16945 }, 
+                    18683,                                                          -- RootId: Voidwalker Minion (representative demon)
+                    "Demon slain"
+                }
+            }
+        },
+
+        [30] = 40, -- Kill count
+    },
+
+    -- Quest 50196: Netherstorm Trophy
+    -- Kill 1 rare in Netherstorm
+    [50196] = {
+        [1] = "Netherstorm Trophy", -- Quest name
+        [2] = { nil, { 600600 } },   -- startedBy: {{npcIds}, {objectIds}, {itemIds}}
+        [4] = 67,                    -- Min level
+        [5] = 70,                    -- Quest level
+        [17] = 3523,                 -- Zone (Netherstorm)
+        [8] = {
+            "This is a custom objective. Upon completion, you will automatically receive the assigned reward. If you die, the quest will be removed from your quest log. This quest is automatically rewarded upon completion.",
+            "Kill 1 Rare in Netherstorm"
+        },
+        [10] = {
+            nil, -- [1] creatureObjective (not used)
+            nil, -- [2] objectObjective (not used)
+            nil, -- [3] itemObjective (not used)
+            nil, -- [4] reputationObjective (not used)
+            {    -- [5] killCreditObjective
+                {
+                    -- 3 rare NPCs in Netherstorm
+                    { 20932, 18698, 18697 },
+                    20932, -- RootId: Nuramoc (representative rare)
+                    "Rare slain"
+                }
+            }
+        },
+
+        [30] = 1, -- Kill count
+    },
+
+    -- Quest 50199: Borean Trophy
+    -- Kill 1 rare in Borean Tundra
+    [50199] = {
+        [1] = "Borean Trophy",       -- Quest name
+        [2] = { nil, { 600600 } },   -- startedBy: {{npcIds}, {objectIds}, {itemIds}}
+        [4] = 68,                    -- Min level
+        [5] = 71,                    -- Quest level
+        [17] = 3537,                 -- Zone (Borean Tundra)
+        [8] = {
+            "This is a custom objective. Upon completion, you will automatically receive the assigned reward. If you die, the quest will be removed from your quest log. This quest is automatically rewarded upon completion.",
+            "Kill 1 Rare in Borean Tundra"
+        },
+        [10] = {
+            nil, -- [1] creatureObjective (not used)
+            nil, -- [2] objectObjective (not used)
+            nil, -- [3] itemObjective (not used)
+            nil, -- [4] reputationObjective (not used)
+            {    -- [5] killCreditObjective
+                {
+                    -- 3 rare NPCs in Borean Tundra
+                    { 32358, 32361, 32357 },
+                    32358, -- RootId: Fumblub Gearwind (representative rare)
+                    "Rare slain"
+                }
+            }
+        },
+
+        [30] = 1, -- Kill count
     },
 
 }

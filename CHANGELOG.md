@@ -53,6 +53,7 @@
 | 50085 | Savage Heights | Blade's Edge Mountains | Kill 75 Beasts (47 NPCs tracked) |
 | 50086 | Unstable Fauna | Netherstorm | Kill 75 Beasts (18 NPCs tracked) |
 | 50087 | Shadowed Beasts | Shadowmoon Valley | Kill 75 Beasts (25 NPCs tracked) |
+| 50111 | Song of the Woods | Eversong Woods | Complete 6 quests |
 
 #### ❄️ Northrend
 
@@ -77,12 +78,6 @@
 | 50149 | Basin Expeditions | Sholazar Basin | Complete 6 quests |
 | 50150 | Storm Peak Orders | The Storm Peaks | Complete 6 quests |
 | 50151 | Icecrown Advance | Icecrown | Complete 6 quests |
-
-#### Other
-
-| ID | Quest | Zone | Type |
-|----|-------|------|------|
-| 50111 | Song of the Woods | Eversong Woods | Complete 6 quests |
 
 ### NPC Data
 

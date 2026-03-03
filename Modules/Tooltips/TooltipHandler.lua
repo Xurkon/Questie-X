@@ -259,12 +259,12 @@ function _QuestieTooltips:AddUnitDataToTooltip()
     local type, _, _, _, _, npcId, _ = strsplit("-", guid or "");
 
     if name and (type == "Creature" or type == "Vehicle") and (
-        name ~= QuestieTooltips.lastGametooltipUnit or
-        (not QuestieTooltips.lastGametooltipCount) or
-        _QuestieTooltips:CountTooltip() < QuestieTooltips.lastGametooltipCount or
-        QuestieTooltips.lastGametooltipType ~= "monster" or
-        lastGuid ~= guid
-    ) then
+            name ~= QuestieTooltips.lastGametooltipUnit or
+            (not QuestieTooltips.lastGametooltipCount) or
+            _QuestieTooltips:CountTooltip() < QuestieTooltips.lastGametooltipCount or
+            QuestieTooltips.lastGametooltipType ~= "monster" or
+            lastGuid ~= guid
+        ) then
         QuestieTooltips.lastGametooltipUnit = name
 
         local tooltipData = QuestieTooltips:GetTooltip("m_" .. npcId);
@@ -273,7 +273,7 @@ function _QuestieTooltips:AddUnitDataToTooltip()
             if Questie.db.profile.enableTooltipsNPCID == true then
                 GameTooltip:AddDoubleLine("NPC ID", "|cFFFFFFFF" .. npcId .. "|r")
             end
-            for _, v in pairs (tooltipData) do
+            for _, v in pairs(tooltipData) do
                 GameTooltip:AddLine(v)
             end
         else
@@ -307,23 +307,25 @@ function _QuestieTooltips:AddItemDataToTooltip()
     local name, link = self:GetItem()
     local itemId
     if link then
-        itemId = select(3, string.match(link, "|?c?f?f?(%x*)|?H?([^:]*):?(%d+):?(%d*):?(%d*):?(%d*):?(%d*):?(%d*):?(%-?%d*):?(%-?%d*):?(%d*):?(%d*):?(%-?%d*)|?h?%[?([^%[%]]*)%]?|?h?|?r?"))
+        itemId = select(3,
+            string.match(link,
+                "|?c?f?f?(%x*)|?H?([^:]*):?(%d+):?(%d*):?(%d*):?(%d*):?(%d*):?(%d*):?(%-?%d*):?(%-?%d*):?(%d*):?(%d*):?(%-?%d*)|?h?%[?([^%[%]]*)%]?|?h?|?r?"))
     end
     if name and itemId and (
-        name ~= QuestieTooltips.lastGametooltipItem or
-        (not QuestieTooltips.lastGametooltipCount) or
-        _QuestieTooltips:CountTooltip() < QuestieTooltips.lastGametooltipCount or
-        QuestieTooltips.lastGametooltipType ~= "item" or
-        lastItemId ~= itemId or
-        QuestieTooltips.lastFrameName ~= self:GetName()
-    ) then
+            name ~= QuestieTooltips.lastGametooltipItem or
+            (not QuestieTooltips.lastGametooltipCount) or
+            _QuestieTooltips:CountTooltip() < QuestieTooltips.lastGametooltipCount or
+            QuestieTooltips.lastGametooltipType ~= "item" or
+            lastItemId ~= itemId or
+            QuestieTooltips.lastFrameName ~= self:GetName()
+        ) then
         QuestieTooltips.lastGametooltipItem = name
         local tooltipData = QuestieTooltips:GetTooltip("i_" .. (itemId or 0));
         if tooltipData then
             if Questie.db.profile.enableTooltipsItemID == true then
                 GameTooltip:AddDoubleLine("Item ID", "|cFFFFFFFF" .. itemId .. "|r")
             end
-            for _, v in pairs (tooltipData) do
+            for _, v in pairs(tooltipData) do
                 self:AddLine(v)
             end
         end
@@ -363,7 +365,7 @@ function _QuestieTooltips:AddObjectDataToTooltip(name)
 
                 if tooltipData[2] then
                     -- Quest has objectives
-                    for index, line in pairs (tooltipData) do
+                    for index, line in pairs(tooltipData) do
                         if index > 1 and (not alreadyAddedObjectiveLines[line]) then -- skip the first entry, it's the title
                             local _, _, acquired, needed = string.find(line, "(%d+)/(%d+)")
                             -- We need "tonumber", because acquired can contain parts of the color string
@@ -386,7 +388,7 @@ end
 function _QuestieTooltips:CountTooltip()
     local tooltipCount = 0
     for i = 1, GameTooltip:NumLines() do
-        local frame = _G["GameTooltipTextLeft"..i]
+        local frame = _G["GameTooltipTextLeft" .. i]
         if frame and frame:GetText() then
             tooltipCount = tooltipCount + 1
         else

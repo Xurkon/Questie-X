@@ -70,7 +70,8 @@ local bindTruthTable = {
     ['disabled'] = function() return false end,
 }
 
-local _QuestLogScrollBar = QuestLogScrollFrameScrollBar or QuestLogListScrollFrame.ScrollBar or QuestLogListScrollFrameScrollBar
+local _QuestLogScrollBar = QuestLogScrollFrameScrollBar or QuestLogListScrollFrame.ScrollBar or
+    QuestLogListScrollFrameScrollBar
 
 ---@param quest table The table provided by QuestieDB.GetQuest(questId)
 function TrackerUtils:ShowQuestLog(quest)
@@ -106,7 +107,6 @@ function TrackerUtils:ShowQuestLog(quest)
     QuestLog_UpdateQuestDetails()
     QuestLog_Update()
 end
-
 
 ---@param title string The name of the WayPoint
 ---@param zone number The zone ID number
@@ -670,7 +670,8 @@ local function _GetZoneName(zoneOrSort, questId)
         else
             -- The quest has no explicit zone or category. Fallback to "Unknown Zone"
             zoneName = "Unknown Zone"
-            Questie:Debug(Questie.DEBUG_CRITICAL, "[TrackerUtils:_GetZoneName] zoneOrSort", zoneOrSort, "of quest", questId, "is not in the Database!")
+            Questie:Debug(Questie.DEBUG_CRITICAL, "[TrackerUtils:_GetZoneName] zoneOrSort", zoneOrSort, "of quest",
+                questId, "is not in the Database!")
         end
     else
         -- Let's create custom Zones based on Sorting type.
@@ -890,15 +891,18 @@ function TrackerUtils:GetSortedQuestIds()
             local playerPosition
             questZoneProximityTimer = C_Timer.NewTicker(5.0, function()
                 if IsInInstance() and questZoneProximityTimer then
-                    Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Stoped!")
+                    Questie:Debug(Questie.DEBUG_DEVELOP,
+                        "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Stoped!")
                     questZoneProximityTimer:Cancel()
                     questZoneProximityTimer = nil
                 else
                     local position = _GetWorldPlayerPosition()
                     if position then
-                        local distance = playerPosition and _GetDistance(position.x, position.y, playerPosition.x, playerPosition.y)
+                        local distance = playerPosition and
+                            _GetDistance(position.x, position.y, playerPosition.x, playerPosition.y)
                         if not distance or distance > 0.01 then -- Position has changed
-                            Questie:Debug(Questie.DEBUG_SPAM, "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Updated!")
+                            Questie:Debug(Questie.DEBUG_SPAM,
+                                "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Updated!")
                             playerPosition = position
                             local orderCopy = {}
 
@@ -1006,9 +1010,11 @@ function TrackerUtils:GetSortedQuestIds()
                 else
                     local position = _GetWorldPlayerPosition()
                     if position then
-                        local distance = playerPosition and _GetDistance(position.x, position.y, playerPosition.x, playerPosition.y)
+                        local distance = playerPosition and
+                            _GetDistance(position.x, position.y, playerPosition.x, playerPosition.y)
                         if not distance or distance > 0.01 then -- Position has changed
-                            Questie:Debug(Questie.DEBUG_SPAM, "[TrackerUtils:GetSortedQuestIds] - Proximity Timer Updated!")
+                            Questie:Debug(Questie.DEBUG_SPAM,
+                                "[TrackerUtils:GetSortedQuestIds] - Proximity Timer Updated!")
                             playerPosition = position
                             local orderCopy = {}
 
@@ -1119,16 +1125,13 @@ function TrackerUtils:UpdateVoiceOverPlayButtons()
         end
 
         for i = 1, 75 do
-            local title, _, _, isHeader, _, _, _, questId = GetQuestLogTitle(i)
+            local title, level, questTag, isHeader, isCollapsed, isComplete, isDaily, questId = GetQuestLogTitle(i)
 
-            if not (title and questId) then
-                break
-            end
-
-            if not isHeader then
+            if title and questId and (not isHeader) then
                 if not VoiceOver.QuestOverlayUI.questPlayButtons[questId] then
                     VoiceOver.QuestOverlayUI:CreatePlayButton(questId)
-                    table.insert(VoiceOver.QuestOverlayUI.displayedButtons, VoiceOver.QuestOverlayUI.questPlayButtons[questId])
+                    table.insert(VoiceOver.QuestOverlayUI.displayedButtons,
+                        VoiceOver.QuestOverlayUI.questPlayButtons[questId])
                 end
             end
         end

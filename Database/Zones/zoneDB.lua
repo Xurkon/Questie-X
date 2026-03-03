@@ -122,7 +122,10 @@ function ZoneDB:GetAreaIdByUiMapId(uiMapId)
             end
         end
         if Questie.db.profile.debugEnabled then
-            Questie:Debug(Questie.DEBUG_CRITICAL,
+            -- NOTE: On Ascension, hub cities (Stormwind, Shattrath, etc.) may return a
+            -- continent-level UiMapId from GetBestMapForUnit. This is harmless — the nil
+            -- return is handled gracefully by GetCurrentZoneId's callers.
+            Questie:Debug(Questie.DEBUG_DEVELOP,
                 "No AreaId found for UiMapId: " ..
                 uiMapId .. ":" .. (C_Map.GetMapInfo(uiMapId) and C_Map.GetMapInfo(uiMapId).name or "nil"))
         end
@@ -373,7 +376,7 @@ function _ZoneDB:RunTests()
             local success, result = pcall(ZoneDB.GetAreaIdByUiMapId, ZoneDB, map.mapID)
             if not success and not buggedMaps[map.mapID] then
                 Questie:Error("[ZoneDBTests] ZoneDB.GetAreaIdByUiMapId fails for " ..
-                map.name .. " (" .. map.mapID .. "). Result: " .. result)
+                    map.name .. " (" .. map.mapID .. "). Result: " .. result)
             end
         end
     end

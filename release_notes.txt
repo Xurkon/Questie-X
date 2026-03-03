@@ -1,7 +1,0 @@
-## New Ebonhold Quests
-- **Outland**: Blade's Edge Trophy, Fel Scars of Nagrand, Netherstorm Trophy
-- **Northrend**: Borean Trophy
-- **Kalimdor**: Teldrassil Trophy, Darkshore Defense, Bloodmyst Recovery
-- **Azeroth**: Arathi Trophy, Elwynn Errands, Modan Trophy, Redridge Resolve, Westfall Trophy, Wetlands Trophy
-
-Includes precise spawn tracking data overrides for numerous rare NPCs across these zones.

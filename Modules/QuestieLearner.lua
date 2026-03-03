@@ -91,7 +91,7 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
             end
         end
         if not found then
-            table.insert(existing[7][zoneId], {x, y})
+            table.insert(existing[7][zoneId], { x, y })
         end
     end
 
@@ -117,7 +117,7 @@ function QuestieLearner:LearnQuest(questId, name, questLevel, requiredLevel, zon
         if type(objectives) == "table" then
             existing[8] = objectives
         elseif type(objectives) == "string" then
-            existing[8] = {objectives}
+            existing[8] = { objectives }
         end
     end
 
@@ -140,7 +140,9 @@ function QuestieLearner:LearnQuestGiver(questId, npcId, isStart)
         existing[2][1] = existing[2][1] or {}
         local found = false
         for _, id in ipairs(existing[2][1]) do
-            if id == npcId then found = true; break end
+            if id == npcId then
+                found = true; break
+            end
         end
         if not found then table.insert(existing[2][1], npcId) end
     else
@@ -148,7 +150,9 @@ function QuestieLearner:LearnQuestGiver(questId, npcId, isStart)
         existing[3][1] = existing[3][1] or {}
         local found = false
         for _, id in ipairs(existing[3][1]) do
-            if id == npcId then found = true; break end
+            if id == npcId then
+                found = true; break
+            end
         end
         if not found then table.insert(existing[3][1], npcId) end
     end
@@ -188,7 +192,9 @@ function QuestieLearner:LearnItemDrop(itemId, npcId)
     existing[2] = existing[2] or {}
     local found = false
     for _, id in ipairs(existing[2]) do
-        if id == npcId then found = true; break end
+        if id == npcId then
+            found = true; break
+        end
     end
     if not found then table.insert(existing[2], npcId) end
 end
@@ -221,7 +227,7 @@ function QuestieLearner:LearnObject(objectId, name)
             end
         end
         if not found then
-            table.insert(existing[4][zoneId], {x, y})
+            table.insert(existing[4][zoneId], { x, y })
         end
     end
 
@@ -513,13 +519,15 @@ function QuestieLearner:OnLootOpened()
 
     local numItems = GetNumLootItems()
     for i = 1, numItems do
-        local lootIcon, lootName, lootQuantity, currencyID, lootQuality, locked, isQuestItem, questId, isActive = GetLootSlotInfo(i)
+        local lootIcon, lootName, lootQuantity, currencyID, lootQuality, locked, isQuestItem, questId, isActive =
+            GetLootSlotInfo(i)
         if lootName then
             local link = GetLootSlotLink(i)
             if link then
                 local itemId = tonumber(string.match(link, "item:(%d+)"))
                 if itemId then
-                    local _, _, _, itemLevel, requiredLevel, itemType, itemSubType, _, _, _, _, itemClassId, itemSubClassId = GetItemInfo(link)
+                    local _, _, _, itemLevel, requiredLevel, itemType, itemSubType, _, _, _, _, itemClassId, itemSubClassId =
+                        GetItemInfo(link)
                     self:LearnItem(itemId, lootName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
 
                     if npcId then

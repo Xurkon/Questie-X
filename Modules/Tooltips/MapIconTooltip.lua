@@ -42,7 +42,7 @@ local function _Questie_SilentGetQuestLogIndexByID(questId)
     local n = (GetNumQuestLogEntries and select(1, GetNumQuestLogEntries())) or 0
     if n > 0 and GetQuestLogTitle then
         for i = 1, n do
-            local _, _, _, _, isHeader, _, _, _, qid = GetQuestLogTitle(i)
+            local _, _, _, isHeader, _, _, _, qid = GetQuestLogTitle(i)
             qid = tonumber(qid)
             if (not isHeader) and qid and qid == questId then
                 return i
@@ -133,7 +133,8 @@ function MapIconTooltip:Show()
         local iconData = icon.data
 
         if not iconData then
-            Questie:Error("[MapIconTooltip:Show] handleMapIcon - iconData is nil! self.data.Id =", self.data.Id, "- Aborting!")
+            Questie:Error("[MapIconTooltip:Show] handleMapIcon - iconData is nil! self.data.Id =", self.data.Id,
+                "- Aborting!")
             return
         end
 
@@ -166,14 +167,14 @@ function MapIconTooltip:Show()
                     end
 
                     local orderedTooltips = {}
-local _qid = tonumber(iconData.Id)
-if _qid and _Questie_SilentGetQuestLogIndexByID(_qid) <= 0 then
-    return
-end
-local _ok = pcall(iconData.ObjectiveData.Update, iconData.ObjectiveData)
-if not _ok then
-    return
-end
+                    local _qid = tonumber(iconData.Id)
+                    if _qid and _Questie_SilentGetQuestLogIndexByID(_qid) <= 0 then
+                        return
+                    end
+                    local _ok = pcall(iconData.ObjectiveData.Update, iconData.ObjectiveData)
+                    if not _ok then
+                        return
+                    end
                     if iconData.Type == "event" then
                         local tip = _MapIconTooltip:GetEventObjectiveTooltip(icon.data)
 
@@ -257,26 +258,33 @@ end
                     local quest = QuestieDB.GetQuest(questData.questId)
                     local rewardString = ""
                     if (quest and shift) then
-                        local xpReward = QuestXP:GetQuestLogRewardXP(questData.questId, Questie.db.profile.showQuestXpAtMaxLevel)
+                        local xpReward = QuestXP:GetQuestLogRewardXP(questData.questId,
+                            Questie.db.profile.showQuestXpAtMaxLevel)
                         if xpReward > 0 then
-                            rewardString = QuestieLib:PrintDifficultyColor(quest.level, "(" .. FormatLargeNumber(xpReward) .. xpString .. ") ", QuestieDB.IsRepeatable(questData.questId), QuestieDB.IsActiveEventQuest(questData.questId), QuestieDB.IsPvPQuest(questData.questId))
+                            rewardString = QuestieLib:PrintDifficultyColor(quest.level,
+                                "(" .. FormatLargeNumber(xpReward) .. xpString .. ") ",
+                                QuestieDB.IsRepeatable(questData.questId),
+                                QuestieDB.IsActiveEventQuest(questData.questId), QuestieDB.IsPvPQuest(questData.questId))
                         end
 
                         local moneyReward = QuestXP.GetQuestRewardMoney(questData.questId)
                         if moneyReward > 0 then
-                            rewardString = rewardString .. Questie:Colorize("(" .. GetCoinTextureString(moneyReward) .. ") ", "white")
+                            rewardString = rewardString ..
+                            Questie:Colorize("(" .. GetCoinTextureString(moneyReward) .. ") ", "white")
                         end
                     end
                     rewardString = rewardString .. questData.type
 
                     if (not shift) and reputationReward and next(reputationReward) then
-                        self:AddDoubleLine(REPUTATION_ICON_TEXTURE .. " " .. questData.title, rewardString, 1, 1, 1, 1, 1, 0);
+                        self:AddDoubleLine(REPUTATION_ICON_TEXTURE .. " " .. questData.title, rewardString, 1, 1, 1, 1, 1,
+                            0);
                     else
                         if shift then
                             self:AddDoubleLine(questData.title, rewardString, 1, 1, 1, 1, 1, 0);
                         else
                             -- We use a transparent icon because this eases setting the correct margin
-                            self:AddDoubleLine(TRANSPARENT_ICON_TEXTURE .. " " .. questData.title, rewardString, 1, 1, 1, 1, 1, 0);
+                            self:AddDoubleLine(TRANSPARENT_ICON_TEXTURE .. " " .. questData.title, rewardString, 1, 1, 1,
+                                1, 1, 0);
                         end
                     end
                 end
@@ -284,13 +292,15 @@ end
                     local dataType = type(questData.subData)
                     if dataType == "table" then
                         for _, rawLine in pairs(questData.subData) do
-                            local lines = QuestieLib:TextWrap(rawLine, "  ", false, math.max(375, Tooltip:GetWidth()), questData.questId) --275 is the default questlog width
+                            local lines = QuestieLib:TextWrap(rawLine, "  ", false, math.max(375, Tooltip:GetWidth()),
+                                questData.questId)                                                                                        --275 is the default questlog width
                             for _, line in pairs(lines) do
                                 self:AddLine(line, 0.86, 0.86, 0.86);
                             end
                         end
                     elseif dataType == "string" then
-                        local lines = QuestieLib:TextWrap(questData.subData, "  ", false, math.max(375, Tooltip:GetWidth())) --275 is the default questlog width
+                        local lines = QuestieLib:TextWrap(questData.subData, "  ", false,
+                            math.max(375, Tooltip:GetWidth()))                                                               --275 is the default questlog width
                         for _, line in pairs(lines) do
                             self:AddLine(line, 0.86, 0.86, 0.86);
                         end
@@ -303,19 +313,21 @@ end
                     local nextQuest = QuestieDB.GetQuest(nextQuestInChain)
                     local firstInChain = true;
                     while nextQuest ~= nil do
-
                         local nextQuestTitleString;
                         local nextQuestXpRewardString = "";
                         local nextQuestMoneyRewardString = "";
                         local nextQuestIdString = "";
                         local nextQuestTagString = "";
                         if firstInChain then
-                            self:AddLine("  |T" .. QuestieLib.AddonPath .. "Icons\\nextquest.blp:16|t " .. l10n("Next in chain:"), 0.86, 0.86, 0.86)
+                            self:AddLine(
+                            "  |T" .. QuestieLib.AddonPath .. "Icons\\nextquest.blp:16|t " .. l10n("Next in chain:"),
+                                0.86, 0.86, 0.86)
                             firstInChain = false;
                         end
 
                         if Questie.db.profile.enableTooltipsQuestLevel then
-                            nextQuestTitleString = string.format("%s", QuestieLib:GetLevelString(nextQuest.Id, "", nextQuest.level, true) .. nextQuest.name)
+                            nextQuestTitleString = string.format("%s",
+                                QuestieLib:GetLevelString(nextQuest.Id, "", nextQuest.level, true) .. nextQuest.name)
                         else
                             nextQuestTitleString = string.format("%s", nextQuest.name)
                         end
@@ -324,14 +336,17 @@ end
                             nextQuestIdString = string.format(" (%d)", nextQuest.Id)
                         end
 
-                        local nextQuestXpReward = QuestXP:GetQuestLogRewardXP(nextQuest.Id, Questie.db.profile.showQuestXpAtMaxLevel);
+                        local nextQuestXpReward = QuestXP:GetQuestLogRewardXP(nextQuest.Id,
+                            Questie.db.profile.showQuestXpAtMaxLevel);
                         if nextQuestXpReward > 0 then
-                            nextQuestXpRewardString = string.format(" (%s%s)", FormatLargeNumber(nextQuestXpReward), xpString);
+                            nextQuestXpRewardString = string.format(" (%s%s)", FormatLargeNumber(nextQuestXpReward),
+                                xpString);
                         end
 
                         local nextQuestMoneyReward = QuestXP:GetQuestRewardMoney(nextQuest.Id);
                         if nextQuestMoneyReward > 0 then
-                            nextQuestMoneyRewardString = Questie:Colorize(string.format(" (%s)", GetCoinTextureString(nextQuestMoneyReward)), "white");
+                            nextQuestMoneyRewardString = Questie:Colorize(
+                            string.format(" (%s)", GetCoinTextureString(nextQuestMoneyReward)), "white");
                         end
 
                         if (QuestieDB.IsGroupQuest(nextQuest.Id) or QuestieDB.IsDungeonQuest(nextQuest.Id) or QuestieDB.IsRaidQuest(nextQuest.Id)) then
@@ -339,8 +354,12 @@ end
                             nextQuestTagString = Questie:Colorize(string.format(" (%s)", nextQuestTag), "yellow")
                         end
 
-                        local nextQuestString = string.format("      %s%s%s%s%s", nextQuestTitleString, nextQuestIdString, nextQuestXpRewardString, nextQuestMoneyRewardString, nextQuestTagString); -- we need an offset to align with description
-                        self:AddLine(QuestieLib:PrintDifficultyColor(nextQuest.level, nextQuestString, QuestieDB.IsRepeatable(nextQuest.Id), QuestieDB.IsActiveEventQuest(nextQuest.Id), QuestieDB.IsPvPQuest(nextQuest.Id)), 1, 1, 1);
+                        local nextQuestString = string.format("      %s%s%s%s%s", nextQuestTitleString, nextQuestIdString,
+                            nextQuestXpRewardString, nextQuestMoneyRewardString, nextQuestTagString);                                                                                                -- we need an offset to align with description
+                        self:AddLine(
+                        QuestieLib:PrintDifficultyColor(nextQuest.level, nextQuestString,
+                            QuestieDB.IsRepeatable(nextQuest.Id), QuestieDB.IsActiveEventQuest(nextQuest.Id),
+                            QuestieDB.IsPvPQuest(nextQuest.Id)), 1, 1, 1);
                         nextQuest = QuestieDB.GetQuest(nextQuest.nextQuestInChain)
                     end
                 end
@@ -374,7 +393,8 @@ end
                                 aldorPenalty = 0 - math.floor(rewardValue * 1.1)
                             end
 
-                            rewardTable[#rewardTable + 1] = (rewardValue > 0 and "+" or "") .. rewardValue .. " " .. factionName
+                            rewardTable[#rewardTable + 1] = (rewardValue > 0 and "+" or "") ..
+                            rewardValue .. " " .. factionName
                         end
                     end
 
@@ -386,7 +406,9 @@ end
                         rewardTable[#rewardTable + 1] = scryersPenalty .. " " .. factionName
                     end
 
-                    self:AddLine(REPUTATION_ICON_TEXTURE .. " " .. Questie:Colorize(table.concat(rewardTable, " / "), "reputationBlue"), 1, 1, 1, 1, 1, 0)
+                    self:AddLine(
+                    REPUTATION_ICON_TEXTURE ..
+                    " " .. Questie:Colorize(table.concat(rewardTable, " / "), "reputationBlue"), 1, 1, 1, 1, 1, 0)
                 end
             end
         end
@@ -396,13 +418,16 @@ end
         for questId, textList in pairs(self.questOrder) do -- this logic really needs to be improved
             ---@type Quest
             local quest = QuestieDB.GetQuest(questId);
-            local questTitle = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.enableTooltipsQuestLevel, true, true);
+            local questTitle = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.enableTooltipsQuestLevel, true,
+                true);
             local xpReward = QuestXP:GetQuestLogRewardXP(questId, Questie.db.profile.showQuestXpAtMaxLevel);
             r, g, b = QuestieLib:GetDifficultyColorPercent(quest.level);
             if haveGiver then
                 if shift and xpReward then
                     self:AddLine(" ");
-                    self:AddDoubleLine(questTitle, "(" .. FormatLargeNumber(xpReward) .. xpString .. ") (" .. l10n("Active") .. ")", 0.2, 1, 0.2, 1, 1, 0);
+                    self:AddDoubleLine(questTitle,
+                        "(" .. FormatLargeNumber(xpReward) .. xpString .. ") (" .. l10n("Active") .. ")", 0.2, 1, 0.2, 1,
+                        1, 0);
                     haveGiver = false -- looks better when only the first one shows (active)
                 else
                     self:AddLine(" ");
@@ -411,7 +436,8 @@ end
                 end
             else
                 if (quest and shift and xpReward > 0) then
-                    self:AddDoubleLine(questTitle, "(" .. FormatLargeNumber(xpReward) .. xpString .. ")", 0.2, 1, 0.2, r, g, b);
+                    self:AddDoubleLine(questTitle, "(" .. FormatLargeNumber(xpReward) .. xpString .. ")", 0.2, 1, 0.2, r,
+                        g, b);
                     firstLine = false;
                 elseif (firstLine and not shift) then
                     self:AddDoubleLine(questTitle, "(" .. l10n('Hold Shift') .. ")", 0.2, 1, 0.2, 0.43, 0.43, 0.43); --"(Shift+click)"
@@ -592,9 +618,12 @@ function _MapIconTooltip:GetObjectiveTooltip(icon)
     local color = QuestieLib:GetRGBForObjective(iconData.ObjectiveData)
     if iconData.ObjectiveData.Needed then
         if iconData.ObjectiveData.Type == "spell" and iconData.ObjectiveData.spawnList[iconData.ObjectiveTargetId].ItemId then
-            text = color .. tostring(QuestieDB.QueryItemSingle(iconData.ObjectiveData.spawnList[iconData.ObjectiveTargetId].ItemId, "name"))
+            text = color ..
+            tostring(QuestieDB.QueryItemSingle(iconData.ObjectiveData.spawnList[iconData.ObjectiveTargetId].ItemId,
+                "name"))
         else
-            text = color .. tostring(iconData.ObjectiveData.Collected) .. "/" .. tostring(iconData.ObjectiveData.Needed) .. " " .. text
+            text = color ..
+            tostring(iconData.ObjectiveData.Collected) .. "/" .. tostring(iconData.ObjectiveData.Needed) .. " " .. text
         end
     end
     if QuestieComms then
@@ -617,17 +646,20 @@ function _MapIconTooltip:GetObjectiveTooltip(icon)
                 if playerColor then
                     local objectiveEntry = objectiveData[iconData.ObjectiveIndex]
                     if not objectiveEntry then
-                        Questie:Debug(Questie.DEBUG_DEVELOP, "[_MapIconTooltip:GetObjectiveTooltip] No objective data for quest", quest.Id)
+                        Questie:Debug(Questie.DEBUG_DEVELOP,
+                            "[_MapIconTooltip:GetObjectiveTooltip] No objective data for quest", quest.Id)
                         objectiveEntry = {} -- This will make "GetRGBForObjective" return default color
                     end
                     local remoteColor = QuestieLib:GetRGBForObjective(objectiveEntry)
-                    local colorizedPlayerName = " (" .. playerColor .. playerName .. "|r" .. remoteColor .. ")|r" .. playerType
+                    local colorizedPlayerName = " (" ..
+                    playerColor .. playerName .. "|r" .. remoteColor .. ")|r" .. playerType
                     local remoteText = iconData.ObjectiveData.Description
 
                     if objectiveEntry and objectiveEntry.fulfilled and objectiveEntry.required then
                         local fulfilled = objectiveEntry.fulfilled;
                         local required = objectiveEntry.required;
-                        remoteText = remoteColor .. tostring(fulfilled) .. "/" .. tostring(required) .. " " .. remoteText .. colorizedPlayerName;
+                        remoteText = remoteColor ..
+                        tostring(fulfilled) .. "/" .. tostring(required) .. " " .. remoteText .. colorizedPlayerName;
                     else
                         remoteText = remoteColor .. remoteText .. colorizedPlayerName;
                     end

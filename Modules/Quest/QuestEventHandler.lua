@@ -89,13 +89,10 @@ function QuestEventHandler:RegisterEvents()
             end
 
             for questLogIndex = 1, 75 do
-                local title, _, _, isHeader, _, _, _, questId = GetQuestLogTitle(questLogIndex)
+                local title, level, questTag, isHeader, isCollapsed, isComplete, isDaily, questId = GetQuestLogTitle(
+                questLogIndex)
 
-                if (not title) then
-                    break
-                end
-
-                if (not isHeader) then
+                if title and questId and (not isHeader) then
                     quest = QuestieDB.GetQuest(questId)
 
                     if quest then
@@ -107,7 +104,8 @@ function QuestEventHandler:RegisterEvents()
                             sourceItemId = quest.sourceItemId
 
                             if sourceItemId then
-                                soureItemName, _, _, _, _, sourceItemType, _, _, _, _, _, soureClassID = GetItemInfo(sourceItemId)
+                                soureItemName, _, _, _, _, sourceItemType, _, _, _, _, _, soureClassID = GetItemInfo(
+                                    sourceItemId)
                             end
                         end
 
@@ -115,7 +113,8 @@ function QuestEventHandler:RegisterEvents()
                             reqSourceItemId = quest.requiredSourceItems[1]
 
                             if reqSourceItemId then
-                                reqSoureItemName, _, _, _, _, reqSourceItemType, _, _, _, _, _, reqSoureClassID = GetItemInfo(reqSourceItemId)
+                                reqSoureItemName, _, _, _, _, reqSourceItemType, _, _, _, _, _, reqSoureClassID =
+                                    GetItemInfo(reqSourceItemId)
                             end
                         end
 
@@ -154,14 +153,16 @@ function QuestEventHandler:RegisterEvents()
                 end
 
                 if frame ~= nil and text ~= nil then
-                    local updateText = l10n("Quest Item %%s might be needed for the quest %%s. \n\nAre you sure you want to delete this?")
+                    local updateText = l10n(
+                        "Quest Item %%s might be needed for the quest %%s. \n\nAre you sure you want to delete this?")
                     text:SetFormattedText(updateText, text_arg1, questName)
                     text.text_arg1 = updateText
 
                     StaticPopup_Resize(frame, which)
                     deletedQuestItem = true
 
-                    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] StaticPopup_Show: Quest Item Detected. Updating Static Popup.")
+                    Questie:Debug(Questie.DEBUG_DEVELOP,
+                        "[QuestieQuest] StaticPopup_Show: Quest Item Detected. Updating Static Popup.")
                 end
             end
         end
@@ -170,12 +171,13 @@ function QuestEventHandler:RegisterEvents()
     hooksecurefunc("DeleteCursorItem", function()
         -- Hook DeleteCursorItem so we know when the player clicks the Accept button
         if deletedQuestItem then
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] DeleteCursorItem: Quest Item deleted. Update all quests.")
+            Questie:Debug(Questie.DEBUG_DEVELOP,
+                "[QuestieQuest] DeleteCursorItem: Quest Item deleted. Update all quests.")
 
             C_Timer.After(0.25, function()
-				_QuestEventHandler:UpdateAllQuests()
-				deletedQuestItem = false
-			end)
+                _QuestEventHandler:UpdateAllQuests()
+                deletedQuestItem = false
+            end)
         end
     end)
 
@@ -187,9 +189,9 @@ function _QuestEventHandler:InitQuestLog()
     -- Fill the QuestLogCache for first time
     local cacheMiss, changes = QuestLogCache.CheckForChanges(nil)
     -- if cacheMiss then
-        -- TODO actually can happen in rare edge case if player accepts new quest during questie init. *cough*
-        -- or if someone managed to overflow game cache already at this point.
-        --Questie:Error("Did you accept a quest during InitQuestLog? Please report on Github or Discord. Game's quest log cache is not ok. This shouldn't happen. Questie may malfunction.")
+    -- TODO actually can happen in rare edge case if player accepts new quest during questie init. *cough*
+    -- or if someone managed to overflow game cache already at this point.
+    --Questie:Error("Did you accept a quest during InitQuestLog? Please report on Github or Discord. Game's quest log cache is not ok. This shouldn't happen. Questie may malfunction.")
     -- end
 
     for questId, _ in pairs(changes) do
@@ -231,7 +233,7 @@ function _QuestEventHandler:QuestAccepted(questLogIndex, questId)
     QuestieCombatQueue:Queue(function()
         QuestieLib:CacheItemNames(questId)
         _QuestEventHandler:HandleQuestAccepted(questId)
-		QuestieTracker:Update()
+        QuestieTracker:Update()
     end)
 
     Questie:Debug(Questie.DEBUG_DEVELOP, "[Quest Event] QUEST_ACCEPTED - skipNextUQLCEvent - ", skipNextUQLCEvent)
@@ -240,13 +242,13 @@ end
 ---@param questId number
 ---@return boolean true @if the function was successful, false otherwise
 function _QuestEventHandler:HandleQuestAccepted(questId)
-	local idx = QuestieCompat.GetQuestLogIndexByID(questId)
-	if not idx then
-		_QuestLogUpdateQueue:Insert(function()
-			return _QuestEventHandler:HandleQuestAccepted(questId)
-		end)
-		return false
-	end
+    local idx = QuestieCompat.GetQuestLogIndexByID(questId)
+    if not idx then
+        _QuestLogUpdateQueue:Insert(function()
+            return _QuestEventHandler:HandleQuestAccepted(questId)
+        end)
+        return false
+    end
     -- We first check the quest objectives and retry in the next QLU event if they are not correct yet
     local cacheMiss, changes = QuestLogCache.CheckForChanges({ [questId] = true })
     if cacheMiss then
@@ -272,9 +274,9 @@ function _QuestEventHandler:HandleQuestAccepted(questId)
     else
         QuestieQuest:AcceptQuest(questId)
     end
-	QuestieCompat.C_Timer.After(0.2, function()
-		QuestieTracker:Update()
-	end)
+    QuestieCompat.C_Timer.After(0.2, function()
+        QuestieTracker:Update()
+    end)
     return true
 end
 
@@ -301,7 +303,7 @@ function _QuestEventHandler:QuestTurnedIn(questId, xpReward, moneyReward)
         -- is empty
         questLog[questId].state = QUEST_LOG_STATES.QUEST_TURNED_IN
     elseif QuestieCompat.Is335 then
-        questLog[questId] = {state = QUEST_LOG_STATES.QUEST_TURNED_IN}
+        questLog[questId] = { state = QUEST_LOG_STATES.QUEST_TURNED_IN }
     end
 
     local parentQuest = QuestieDB.QueryQuestSingle(questId, "parentQuest")
@@ -316,7 +318,8 @@ function _QuestEventHandler:QuestTurnedIn(questId, xpReward, moneyReward)
     local itemName, _, _, quality, _, itemID = GetQuestLogRewardInfo(GetNumQuestLogRewards(questId), questId)
 
     if (itemID ~= nil or itemName ~= nil) and quality == 1 then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "Quest:", questId, "Recieved a possible Quest Item - do a full Quest Log check")
+        Questie:Debug(Questie.DEBUG_DEVELOP, "Quest:", questId,
+            "Recieved a possible Quest Item - do a full Quest Log check")
         doFullQuestLogScan = true
         skipNextUQLCEvent = false
     else
@@ -331,11 +334,11 @@ function _QuestEventHandler:QuestTurnedIn(questId, xpReward, moneyReward)
     -- QuestieQuest:CompleteQuest(questId)
     -- QuestieJourney:CompleteQuest(questId)
     -- QuestieAnnounce:CompletedQuest(questId)
-	-- questLog[questId] = nil
+    -- questLog[questId] = nil
 
-QuestieCombatQueue:Queue(function()
-    QuestieTracker:Update()
-end)
+    QuestieCombatQueue:Queue(function()
+        QuestieTracker:Update()
+    end)
 end
 
 --- Fires when a quest is removed from the quest log. This includes turning it in and abandoning it.
@@ -386,7 +389,8 @@ function _QuestEventHandler:MarkQuestAsAbandoned(questId)
 
     -- so we don't attempt to index a nil value.
     if (not questEntry) then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "QuestEventHandler:MarkQuestAsAbandoned - questLog entry missing for", questId)
+        Questie:Debug(Questie.DEBUG_DEVELOP, "QuestEventHandler:MarkQuestAsAbandoned - questLog entry missing for",
+            questId)
         return
     end
 
@@ -406,8 +410,8 @@ function _QuestEventHandler:MarkQuestAsAbandoned(questId)
 
             if (not objectivesWereComplete) and desc and type(desc) == "string" then
                 if string.find(desc, "automatically rewarded") then
-                     Questie:Debug(Questie.DEBUG_INFO, "Quest:", questId, "detected as auto-complete by description")
-                     objectivesWereComplete = true
+                    Questie:Debug(Questie.DEBUG_INFO, "Quest:", questId, "detected as auto-complete by description")
+                    objectivesWereComplete = true
                 end
             end
         end
@@ -415,7 +419,8 @@ function _QuestEventHandler:MarkQuestAsAbandoned(questId)
         if objectivesWereComplete then
             -- Objectives were complete, so this was likely an auto-complete quest.
             -- Mark as complete instead of abandoned so objective pins get hidden.
-            Questie:Debug(Questie.DEBUG_INFO, "Quest:", questId, "objectives were complete - treating as completed (auto-complete quest)")
+            Questie:Debug(Questie.DEBUG_INFO, "Quest:", questId,
+                "objectives were complete - treating as completed (auto-complete quest)")
             questEntry.state = QUEST_LOG_STATES.QUEST_TURNED_IN
 
             QuestLogCache.RemoveQuest(questId)
@@ -502,14 +507,13 @@ function _QuestEventHandler:UnitQuestLogChanged(unitTarget)
     skipNextUQLCEvent = false
 end
 
-
 -- Fallback cleanup: some servers remove quests without firing QUEST_REMOVED reliably.
 -- This compares Questie's currentQuestlog vs the game's quest log and removes stale quests.
 function _QuestEventHandler:CleanupRemovedQuestsFallback()
     local gameQuestIds = {}
     local numEntries = select(1, GetNumQuestLogEntries()) or 0
     for questLogIndex = 1, numEntries do
-        local title, _, _, isHeader, _, _, _, qid = GetQuestLogTitle(questLogIndex)
+        local title, level, questTag, isHeader, isCollapsed, isComplete, isDaily, qid = GetQuestLogTitle(questLogIndex)
         if title and qid and qid > 0 and (not isHeader) then
             gameQuestIds[qid] = true
         end
@@ -651,7 +655,7 @@ function _QuestEventHandler:ZoneChangedNewArea()
             end
         end)
 
-    -- We only want this to fire outside of an instance if the player isn't dead and we need to reset the Tracker
+        -- We only want this to fire outside of an instance if the player isn't dead and we need to reset the Tracker
     elseif (not Questie.db.char.isTrackerExpanded and not UnitIsGhost("player")) and trackerMinimizedByDungeon == true then
         C_Timer.After(8, function()
             Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] ZONE_CHANGED_NEW_AREA: Exiting Instance")

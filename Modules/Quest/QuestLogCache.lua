@@ -10,7 +10,7 @@ local Sounds = QuestieLoader:ImportModule("Sounds")
 
 --- COMPATIBILITY ---
 local GetQuestLogTitle = QuestieCompat.GetQuestLogTitle
-local C_QuestLog_GetQuestObjectives =  QuestieCompat.C_QuestLog.GetQuestObjectives
+local C_QuestLog_GetQuestObjectives = QuestieCompat.C_QuestLog.GetQuestObjectives
 local HaveQuestData = QuestieCompat.HaveQuestData
 
 local stringByte = string.byte
@@ -53,7 +53,7 @@ local cache = {
         },
     [questId2] = ....,
 }
-]]--
+]] --
 
 
 ---@class QuestLogCacheObjectiveData
@@ -85,10 +85,10 @@ QuestLogCache.questLog_DO_NOT_MODIFY = cache
 ---@return table? newObjectives, ObjectiveIndex[] changedObjIds @nil == cache miss in both addon and game caches. table {} == no objectives.
 local function GetNewObjectives(questId, oldObjectives, questLogIndex)
     local newObjectives = {} -- creating a fresh one to be able revert to old easily in case of missing data
-    local changedObjIds -- not assigning {} for easier nil when nothing changed
+    local changedObjIds      -- not assigning {} for easier nil when nothing changed
     local objectives = C_QuestLog_GetQuestObjectives(questId, questLogIndex)
 
-    for objIndex=1, #objectives do -- iterate manually to be sure getting those in order
+    for objIndex = 1, #objectives do -- iterate manually to be sure getting those in order
         local oldObj = oldObjectives[objIndex]
         local newObj = objectives[objIndex]
         -- Check if objective.text is in game's cache
@@ -102,7 +102,7 @@ local function GetNewObjectives(questId, oldObjectives, questLogIndex)
                 if (not changedObjIds) then
                     changedObjIds = { objIndex }
                 else
-                    changedObjIds[#changedObjIds+1] = objIndex
+                    changedObjIds[#changedObjIds + 1] = objIndex
                 end
 
                 if oldObj and newObj and oldObj.numRequired ~= oldObj.numFulfilled and newObj.numRequired == newObj.numFulfilled then
@@ -120,18 +120,22 @@ local function GetNewObjectives(questId, oldObjectives, questLogIndex)
                     type = newObj.type,
                     numRequired = newObj.numRequired,
                     text = QuestieLib.TrimObjectiveText(newObj.text, newObj.type),
-                    finished = newObj.finished, -- gets overwritten with correct value later if quest isComplete
+                    finished = newObj.finished,         -- gets overwritten with correct value later if quest isComplete
                     numFulfilled = newObj.numFulfilled, -- gets overwritten with correct value later if quest isComplete
                 }
             end
         else -- objective text not in game's cache
             if oldObj then
-                Questie:Debug(Questie.DEBUG_INFO, "[GetNewObjectives] objective not in game's cache. Using addon's cache. questID, objIndex:", questId, objIndex)
+                Questie:Debug(Questie.DEBUG_INFO,
+                    "[GetNewObjectives] objective not in game's cache. Using addon's cache. questID, objIndex:", questId,
+                    objIndex)
                 -- Extremely unlikely that the objective has changed from cached version as a change SHOULD trigger fetching data into game cache.
                 -- Possible bug point if there comes desync issues.
                 newObjectives[objIndex] = oldObj
             else
-                Questie:Debug(Questie.DEBUG_INFO, "[GetNewObjectives] \"WARNING\" objective not in game's cache nor addon's cache. questID, objIndex:", questId, objIndex)
+                Questie:Debug(Questie.DEBUG_INFO,
+                    "[GetNewObjectives] \"WARNING\" objective not in game's cache nor addon's cache. questID, objIndex:",
+                    questId, objIndex)
                 -- Objective has been never cached
                 -- Tell to function caller that we couldn't get all required data from game's cache
                 -- Don't loop rest of objectives as we won't anyway save those into cache[] and C_QuestLog.GetQuestObjectives() call already triggered game to initiate caching those into game's cache.
@@ -158,7 +162,8 @@ function QuestLogCache.CheckForChanges(questIdsToCheck)
 
     local numEntries = select(1, GetNumQuestLogEntries()) or 0
     for questLogIndex = 1, numEntries do
-        local title, _, questTag, isHeader, _, isComplete, _, questId = GetQuestLogTitle(questLogIndex)
+        local title, level, questTag, isHeader, isCollapsed, isComplete, isDaily, questId = GetQuestLogTitle(
+        questLogIndex)
 
         -- Skip weird/header entries / questId=0 (these happen a lot on your server)
         if title and questId and questId > 0 and (not isHeader) then
@@ -173,8 +178,7 @@ function QuestLogCache.CheckForChanges(questIdsToCheck)
 
                     if newObjectives then
                         if (not cachedQuest) or (#cachedObjectives == #newObjectives and #cachedObjectives > 0 and
-                            (cachedQuest.title ~= title or cachedQuest.questTag ~= questTag or cachedQuest.isComplete ~= isComplete)) then
-
+                                (cachedQuest.title ~= title or cachedQuest.questTag ~= questTag or cachedQuest.isComplete ~= isComplete)) then
                             changedObjIds = {}
                             for i = 1, #newObjectives do
                                 changedObjIds[i] = i
@@ -206,7 +210,9 @@ function QuestLogCache.CheckForChanges(questIdsToCheck)
                         cacheMiss = true
                     end
                 else
-                    Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestLogCache.CheckForChanges] HaveQuestData() == false. questId, index:", questId, questLogIndex)
+                    Questie:Debug(Questie.DEBUG_CRITICAL,
+                        "[QuestLogCache.CheckForChanges] HaveQuestData() == false. questId, index:", questId,
+                        questLogIndex)
                     C_QuestLog_GetQuestObjectives(questId, questLogIndex)
                     cacheMiss = true
                 end
@@ -226,13 +232,10 @@ function QuestLogCache.CheckForChanges(questIdsToCheck)
     return cacheMiss, changes
 end
 
-
-
 function QuestLogCache.RemoveQuest(questId)
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestLogCache.RemoveQuest] remove questId:", questId)
     cache[questId] = nil
 end
-
 
 --- Tests if game client's cache has all quest log quests and objectives cached.
 --- Avoid using this function if possible.
@@ -240,15 +243,13 @@ end
 function QuestLogCache.TestGameCache()
     local gameCacheOK = true
     for questLogIndex = 1, MAX_QUEST_LOG_INDEX do
-        local title, _, _, isHeader, _, _, _, questId = GetQuestLogTitle(questLogIndex)
-        if (not title) then
-            break -- We exceeded the valid quest log entries
-        end
-        if (not isHeader) then
+        local title, level, questTag, isHeader, isCollapsed, isComplete, isDaily, questId = GetQuestLogTitle(
+        questLogIndex)
+        if title and questId and (not isHeader) then
             if HaveQuestData(questId) then
                 local objectives = C_QuestLog_GetQuestObjectives(questId, questLogIndex)
 
-                for objIndex=1, #objectives do
+                for objIndex = 1, #objectives do
                     local text = objectives[objIndex].text
                     -- Check if objective.text is not in game's cache
                     if (not text) or (stringByte(text, 1) == 32) then
@@ -261,10 +262,10 @@ function QuestLogCache.TestGameCache()
         end
     end
 
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestLogCache.TestGameCache]", (gameCacheOK and "Cache ok." or "Cache missing data."))
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestLogCache.TestGameCache]",
+        (gameCacheOK and "Cache ok." or "Cache missing data."))
     return gameCacheOK
 end
-
 
 --- A wrapper function to add error check instead using exposed table directly.
 ---@param questId QuestId
@@ -292,23 +293,21 @@ function QuestLogCache.GetQuestObjectives(questId)
     return cache[questId].objectives
 end
 
-
-
 ---@param q table @quest
 ---@param i number @index of the objective
 ---@param o table @objective
 local function DebugPrintObjective(q, i, o)
     if (o.raw_numFulfilled == o.numFulfilled) and (o.raw_finished == o.finished) then
-        print(" ", i.."/"..#q.objectives..":",
-            o.numFulfilled.."/"..o.numRequired.."="..tostring(o.finished),
+        print(" ", i .. "/" .. #q.objectives .. ":",
+            o.numFulfilled .. "/" .. o.numRequired .. "=" .. tostring(o.finished),
             o.type,
-            "\""..o.raw_text.."\" \""..o.text.."\"")
+            "\"" .. o.raw_text .. "\" \"" .. o.text .. "\"")
     else
-        print(" ", i.."/"..#q.objectives..":",
-            o.raw_numFulfilled.."/"..o.numRequired.."="..tostring(o.raw_finished),
-            "FIX:", o.numFulfilled.."/"..o.numRequired.."="..tostring(o.finished),
+        print(" ", i .. "/" .. #q.objectives .. ":",
+            o.raw_numFulfilled .. "/" .. o.numRequired .. "=" .. tostring(o.raw_finished),
+            "FIX:", o.numFulfilled .. "/" .. o.numRequired .. "=" .. tostring(o.finished),
             o.type,
-            "\""..o.raw_text.."\" \""..o.text.."\"")
+            "\"" .. o.raw_text .. "\" \"" .. o.text .. "\"")
     end
 end
 
@@ -318,7 +317,8 @@ function QuestLogCache.DebugPrintCache()
     local count = 0
     for questId, q in pairs(cache) do
         count = count + 1
-        print("Quest: ("..questId..") \""..q.title.."\" questTag="..tostring(q.questTag) ,"isComplete="..tostring(q.isComplete))
+        print("Quest: (" .. questId .. ") \"" .. q.title .. "\" questTag=" .. tostring(q.questTag),
+            "isComplete=" .. tostring(q.isComplete))
         if not next(q.objectives) then
             print("  no objectives")
         else
@@ -332,12 +332,14 @@ end
 
 --- Debug function, prints changes
 function QuestLogCache.DebugPrintCacheChanges(cacheMiss, changes)
-    local highlight = ((not cacheMiss) and (not next(changes))) or (cacheMiss and next(changes)) -- highlight untypical cases. they are okey, but sometimes interesting.
+    local highlight = ((not cacheMiss) and (not next(changes))) or
+        (cacheMiss and next(changes)) -- highlight untypical cases. they are okey, but sometimes interesting.
     print("DebugPrintCacheChanges", GetTime(), (highlight and "\124cffFF4444CacheMiss:\124r" or "CacheMiss"), cacheMiss)
 
     for questId, objIndexes in pairs(changes) do
         local q = cache[questId]
-        print("Quest: ("..questId..") \""..q.title.."\" questTag="..tostring(q.questTag) ,"isComplete="..tostring(q.isComplete))
+        print("Quest: (" .. questId .. ") \"" .. q.title .. "\" questTag=" .. tostring(q.questTag),
+            "isComplete=" .. tostring(q.isComplete))
         if not next(objIndexes) then
             print("  no objectives changed (or quest doesn't have objectives)")
         else

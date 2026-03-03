@@ -2278,7 +2278,6 @@ function QuestieTracker.RemoveQuestWatch(index, isQuestie)
                 QuestieTracker:UntrackQuestId(questId)
                 Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker.RemoveQuestWatch] - by Blizzard", questId)
             end
-
         end
     else
         Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker.RemoveQuestWatch] - by Questie")

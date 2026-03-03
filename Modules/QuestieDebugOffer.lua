@@ -17,7 +17,7 @@ local QuestieCorrections = QuestieLoader:ImportModule("QuestieCorrections")
 local l10n = QuestieLoader:ImportModule("l10n")
 
 local DebugInformation = {} -- stores text of debug data dump per session
-local debugIndex = 0 -- current debug index, used so we can still retrieve info from previous offers
+local debugIndex = 0        -- current debug index, used so we can still retrieve info from previous offers
 local openDebugWindows = {} -- determines if existing debug window is already open, prevents duplicates
 
 local GetBestMapForUnit = C_Map.GetBestMapForUnit
@@ -249,15 +249,15 @@ local itemWhitelist = {
 }
 
 local itemTripCodes = {
-    ['ItemWhitelisted'] = 0, -- itemID is whitelisted; we want all its data anyway
-    ['ItemMissingFromDB'] = 1, -- error when itemID is missing from DB entirely
-    ['StartQuestIDMismatch'] = 2, -- error when item quest start ID does not match Questie ItemDB
-    ['MissingDropFromNPC'] = 3, -- error when item dropped from npc (corpses) not matching ItemDB
-    ['MissingDropFromObject'] = 4, -- error when item dropped from object (chests in world) not matching ItemDB
-    ['MissingDropFromItem'] = 5, -- error when item dropped from item (lockboxes in inventory) not matching ItemDB
-    ['ContainerMissingFromNPCDB'] = 6, -- error when item's container is missing from NpcDB
+    ['ItemWhitelisted'] = 0,              -- itemID is whitelisted; we want all its data anyway
+    ['ItemMissingFromDB'] = 1,            -- error when itemID is missing from DB entirely
+    ['StartQuestIDMismatch'] = 2,         -- error when item quest start ID does not match Questie ItemDB
+    ['MissingDropFromNPC'] = 3,           -- error when item dropped from npc (corpses) not matching ItemDB
+    ['MissingDropFromObject'] = 4,        -- error when item dropped from object (chests in world) not matching ItemDB
+    ['MissingDropFromItem'] = 5,          -- error when item dropped from item (lockboxes in inventory) not matching ItemDB
+    ['ContainerMissingFromNPCDB'] = 6,    -- error when item's container is missing from NpcDB
     ['ContainerMissingFromObjectDB'] = 7, -- error when item's container is missing from ObjectDB
-    ['ContainerMissingFromItemDB'] = 8, -- error when item's container is missing from ItemDB
+    ['ContainerMissingFromItemDB'] = 8,   -- error when item's container is missing from ItemDB
 }
 
 -- determines whether to offer a debug offer for a looted item
@@ -274,16 +274,20 @@ local function filterItem(itemID, itemInfo, containerGUID)
         -- OG chronoboon displacer was 184937 so safe to say any SoD items are higher than 190000
         return nil
     else
-        if tContains(itemWhitelist, itemID) then -- if item is in our whitelist, we want it no matter what
+        if tContains(itemWhitelist, itemID) then     -- if item is in our whitelist, we want it no matter what
             return itemTripCodes.ItemWhitelisted
         elseif tContains(itemBlacklist, itemID) then -- if item is in our blacklist, ignore it
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - ItemFilter - Item " .. itemID .. " is in debug offer item blacklist, ignoring")
+            Questie:Debug(Questie.DEBUG_DEVELOP,
+                "[QuestieDebugOffer] - ItemFilter - Item " .. itemID .. " is in debug offer item blacklist, ignoring")
             return nil
         elseif UnitLevel(player) < minLevelForDebugOffers then -- if player level is below our threshold, ignore it
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - ItemFilter - Player does not meet level threshold for debug offers, ignoring")
+            Questie:Debug(Questie.DEBUG_DEVELOP,
+                "[QuestieDebugOffer] - ItemFilter - Player does not meet level threshold for debug offers, ignoring")
             return nil
         elseif QuestieCorrections.questItemBlacklist[itemID] then
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - ItemFilter - Item " .. itemID .. " is in QuestieCorrections item blacklist, ignoring")
+            Questie:Debug(Questie.DEBUG_DEVELOP,
+                "[QuestieDebugOffer] - ItemFilter - Item " ..
+                itemID .. " is in QuestieCorrections item blacklist, ignoring")
             return nil
         end
 
@@ -312,7 +316,8 @@ local function filterItem(itemID, itemInfo, containerGUID)
             if questID ~= QuestieDB.QueryItemSingle(itemID, "startQuest") then
                 return itemTripCodes.StartQuestIDMismatch
             else
-                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - ItemFilter - QuestID for " .. itemID .. " present but matches DB, ignoring")
+                Questie:Debug(Questie.DEBUG_DEVELOP,
+                    "[QuestieDebugOffer] - ItemFilter - QuestID for " .. itemID .. " present but matches DB, ignoring")
             end
         else
             Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - ItemFilter - QuestID value not present, ignoring")
@@ -330,7 +335,8 @@ local function filterItem(itemID, itemInfo, containerGUID)
             if not lootTable or tContains(lootTable, containerID) == false then
                 return itemTripCodes.MissingDropFromNPC
             else
-                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - ItemFilter - NPC drop data for item " .. itemID .. " OK, ignoring")
+                Questie:Debug(Questie.DEBUG_DEVELOP,
+                    "[QuestieDebugOffer] - ItemFilter - NPC drop data for item " .. itemID .. " OK, ignoring")
             end
         elseif containerType == "GameObject" then -- if container is an object
             -- first check if object is even in our DB
@@ -344,7 +350,8 @@ local function filterItem(itemID, itemInfo, containerGUID)
                 if tContains(lootTable, containerID) == false then
                     return itemTripCodes.MissingDropFromObject
                 else
-                    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - ItemFilter - Object drop data for item " .. itemID .. " OK, ignoring")
+                    Questie:Debug(Questie.DEBUG_DEVELOP,
+                        "[QuestieDebugOffer] - ItemFilter - Object drop data for item " .. itemID .. " OK, ignoring")
                 end
             end
         elseif containerType == "Item" and containerID > 0 then -- if container is an item and there is an containerID for it
@@ -360,12 +367,14 @@ local function filterItem(itemID, itemInfo, containerGUID)
                 if tContains(lootTable, containerID) == false then
                     return itemTripCodes.MissingDropFromItem
                 else
-                    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - ItemFilter - ItemSource drop data for item " .. itemID .. " OK, ignoring")
+                    Questie:Debug(Questie.DEBUG_DEVELOP,
+                        "[QuestieDebugOffer] - ItemFilter - ItemSource drop data for item " .. itemID .. " OK, ignoring")
                 end
             end
         end
     end
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - ItemFilter - No data mismatches found for " .. itemID .. ", ignoring")
+    Questie:Debug(Questie.DEBUG_DEVELOP,
+        "[QuestieDebugOffer] - ItemFilter - No data mismatches found for " .. itemID .. ", ignoring")
     return nil -- if no exceptions raised, we don't need to create a debug offer
 end
 
@@ -378,13 +387,14 @@ local npcBlacklist = {
 local function _AppendUniversalText(input)
     local text = tostring(input)
 
-    text = text .. "\n|cFFAAAAAACharacter:|r Lvl " .. UnitLevel(player) .. " " .. string.upper(playerRace) .. " " .. playerClass
+    text = text ..
+        "\n|cFFAAAAAACharacter:|r Lvl " .. UnitLevel(player) .. " " .. string.upper(playerRace) .. " " .. playerClass
 
     local mapID = GetBestMapForUnit(player)
     local pos = GetPlayerMapPosition(mapID, player);
-    PosX = pos.x * 100
-    PosY = pos.y * 100
-    text = text .. "\n|cFFAAAAAAPlayer Coords:|r  [" .. mapID .. "]  " .. format("(%.3f, %.3f)", PosX, PosY)
+    PosX = pos and (pos.x * 100) or 0
+    PosY = pos and (pos.y * 100) or 0
+    text = text .. "\n|cFFAAAAAAPlayer Coords:|r  [" .. tostring(mapID) .. "]  " .. format("(%.3f, %.3f)", PosX, PosY)
 
     local questLog = ""
     for k in pairs(QuestLogCache.questLog_DO_NOT_MODIFY) do questLog = k .. ", " .. questLog end
@@ -403,11 +413,12 @@ function QuestieDebugOffer.LootWindow()
     local debugContainer, _ = GetLootSourceInfo(1) -- happens early in case the rest of the code is so slow that the container closes before we're ready
     local inInstance, _ = IsInInstance()
     if inInstance == true then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - ItemLoot - Player looting item is in instance, ignoring")
+        Questie:Debug(Questie.DEBUG_DEVELOP,
+            "[QuestieDebugOffer] - ItemLoot - Player looting item is in instance, ignoring")
         return -- temporary for SoD to reduce new raid loot triggering debug spam
     end
 
-    for i=1, #lootInfo do
+    for i = 1, #lootInfo do
         local itemInfo = lootInfo[i]
         local itemLink = GetLootSlotLink(i)
         local itemID = 0
@@ -420,7 +431,8 @@ function QuestieDebugOffer.LootWindow()
 
         local tripCode = filterItem(itemID, itemInfo, debugContainer)
         if tripCode then
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - ItemLoot - Creating debug offer for item " .. itemID .. " reason " .. tripCode)
+            Questie:Debug(Questie.DEBUG_DEVELOP,
+                "[QuestieDebugOffer] - ItemLoot - Creating debug offer for item " .. itemID .. " reason " .. tripCode)
             debugIndex = debugIndex + 1
             if tripCode == itemTripCodes.ItemWhitelisted then
                 DebugInformation[debugIndex] = "ItemDB is missing some data about this item!"
@@ -443,13 +455,20 @@ function QuestieDebugOffer.LootWindow()
             else
                 DebugInformation[debugIndex] = "General data mismatch for item!"
             end
-            DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n\n|cFFAAAAAAItem ID:|r " .. tostring(itemID)
+            DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+                "\n\n|cFFAAAAAAItem ID:|r " .. tostring(itemID)
             DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAAItem Name:|r " .. itemLink
-            DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAAQuest Item:|r " .. tostring(itemInfo.isQuestItem)
-            DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAAQuest ID:|r " .. tostring(itemInfo.questId)
-            DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAAContainer:|r " .. tostring(debugContainer)
+            DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+                "\n|cFFAAAAAAQuest Item:|r " .. tostring(itemInfo.isQuestItem)
+            DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+                "\n|cFFAAAAAAQuest ID:|r " .. tostring(itemInfo.questId)
+            DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+                "\n|cFFAAAAAAContainer:|r " .. tostring(debugContainer)
             DebugInformation[debugIndex] = _AppendUniversalText(DebugInformation[debugIndex])
-            Questie:Print(l10n("An item you just encountered has data missing from the Questie database.") .. " " .. l10n("Would you like to help us fix it?") .. " |cff71d5ff|Haddon:questie:offer:" .. debugIndex .. "|h[" .. l10n("More Info") .. "]|h|r")
+            Questie:Print(l10n("An item you just encountered has data missing from the Questie database.") ..
+                " " ..
+                l10n("Would you like to help us fix it?") ..
+                " |cff71d5ff|Haddon:questie:offer:" .. debugIndex .. "|h[" .. l10n("More Info") .. "]|h|r")
             return -- we only want to show one debug offer per interaction, so break on the first one
         end
     end
@@ -460,10 +479,11 @@ function QuestieDebugOffer.QuestDialog()
     local questID = GetQuestID() -- obtain quest ID from dialog
     if questID <= 0 or questID == nil then
         Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - QuestDialog - Invalid quest ID from API, ignoring")
-        return -- invalid data from API, abandon offer attempt
+        return                                         -- invalid data from API, abandon offer attempt
     end
     if UnitLevel(player) < minLevelForDebugOffers then -- if player level is below our threshold, ignore it
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - QuestDialog - Player does not meet level threshold for debug offers, ignoring")
+        Questie:Debug(Questie.DEBUG_DEVELOP,
+            "[QuestieDebugOffer] - QuestDialog - Player does not meet level threshold for debug offers, ignoring")
         return
     end
     if QuestieDB.QueryQuestSingle(questID, "name") == nil then -- if ID not in our DB
@@ -474,77 +494,100 @@ function QuestieDebugOffer.QuestDialog()
         local rewardText = GetRewardText()
         local rewardXP = GetRewardXP()
 
-        if questText then questText = questText:gsub(GetUnitName(player), "<playername>") end -- strip out player name from quest text
+        if questText then questText = questText:gsub(GetUnitName(player), "<playername>") end             -- strip out player name from quest text
         if objectiveText then objectiveText = objectiveText:gsub(GetUnitName(player), "<playername>") end -- strip out player name from objective text
-        if rewardText then rewardText = rewardText:gsub(GetUnitName(player), "<playername>") end -- strip out player name from reward text
+        if rewardText then rewardText = rewardText:gsub(GetUnitName(player), "<playername>") end          -- strip out player name from reward text
 
         DebugInformation[debugIndex] = "Quest in dialog not present in QuestDB!"
         DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n\n|cFFAAAAAAQuest ID:|r " .. tostring(questID)
-        DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAAQuest Name:|r " .. tostring(questTitle)
-        DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAAQuest Text:|r " .. tostring(questText)
-        DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAAObjective Text:|r " .. tostring(objectiveText)
-        DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAAReward Text:|r " .. tostring(rewardText)
+        DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+            "\n|cFFAAAAAAQuest Name:|r " .. tostring(questTitle)
+        DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+            "\n|cFFAAAAAAQuest Text:|r " .. tostring(questText)
+        DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+            "\n|cFFAAAAAAObjective Text:|r " .. tostring(objectiveText)
+        DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+            "\n|cFFAAAAAAReward Text:|r " .. tostring(rewardText)
         DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAAReward XP:|r " .. tostring(rewardXP)
-        DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAAQuestgiver:|r " .. tostring(UnitGUID(questnpc))
+        DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+            "\n|cFFAAAAAAQuestgiver:|r " .. tostring(UnitGUID(questnpc))
         DebugInformation[debugIndex] = _AppendUniversalText(DebugInformation[debugIndex])
-        Questie:Print(l10n("A quest you just encountered is missing from the Questie database.") .. " " .. l10n("Would you like to help us fix it?") .. " |cff71d5ff|Haddon:questie:offer:" .. debugIndex .. "|h[" .. l10n("More Info") .. "]|h|r")
+        Questie:Print(l10n("A quest you just encountered is missing from the Questie database.") ..
+            " " ..
+            l10n("Would you like to help us fix it?") ..
+            " |cff71d5ff|Haddon:questie:offer:" .. debugIndex .. "|h[" .. l10n("More Info") .. "]|h|r")
     end
 end
 
 -- Missing questID when tracking
 ---@param questID number
-function QuestieDebugOffer.QuestTracking(questID) -- ID supplied by tracker during update
+function QuestieDebugOffer.QuestTracking(questID)      -- ID supplied by tracker during update
     if UnitLevel(player) < minLevelForDebugOffers then -- if player level is below our threshold, ignore it
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - QuestTracking - Player does not meet level threshold for debug offers, ignoring")
+        Questie:Debug(Questie.DEBUG_DEVELOP,
+            "[QuestieDebugOffer] - QuestTracking - Player does not meet level threshold for debug offers, ignoring")
         return
     end
     if QuestieDB.QueryQuestSingle(questID, "name") == nil then -- if ID not in our DB
-        for i=1, GetNumQuestLogEntries() do
-            local questTitle, questLevel, suggestedGroup, _, _, _, frequency, questLogId = GetQuestLogTitle(i)
+        for i = 1, GetNumQuestLogEntries() do
+            local questTitle, questLevel, questTag, suggestedGroup, isHeader, isCollapsed, isComplete, isDaily, questLogId =
+                GetQuestLogTitle(i)
             local questText, objectiveText = GetQuestLogQuestText(i)
 
-            if questText then questText = questText:gsub(GetUnitName(player), "<playername>") end -- strip out player name from quest text
+            if questText then questText = questText:gsub(GetUnitName(player), "<playername>") end             -- strip out player name from quest text
             if objectiveText then objectiveText = objectiveText:gsub(GetUnitName(player), "<playername>") end -- strip out player name from objective text
 
             if questID == questLogId then
                 debugIndex = debugIndex + 1
                 DebugInformation[debugIndex] = "Quest in tracker not present in QuestDB!"
-                DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n\n|cFFAAAAAAQuest ID:|r " .. tostring(questLogId)
-                DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAAQuest Name:|r " .. tostring(questTitle)
-                DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAAQuest Text:|r " .. tostring(questText)
-                DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAAObjective Text:|r " .. tostring(objectiveText)
+                DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+                    "\n\n|cFFAAAAAAQuest ID:|r " .. tostring(questLogId)
+                DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+                    "\n|cFFAAAAAAQuest Name:|r " .. tostring(questTitle)
+                DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+                    "\n|cFFAAAAAAQuest Text:|r " .. tostring(questText)
+                DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+                    "\n|cFFAAAAAAObjective Text:|r " .. tostring(objectiveText)
                 DebugInformation[debugIndex] = _AppendUniversalText(DebugInformation[debugIndex])
-                Questie:Print(l10n("A quest in your quest log is missing from the Questie database and can't be tracked.") .. " " .. l10n("Would you like to help us fix it?") .. " |cff71d5ff|Haddon:questie:offer:" .. debugIndex .. "|h[" .. l10n("More Info") .. "]|h|r")
+                Questie:Print(l10n(
+                        "A quest in your quest log is missing from the Questie database and can't be tracked.") ..
+                    " " ..
+                    l10n("Would you like to help us fix it?") ..
+                    " |cff71d5ff|Haddon:questie:offer:" .. debugIndex .. "|h[" .. l10n("More Info") .. "]|h|r")
                 --print(tostring(QuestieDB.IsSoDRuneQuest(questlogid)))
             end
         end
     end
 end
 
-local targetTimeout = {} -- store timeouts per-ID so we don't cause lag or spam chat if a player clicks on an unknown NPC often
+local targetTimeout = {}             -- store timeouts per-ID so we don't cause lag or spam chat if a player clicks on an unknown NPC often
 local timeoutDurationOverworld = 120 -- how many seconds to ignore re-passes outside of instances
-local timeoutDurationInstance = 600 -- how many seconds to ignore re-passes outside of instances
+local timeoutDurationInstance = 600  -- how many seconds to ignore re-passes outside of instances
 -- Missing NPC ID when targeting
 function QuestieDebugOffer.NPCTarget()
     if UnitLevel(player) < minLevelForDebugOffers then -- if player level is below our threshold, ignore it
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - NPCTarget - Player does not meet level threshold for debug offers, ignoring")
+        Questie:Debug(Questie.DEBUG_DEVELOP,
+            "[QuestieDebugOffer] - NPCTarget - Player does not meet level threshold for debug offers, ignoring")
         return
     end
     local inInstance, _ = IsInInstance()
     if inInstance == true then -- temporary override for SoD launch to not prompt NPC debug offers inside instances at all, to prevent BFD spam
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - NPCTarget - Player targeting NPC is in instance, ignoring")
+        Questie:Debug(Questie.DEBUG_DEVELOP,
+            "[QuestieDebugOffer] - NPCTarget - Player targeting NPC is in instance, ignoring")
         return
     end
     local targetGUID = UnitGUID(target)
-    local unit_type = strsplit("-", tostring(targetGUID)) -- determine target type
-    if unit_type == "Creature" then -- if target is an NPC
+    local unit_type = strsplit("-", tostring(targetGUID))           -- determine target type
+    if unit_type == "Creature" then                                 -- if target is an NPC
         local npcID = tonumber(targetGUID:match("-(%d+)-%x+$"), 10) -- obtain NPC ID
-        if targetTimeout[npcID] == true then -- if target was already targeted recently
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - NPCTarget - Targeted NPC was targeted recently, ignoring")
+        if not npcID then return end
+        if targetTimeout[npcID] == true then                        -- if target was already targeted recently
+            Questie:Debug(Questie.DEBUG_DEVELOP,
+                "[QuestieDebugOffer] - NPCTarget - Targeted NPC was targeted recently, ignoring")
             return
-        else -- if target was NOT targeted recently
+        else                                       -- if target was NOT targeted recently
             if tContains(npcBlacklist, npcID) then -- if NPC is in our blacklist, ignore it
-                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - NPCTarget - Targeted NPC is in NPC blacklist, ignoring")
+                Questie:Debug(Questie.DEBUG_DEVELOP,
+                    "[QuestieDebugOffer] - NPCTarget - Targeted NPC is in NPC blacklist, ignoring")
                 return
             end
             targetTimeout[npcID] = true
@@ -565,18 +608,26 @@ function QuestieDebugOffer.NPCTarget()
                 elseif npcFriendly == false then
                     npcStatus = "Neutral"
                 end
-                DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n\n|cFFAAAAAANPC ID:|r " .. tostring(npcID)
-                DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAANPC Name:|r " .. tostring(npcName)
-                DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAANPC Level:|r " .. tostring(npcLevel)
-                DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAANPC Health, Max:|r " .. tostring(npcHealth) .. ", " .. tostring(npcHealthMax)
-                DebugInformation[debugIndex] = DebugInformation[debugIndex] .. "\n|cFFAAAAAANPC Allegiance:|r " .. tostring(npcStatus)
+                DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+                    "\n\n|cFFAAAAAANPC ID:|r " .. tostring(npcID)
+                DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+                    "\n|cFFAAAAAANPC Name:|r " .. tostring(npcName)
+                DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+                    "\n|cFFAAAAAANPC Level:|r " .. tostring(npcLevel)
+                DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+                    "\n|cFFAAAAAANPC Health, Max:|r " .. tostring(npcHealth) .. ", " .. tostring(npcHealthMax)
+                DebugInformation[debugIndex] = DebugInformation[debugIndex] ..
+                    "\n|cFFAAAAAANPC Allegiance:|r " .. tostring(npcStatus)
                 DebugInformation[debugIndex] = _AppendUniversalText(DebugInformation[debugIndex])
-                Questie:Print(l10n("The NPC you just targeted is missing from the Questie database.") .. " " .. l10n("Would you like to help us fix it?") .. " |cff71d5ff|Haddon:questie:offer:" .. debugIndex .. "|h[" .. l10n("More Info") .. "]|h|r")
+                Questie:Print(l10n("The NPC you just targeted is missing from the Questie database.") ..
+                    " " ..
+                    l10n("Would you like to help us fix it?") ..
+                    " |cff71d5ff|Haddon:questie:offer:" .. debugIndex .. "|h[" .. l10n("More Info") .. "]|h|r")
             end
             if inInstance == false then
-                C_Timer.NewTimer (timeoutDurationOverworld, function() targetTimeout[npcID] = false end)
+                C_Timer.NewTimer(timeoutDurationOverworld, function() targetTimeout[npcID] = false end)
             else
-                C_Timer.NewTimer (timeoutDurationInstance, function() targetTimeout[npcID] = false end)
+                C_Timer.NewTimer(timeoutDurationInstance, function() targetTimeout[npcID] = false end)
             end
         end
     else
@@ -606,7 +657,8 @@ local function _CreateOfferFrame(popupText, discordURL, index)
         Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - An offer is already open, not creating new frame")
         return
     end
-    local debugFrame = CreateFrame("Frame", "QuestieDebugOfferFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
+    local debugFrame = CreateFrame("Frame", "QuestieDebugOfferFrame", UIParent,
+        BackdropTemplateMixin and "BackdropTemplate")
     debugFrame:SetPoint("CENTER")
     debugFrame:SetMovable(true)
     debugFrame:EnableMouse(true)
@@ -623,7 +675,8 @@ local function _CreateOfferFrame(popupText, discordURL, index)
 
     debugFrame.title = debugFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     debugFrame.title:SetPoint("TOP", 0, -15)
-    debugFrame.title:SetText("|TInterface\\Addons\\Questie\\Icons\\startendstart.tga:16|t |cFFFED218" .. l10n("Questie Debug Info") .. "|r |TInterface\\Addons\\Questie\\Icons\\startendstart.tga:16|t")
+    debugFrame.title:SetText("|TInterface\\Addons\\Questie\\Icons\\startendstart.tga:16|t |cFFFED218" ..
+        l10n("Questie Debug Info") .. "|r |TInterface\\Addons\\Questie\\Icons\\startendstart.tga:16|t")
 
     -- Create a single large edit box with no background
     debugFrame.dataEditBox = CreateFrame("EditBox", nil, debugFrame)
@@ -646,7 +699,10 @@ local function _CreateOfferFrame(popupText, discordURL, index)
 
     debugFrame.discordText = debugFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     debugFrame.discordText:SetPoint("TOP", debugFrame.dataEditBox, "BOTTOM", 0, -15)
-    debugFrame.discordText:SetText("|cFFAAAAAA" .. l10n("Please share this info with us on") .. "  |TInterface\\Addons\\Questie\\Icons\\discord.blp:16|t |cFF5765ECDiscord|r\n" .. "(" .. l10n("You can copy the data above") .. ")")
+    debugFrame.discordText:SetText("|cFFAAAAAA" ..
+        l10n("Please share this info with us on") ..
+        "  |TInterface\\Addons\\Questie\\Icons\\discord.blp:16|t |cFF5765ECDiscord|r\n" ..
+        "(" .. l10n("You can copy the data above") .. ")")
 
     debugFrame.discordLinkEditBox = CreateFrame("EditBox", nil, debugFrame, "InputBoxTemplate")
     debugFrame.discordLinkEditBox:SetSize(200, 20)
@@ -666,7 +722,9 @@ local function _CreateOfferFrame(popupText, discordURL, index)
     debugFrame:SetBackdrop({
         bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
         edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32,
+        tile = true,
+        tileSize = 32,
+        edgeSize = 32,
         insets = { left = 8, right = 8, top = 8, bottom = 8 }
     })
 
@@ -680,7 +738,8 @@ end
 function QuestieDebugOffer.ShowOffer(link)
     -- We also have access to the questie.dev domain (purchased by Logon)
     local discordURL = "https://discord.gg/Q6j4qByndw" -- redirect to #bug-redirect
-    local i = tonumber(string.sub(link,21))
+    local i = tonumber(string.sub(link, 21))
+    if not i then return end
     local popupText = DebugInformation[i]
 
     _CreateOfferFrame(popupText, discordURL, i)

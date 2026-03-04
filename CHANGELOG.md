@@ -22,6 +22,7 @@
 - **[Quest]** Fixed `QuestieDB` initialization error caused by missing table depth for custom creature objectives in `EbonholdQuestDB`.
 - **[System]** Adjusted `Questie:Error` output logic so that critical addon-breaking errors always print regardless of the `Enable Debug-PRINT` setting.
 - **[Map]** Fixed missing map pins for "Sandstone Giants" quest — changed objective type from `creatureObjective` to `killCreditObjective` so Questie correctly resolves spawn locations from the NPC database.
+- **[Tracking]** Fixed collection quest counters showing stale counts when the Ebonhold scav bot loots items — implemented a 3-stage `BAG_UPDATE_DELAYED` strategy: immediate scan, 0.3s debounce scan, and a 2s follow-up scan to allow the server's quest-objective cache to flush batch loot counts.
 
 ## v9.8.9
 

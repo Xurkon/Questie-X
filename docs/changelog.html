@@ -191,7 +191,12 @@
                 always print regardless of the Enable Debug-PRINT setting.</li>
             <li><strong>[Map]</strong> Fixed missing map pins for the "Sandstone Giants" quest by switching from
                 <code>creatureObjective</code> to <code>killCreditObjective</code>, allowing Questie to correctly
-                resolve Dune Smasher spawn locations from the NPC database.</li>
+                resolve Dune Smasher spawn locations from the NPC database.
+            </li>
+            <li><strong>[Tracking]</strong> Fixed collection quest counters showing stale counts when the Ebonhold scav
+                bot loots items — implemented a 3-stage <code>BAG_UPDATE_DELAYED</code> strategy: immediate scan, 0.3s
+                debounce scan, and a 2s follow-up scan to allow the server's quest-objective cache to flush batch loot
+                counts.</li>
         </ul>
         <h2 id="v975">v9.7.5</h2>
         <h3>Fixes</h3>
@@ -291,7 +296,8 @@
         <h3>Quests (Custom Content)</h3>
         <ul>
             <li><strong>[New]</strong> Added <strong>Heart of the Dragonflights</strong> (ID 50064) -
-                <em>Dragonblight</em></li>
+                <em>Dragonblight</em>
+            </li>
             <ul>
                 <li>Objective: Kill 30 Dragonkin. Includes 49 Dragonkin NPC types.</li>
             </ul>

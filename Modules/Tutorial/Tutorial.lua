@@ -122,7 +122,7 @@ function Tutorial.CreateAscensionScalingFrame()
         atlas = "ExperienceIconLevelScaling",
         title = "Scale Quest Levels",
         desc = "Low-level quests scale to your level\nand remain relevant.",
-        questIcon = "Interface\\AddOns\\Questie-335\\Icons\\available.blp",
+        questIcon = "Interface\\AddOns\\Questie-X\\Icons\\available.blp",
         enable = true,
     })
 
@@ -133,7 +133,7 @@ function Tutorial.CreateAscensionScalingFrame()
         atlas = "ExperienceIconNoLevelScaling",
         title = "Original Quest Levels",
         desc = "Quests keep their original levels.\nLow-level quests turn gray.",
-        questIcon = "Interface\\AddOns\\Questie-335\\Icons\\available_gray.blp",
+        questIcon = "Interface\\AddOns\\Questie-X\\Icons\\available_gray.blp",
         enable = false,
     })
 end

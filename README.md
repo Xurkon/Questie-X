@@ -22,7 +22,7 @@
 ## 📥 Installation
 
 1. [Download](https://github.com/Xurkon/PE-Questie/releases) the archive.
-2. Extract it into the `Interface/AddOns/` directory. The folder name should be `Questie-335`.
+2. Extract it into the `Interface/AddOns/` directory. The folder name should be `Questie-X`.
 3. **Custom Server Support**: If you are playing on a server emulating a previous expansion (Classic or TBC) using the 3.3.5 client, you can add `-Classic` or `-TBC` to the folder name to load specific datasets.
 4. **Map Compatibility**: If your server lacks a world map patch, enable `Options → Advanced → Use WotLK map data`.
 

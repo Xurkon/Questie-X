@@ -311,7 +311,7 @@ do
     local f = CreateFrame("Frame")
     f:RegisterEvent("ADDON_LOADED")
     f:SetScript("OnEvent", function(_, _, name)
-        if name ~= "Questie-335" then return end
+        if name ~= "Questie-X" then return end
         if C_Timer and C_Timer.After then
             C_Timer.After(0, function() EbonholdLoader:ApplyZoneTables() end)
         else

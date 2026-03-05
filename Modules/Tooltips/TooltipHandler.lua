@@ -18,7 +18,7 @@ local lastGuid
 -- Shows in tooltip like:
 --   (yellow quest icon) Drops quest item !
 --   (item icon) [ItemLink (quality colored)] [ID: <QuestId> (light blue)]
--- Works with Questie-335 compiled databases (binary + pointers).
+-- Works with Questie-X compiled databases (binary + pointers).
 -- ============================================================
 
 local QUEST_START_LINE = "|TInterface\\GossipFrame\\AvailableQuestIcon:18:18:0:0|t |cFFFFD200Drops a quest !|r"

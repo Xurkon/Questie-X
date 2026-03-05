@@ -1,5 +1,5 @@
 ## Interface: 30300
-## Title: Questie-335-Classic|cFF00FF00 v9.5.1|r
+## Title: Questie-X-Classic|cFF00FF00 v9.5.1|r
 ## Author: Fixed for Bronzebeard by Majed
 ## Notes: A standalone Classic QuestHelper
 ## Notes-esMX: Ayundante de misión

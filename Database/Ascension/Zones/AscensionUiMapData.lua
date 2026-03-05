@@ -1,3 +1,4 @@
+if not Questie.IsAscension then return end
 ---@class AscensionUiMapData
 AscensionUiMapData = AscensionUiMapData or {}
 

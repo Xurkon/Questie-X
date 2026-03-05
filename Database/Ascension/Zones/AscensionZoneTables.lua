@@ -1,3 +1,4 @@
+if not Questie.IsAscension then return end
 ---@class AscensionZoneTables
 AscensionZoneTables = AscensionZoneTables or {}
 

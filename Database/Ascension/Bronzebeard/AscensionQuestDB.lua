@@ -1,3 +1,4 @@
+if not Questie.IsAscension then return end
 ---@type table
 local AscensionDB = QuestieLoader:CreateModule("AscensionDB")
 

@@ -85,6 +85,7 @@ local AvailableQuests = QuestieLoader:ImportModule("AvailableQuests")
 local SeasonOfDiscovery = QuestieLoader:ImportModule("SeasonOfDiscovery")
 ---@type QuestieLearner
 local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+local QuestieServer = QuestieLoader:ImportModule("QuestieServer")
 
 --- COMPATIBILITY ---
 local WOW_PROJECT_ID = QuestieCompat.WOW_PROJECT_ID
@@ -153,6 +154,8 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
     --? This was moved here because the lag that it creates is much less noticable here, while still initalizing correctly.
     Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage1] Starting QuestieOptions.Initialize Thread.")
     ThreadLib.ThreadSimple(QuestieOptions.Initialize, 0)
+
+    QuestieServer:Init()
 
     MinimapIcon:Init()
 

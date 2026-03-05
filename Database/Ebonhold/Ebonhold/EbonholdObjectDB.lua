@@ -1,3 +1,4 @@
+if not Questie.IsEbonhold then return end
 ---@type table
 local EbonholdDB = QuestieLoader:CreateModule("EbonholdDB")
 

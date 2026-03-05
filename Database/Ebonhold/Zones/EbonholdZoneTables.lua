@@ -1,3 +1,4 @@
+if not Questie.IsEbonhold then return end
 ---@class EbonholdZoneTables
 EbonholdZoneTables = EbonholdZoneTables or {}
 

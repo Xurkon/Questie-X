@@ -22,6 +22,9 @@ Modules\Libs\QuestieLoader.lua
 Modules\QuestieCompat.lua
 Compat\embeds.xml
 
+# SERVER ENVIRONMENT DETECTION
+Modules\QuestieServer.lua
+
 Modules\VersionCheck.lua
 
 # Thread Manager

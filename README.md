@@ -8,7 +8,6 @@
 [![Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/Xurkon)
 [![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.me/Xurkon)
 ![License](https://img.shields.io/github/license/Xurkon/Questie-X?style=for-the-badge&color=2980b9)
-![WoW](https://img.shields.io/badge/WoW-Classic-blue?style=for-the-badge&logo=world-of-warcraft&logoColor=white)
 
 <br/>
 
@@ -22,7 +21,7 @@
 
 ## About
 
-Questie-X is a fork of the original [Questie](https://github.com/Questie/Questie) addon, rebuilt to run reliably on any WoW 3.3.5a private server — not just Blizzard-like realms. It fixes longstanding Lua errors, corrects API incompatibilities introduced by custom server emulators, and introduces a plugin system so server-specific quest databases can be distributed and maintained separately from the core addon.
+Questie-X is a fork of the original [Questie](https://github.com/Questie/Questie) addon, rebuilt to run reliably on any private server regardless of realm type or custom content. It fixes longstanding Lua errors, corrects API incompatibilities introduced by custom server emulators, and introduces a plugin system so server-specific quest databases can be distributed and maintained separately from the core addon.
 
 ---
 
@@ -79,7 +78,7 @@ The database tables follow the same schema as Questie's built-in databases. See 
 
 ### Quest Log & Tracker
 
-- Corrected `GetQuestLogTitle` return value indices for the 3.3.5a client. The client returns `suggestedGroup` at index 4, shifting `isHeader` to index 5 and `questId` to index 9. Previously, modules were using indices 4/8, causing quest headers to be misidentified and `isDaily` to be assigned the wrong value.
+- Corrected `GetQuestLogTitle` return value indices to match the client API. The client returns `suggestedGroup` at index 4, shifting `isHeader` to index 5 and `questId` to index 9. Previously, modules were using indices 4/8, causing quest headers to be misidentified and `isDaily` to be assigned the wrong value.
 - Removed premature `break` on `nil` title in quest log iteration loops. Quest log slots on private servers can be non-contiguous; the loop now uses a nil guard instead of aborting, preventing silently skipped quests.
 - Quest objective counters now update correctly when items are deposited by automated systems that bypass the standard loot frame, using a multi-stage `BAG_UPDATE_DELAYED` strategy.
 - Fixed `QuestEventHandler` crash on auto-completing quests caused by a missing `QuestiePlayer` module import.

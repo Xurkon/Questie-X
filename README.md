@@ -8,11 +8,11 @@
 [![Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/Xurkon)
 [![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.me/Xurkon)
 ![License](https://img.shields.io/github/license/Xurkon/Questie-X?style=for-the-badge&color=2980b9)
-![WoW](https://img.shields.io/badge/WoW-3.3.5a-blue?style=for-the-badge&logo=world-of-warcraft&logoColor=white)
+![WoW](https://img.shields.io/badge/WoW-Classic-blue?style=for-the-badge&logo=world-of-warcraft&logoColor=white)
 
 <br/>
 
-**A universal WoW 3.3.5a quest-helper with a plugin architecture for any private server.**
+**A universal WoW quest-helper with a plugin architecture for any private server.**
 
 [Download Latest](https://github.com/Xurkon/Questie-X/releases/latest) &nbsp;&bull;&nbsp; [View Source](https://github.com/Xurkon/Questie-X) &nbsp;&bull;&nbsp; [Documentation](https://xurkon.github.io/Questie-X/)
 

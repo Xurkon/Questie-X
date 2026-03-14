@@ -171,6 +171,7 @@ Directional arrow pointing toward the nearest active objective or quest finisher
 
 - **Questie Team** — Original addon developers.
 - **Xurkon** — Questie-X fork and ongoing maintenance.
+- **[Majed (3majed)](https://github.com/3majed/Questie-335)** — Ascension server dataset.
 
 ## License
 

@@ -5,10 +5,6 @@ workflow/
 .DS_Store
 *.zip
 
-# Plugin junctions (separate repos, linked locally)
-Plugins/Questie-Ascension/
-Plugins/Questie-Ebonhold/
-
 # Build/tool artifacts
 __pycache__/
 .agents/

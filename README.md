@@ -2,8 +2,6 @@
 
 <img src="docs/QuestieXlogo.png" alt="Questie-X Logo" width="320" />
 
-# Questie-X
-
 ![Version](https://img.shields.io/badge/version-v1.1.4-blue.svg?style=for-the-badge)
 ![Downloads](https://img.shields.io/github/downloads/Xurkon/Questie-X/total?style=for-the-badge&color=e67e22)
 [![Documentation](https://img.shields.io/badge/Documentation-View%20Docs-58a6ff?style=for-the-badge)](https://xurkon.github.io/Questie-X/)
@@ -14,60 +12,57 @@
 
 <br/>
 
-**A universal WoW quest-helper addon with a plugin architecture for custom private servers.**
+**A universal WoW 3.3.5a quest-helper with a plugin architecture for any private server.**
 
-[Download Latest](https://github.com/Xurkon/Questie-X/releases/latest) &nbsp;&bull;&nbsp; [View Source](https://github.com/Xurkon/Questie-X) &nbsp;&bull;&nbsp; [Read Documentation](https://xurkon.github.io/Questie-X/)
+[Download Latest](https://github.com/Xurkon/Questie-X/releases/latest) &nbsp;&bull;&nbsp; [View Source](https://github.com/Xurkon/Questie-X) &nbsp;&bull;&nbsp; [Documentation](https://xurkon.github.io/Questie-X/)
 
 </div>
 
 ---
 
+## About
+
+Questie-X is a fork of the original [Questie](https://github.com/Questie/Questie) addon, rebuilt to run reliably on any WoW 3.3.5a private server — not just Blizzard-like realms. It fixes longstanding Lua errors, corrects API incompatibilities introduced by custom server emulators, and introduces a plugin system so server-specific quest databases can be distributed and maintained separately from the core addon.
+
+---
+
 ## Installation
 
-1. [Download](https://github.com/Xurkon/Questie-X/releases) the archive.
-2. Extract it into your `Interface/AddOns/` directory.
-3. The folder name determines which dataset loads:
-   - `Questie-X` — WotLK (3.3.5a default)
-   - `Questie-X-Classic` — Classic era dataset
-   - `Questie-X-TBC` — The Burning Crusade dataset
-4. If your server lacks a world map patch, enable `Options -> Advanced -> Use WotLK map data`.
+1. [Download](https://github.com/Xurkon/Questie-X/releases) the latest release.
+2. Extract the archive into your `Interface/AddOns/` directory.
+3. Rename the folder to match the dataset you want to load:
+   - `Questie-X` — WotLK 3.3.5a (default)
+   - `Questie-X-Classic` — Vanilla / Classic era content
+   - `Questie-X-TBC` — The Burning Crusade content
+4. Log in. If your server does not use standard map data, enable `Options -> Advanced -> Use WotLK map data`.
 
-### Plugin Example
+### Installing a Plugin
 
-To add custom server data (e.g. Project Ascension), install the matching plugin alongside the core:
+Plugins are standalone addons that inject custom quest, NPC, object, and item data into Questie-X at runtime. They are installed identically to the core addon.
 
-1. Download [Questie-Ascension](https://github.com/Xurkon/Questie-X-AscensionDB/releases) and extract it into `Interface/AddOns/Questie-Ascension`.
-2. Both `Questie-X` and `Questie-Ascension` must be present — the plugin declares `Questie-X` as a dependency and will not load without it.
+1. Download the plugin archive from its repository's Releases page.
+2. Extract it into `Interface/AddOns/` alongside `Questie-X`.
+3. The folder name must match the plugin's `.toc` title exactly.
+4. Log in — Questie-X detects and loads all present plugins automatically on startup.
+
+> A plugin will not load unless `Questie-X` is also installed. The dependency is declared in the plugin's `.toc` file and enforced by the WoW client.
 
 ---
 
 ## Plugin System
 
-Questie-X ships with a **Plugin API** that lets separate addons inject custom server databases (quests, NPCs, objects, items, zones) without modifying core files. This is a new architecture replacing the old embedded `Database/Ascension` and `Database/Ebonhold` folders.
+Questie-X exposes a public `QuestiePluginAPI` that any addon can use to register custom server data without touching core files. This makes it possible to maintain server-specific databases as independent repositories that update on their own release schedule.
 
-### Available Plugins
+### How It Works
 
-| Plugin | Server | Repository |
-|--------|--------|------------|
-| Questie-Ascension | Project Ascension | [Questie-X-AscensionDB](https://github.com/Xurkon/Questie-X-AscensionDB) |
-| Questie-Ebonhold | Ebonhold | [Questie-X-EbonholdDB](https://github.com/Xurkon/Questie-X-EbonholdDB) |
+A plugin calls `QuestiePluginAPI:RegisterPlugin` during addon load and passes its database tables. Questie-X merges these into its runtime database before the first quest scan, so all features — map pins, tooltips, tracker, arrow — work transparently for custom content.
 
-### Installing a Plugin
+### Writing a Plugin
 
-Each plugin is a standalone addon. Install it the same way as the core addon:
-
-1. Download the plugin archive from its repository's Releases page.
-2. **Extract it into your `Interface/AddOns/` directory** alongside `Questie-X`.
-3. The extracted folder name must match the plugin's `.toc` title (e.g., `Questie-Ascension`, `Questie-Ebonhold`).
-4. Reload your UI or restart the game client — Questie-X will detect and load the plugin automatically.
-
-> Plugins declare `Questie-X` as a dependency in their `.toc` file, so they only load when the core addon is present.
-
-### Writing Your Own Plugin
-
-Questie-X exposes a public API via `QuestiePluginAPI`. A minimal plugin registers itself and provides override tables:
+A minimal plugin needs only a `.toc` file declaring `Questie-X` as a dependency and a loader script:
 
 ```lua
+-- MyServerLoader.lua
 local plugin = QuestiePluginAPI:RegisterPlugin("MyServer")
 plugin:RegisterQuestDB(MyServerQuestDB)
 plugin:RegisterNpcDB(MyServerNpcDB)
@@ -76,49 +71,59 @@ plugin:RegisterItemDB(MyServerItemDB)
 plugin:RegisterZoneData(MyServerUiMapData, MyServerZoneTables)
 ```
 
-See `Modules/Libs/QuestiePluginAPI.lua` for the full API surface.
+The database tables follow the same schema as Questie's built-in databases. See `Modules/Libs/QuestiePluginAPI.lua` for the full API reference and `Database/Wotlk/wotlkQuestDB.lua` for table format examples.
 
 ---
 
 ## Fixes & Compatibility
 
-### Nameplates
+### Quest Log & Tracker
 
-- Explicitly skips Ascension Nameplates to avoid conflicts while maintaining compatibility with generic nameplate addons.
+- Corrected `GetQuestLogTitle` return value indices for the 3.3.5a client. The client returns `suggestedGroup` at index 4, shifting `isHeader` to index 5 and `questId` to index 9. Previously, modules were using indices 4/8, causing quest headers to be misidentified and `isDaily` to be assigned the wrong value.
+- Removed premature `break` on `nil` title in quest log iteration loops. Quest log slots on private servers can be non-contiguous; the loop now uses a nil guard instead of aborting, preventing silently skipped quests.
+- Quest objective counters now update correctly when items are deposited by automated systems that bypass the standard loot frame, using a multi-stage `BAG_UPDATE_DELAYED` strategy.
+- Fixed `QuestEventHandler` crash on auto-completing quests caused by a missing `QuestiePlayer` module import.
+- Fixed re-accepted repeatable quests not showing objective icons after the second acceptance.
 
-### Quest Tracker
+### Map & Minimap
 
-- **Ascension API**: Fully compatible with custom quest APIs; no crashes on auto-turn-in quests.
-- **Header Persistence**: Resolved issues where quest headers would disappear from the tracker.
-- **Dynamic Updates**: Instant refresh when accepting, completing, or abandoning quests.
-- **Combat Safety**: Protected with `pcall` to prevent UI lockups during intense combat updates.
+- Fixed `WorldMapFrame` compatibility for servers that render the world map in minimized mode.
+- Fixed "ghost icon" bug where completed quest icons remained on the map after turn-in.
+- Fixed `RequestMapUpdate` logic that caused completed quest icons to persist across zone transitions.
+- Downgraded spurious `[CRITICAL] No AreaId found for UiMapId` log spam to debug level. On some servers, `C_Map.GetBestMapForUnit` returns a continent-level UiMapId for capital cities; the nil return was already handled gracefully but was incorrectly logged as critical.
+- Fixed map pins for `killCredit`-type objectives not resolving spawn locations correctly.
 
 ### Tooltips
 
-- Fixed all legacy Lua errors.
-- Displays if an NPC drops an item that starts a quest directly in the tooltip.
+- Fixed `attempt to concatenate nil` error when a quest starter or finisher has no name in the database.
+- Added support for `killcredit` and `spell` objective types in `MapIconTooltip`.
+- Tooltip now displays if an NPC drops an item that starts a quest.
 
-### Maps (Minimap & World Map)
+### Quest Arrow
 
-- **Minimap**: Fixed zoom-related Lua errors.
-- **World Map**: Full support for Ascension's `WorldMapFrame` (minimized mode), Mapster, and Magnify-WotLK.
-- **Icon Cleanup**: Resolved "ghost icon" bug where completed quests remained visible on the map.
+- Refactored distance calculations and target prioritisation; arrow now correctly filters targets by zone and instance.
+- Fixed arrow pointing to previously completed objective locations instead of the current finisher.
+- Fixed nil error in `_CollectObjective` when processing incomplete quests.
+- Fixed arrow direction for quests that require speaking to an NPC as a prerequisite step.
 
-### Custom IDs
+### Nameplates
 
-- Native support for large integer IDs common on custom private servers.
+- Questie nameplate hooks are skipped when a conflicting nameplate addon is detected, preventing taint and UI errors.
+
+### Databases & Custom IDs
+
+- Full support for large integer NPC, quest, object, and item IDs used by custom server emulators.
+- Fixed `ZoneDB` crash when encountering maps with no AreaId mapping (e.g. continent-level maps on Kalimdor).
+- Fixed `GetObject` returning nil for Item Finishers misidentified as GameObject Finishers on custom servers.
+- Fixed `NPC 30514` (Thorim listen bunny) missing fallback spawn data for Sibling Rivalry turn-in.
 
 ---
 
 ## Features
 
-### Ascension Scaling
-
-Quests automatically scale to character level, perfectly matching the Ascension Scaling system.
-
 ### Visual Map Objectives
 
-Notes for quest starters, turn-ins, and complex objectives are drawn directly on your maps.
+Quest starters, turn-ins, and all objective types are drawn as icons directly on the minimap and world map.
 
 <div align="center">
   <img src="https://i.imgur.com/4abi5yu.png" height="200" alt="Quest Givers" />
@@ -126,30 +131,35 @@ Notes for quest starters, turn-ins, and complex objectives are drawn directly on
   <img src="https://i.imgur.com/uPykHKC.png" height="200" alt="Quest Tooltip" />
 </div>
 
-### Advanced Quest Tracker
+### Quest Tracker
 
-- **Smart Tracking**: Automatically tracks quests upon acceptance.
-- **Expanded Capacity**: Displays up to 20 quests (original limit: 5).
-- **Interactive**: Left-click to open the log; Right-click for focus modes or TomTom arrow integration.
+- Tracks quests automatically on acceptance.
+- Displays up to 20 quests simultaneously (original limit: 5).
+- Left-click opens the quest log; right-click provides focus mode and TomTom arrow integration.
+- Headers persist correctly across all session events.
 
 <div align="center">
   <img src="https://user-images.githubusercontent.com/8838573/67285596-24dbab00-f4d8-11e9-9ae1-7dd6206b5e48.png" width="400" alt="Tracker" />
 </div>
 
+### Quest Arrow
+
+Directional arrow pointing toward the nearest active objective or quest finisher, with zone and instance awareness.
+
 ### My Journey & Quests by Zone
 
-- **Journey Log**: Record every major step of your adventure.
-- **Completionist View**: Lists all available and completed quests per zone to ensure nothing is missed.
+- **Journey Log** — records every quest accepted, completed, and abandoned during a session.
+- **Quests by Zone** — lists all available and completed quests in a given zone for completionists.
 
 <div align="center">
   <img src="https://user-images.githubusercontent.com/8838573/67285651-3cb32f00-f4d8-11e9-95d8-e8ceb2a8d871.png" height="200" alt="Journey" />
   <img src="https://user-images.githubusercontent.com/8838573/67285665-450b6a00-f4d8-11e9-9283-325d26c7c70d.png" height="200" alt="Zone Quests" />
 </div>
 
-### Database Search & Config
+### Database Search & Configuration
 
-- **Global Search**: Find any NPC, Object, or Quest in the massive Questie database.
-- **Deep Customization**: Adjust everything from icon scale to tracking logic.
+- Search the full Questie database for any NPC, object, or quest by name or ID.
+- Extensive options: icon scale, tracking behaviour, nameplate display, tracker layout, and more.
 
 <div align="center">
   <img src="https://user-images.githubusercontent.com/8838573/67285691-4f2d6880-f4d8-11e9-8656-b3e37dce2f05.png" height="200" alt="Search" />
@@ -160,10 +170,9 @@ Notes for quest starters, turn-ins, and complex objectives are drawn directly on
 
 ## Credits
 
-- **Questie Team** - Original addon developers.
-- **Xurkon** - Questie-X fork and maintenance.
-- **Project Ascension & Ebonhold Communities** - Testing and data feedback.
+- **Questie Team** — Original addon developers.
+- **Xurkon** — Questie-X fork and ongoing maintenance.
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE) for details.

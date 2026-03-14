@@ -30,8 +30,14 @@
    - `Questie-X` — WotLK (3.3.5a default)
    - `Questie-X-Classic` — Classic era dataset
    - `Questie-X-TBC` — The Burning Crusade dataset
-   - `Questie-X-Turtle` — Turtle WoW dataset
 4. If your server lacks a world map patch, enable `Options -> Advanced -> Use WotLK map data`.
+
+### Plugin Example
+
+To add custom server data (e.g. Project Ascension), install the matching plugin alongside the core:
+
+1. Download [Questie-Ascension](https://github.com/Xurkon/Questie-X-AscensionDB/releases) and extract it into `Interface/AddOns/Questie-Ascension`.
+2. Both `Questie-X` and `Questie-Ascension` must be present — the plugin declares `Questie-X` as a dependency and will not load without it.
 
 ---
 

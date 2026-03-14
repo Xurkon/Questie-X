@@ -835,7 +835,7 @@ function pins:AddWorldMapIconMap(ref, icon, uiMapID, x, y, showFlag, frameLevel)
     worldmapPins[icon] = t
 
     icon.icon = icon --LOL!
-    icon:SetParent(WorldMapButton)
+    icon:SetParent(WorldMapDetailFrame or WorldMapButton or WorldMapFrame)
     HandleWorldMapPin(icon, t)
 end
 

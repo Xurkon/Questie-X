@@ -221,18 +221,18 @@ function TrackerHeaderFrame:Update()
         end
 
         headerFrame.trackedQuests.label:SetPoint("TOPLEFT", headerFrame.questieIcon, "TOPRIGHT", 2, 0)
-        headerFrame.trackedQuests:SetWidth(headerFrame.trackedQuests.label:GetUnboundedStringWidth())
+        headerFrame.trackedQuests:SetWidth(headerFrame.trackedQuests.label:GetStringWidth())
         headerFrame.trackedQuests:SetHeight(trackerFontSizeHeader)
         headerFrame.trackedQuests:SetPoint("TOPLEFT", headerFrame.questieIcon, "TOPRIGHT", 2, 0)
         headerFrame.trackedQuests:Show()
 
-        headerFrame:SetWidth(headerFrame.trackedQuests.label:GetUnboundedStringWidth() + trackerFontSizeHeader)
+        headerFrame:SetWidth(headerFrame.trackedQuests.label:GetStringWidth() + trackerFontSizeHeader)
         headerFrame:SetHeight(trackerFontSizeHeader + 5)
         headerFrame:Show()
 
         TrackerHeaderFrame.PositionTrackerHeaderFrame(headerFrame, trackerBaseFrame)
 
-        QuestieCompat.SetResizeBounds(trackerBaseFrame, headerFrame.trackedQuests.label:GetUnboundedStringWidth(), trackerFontSizeHeader)
+        QuestieCompat.SetResizeBounds(trackerBaseFrame, headerFrame.trackedQuests.label:GetStringWidth(), trackerFontSizeHeader)
     else
         headerFrame:Hide()
 

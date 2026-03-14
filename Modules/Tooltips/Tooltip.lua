@@ -241,24 +241,37 @@ function QuestieTooltips:GetTooltip(key)
                         title = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.enableTooltipsQuestLevel, true, true)
                     }
                 end
+
                 if not QuestiePlayer.currentQuestlog[questId] then
                     -- TODO: Is this still required?
                     QuestieTooltips.lookupByKey[key][k] = nil
                 else
                     tooltipData[questId].objectivesText = _InitObjectiveTexts(tooltipData[questId].objectivesText, objectiveIndex, playerName)
+
+                    -- Try to get the name of the NPC/Object from the spawnList if possible
+                    local creatureName
+                    local idFromKey = tonumber(key:sub(3))
+                    if idFromKey and objective.spawnList and objective.spawnList[idFromKey] then
+                        creatureName = objective.spawnList[idFromKey].Name
+                    end
+
                     local text;
                     local color = QuestieLib:GetRGBForObjective(objective)
 
-                    if objective.Type == "spell" and objective.spawnList[tonumber(key:sub(3))].ItemId then
-                        text = "   " .. color .. tostring(QuestieDB.QueryItemSingle(objective.spawnList[tonumber(key:sub(3))].ItemId, "name"));
-                        tooltipData[questId].objectivesText[objectiveIndex][playerName] = { ["color"] = color, ["text"] = text };
+                    if objective.Type == "spell" and objective.spawnList[idFromKey] and objective.spawnList[idFromKey].ItemId then
+                        text = "   " .. color .. tostring(QuestieDB.QueryItemSingle(objective.spawnList[idFromKey].ItemId, "name"));
                     elseif objective.Needed then
                         text = "   " .. color .. tostring(objective.Collected) .. "/" .. tostring(objective.Needed) .. " " .. tostring(objective.Description);
-                        tooltipData[questId].objectivesText[objectiveIndex][playerName] = { ["color"] = color, ["text"] = text };
                     else
                         text = "   " .. color .. tostring(objective.Description);
-                        tooltipData[questId].objectivesText[objectiveIndex][playerName] = { ["color"] = color, ["text"] = text };
                     end
+
+                    -- If we found a creature name, prepend it to the text
+                    if creatureName then
+                        text = "   |cFFDDDDDD" .. creatureName .. "|r\n   " .. text
+                    end
+
+                    tooltipData[questId].objectivesText[objectiveIndex][playerName] = { ["color"] = color, ["text"] = text };
                 end
             end
         end

@@ -40,11 +40,16 @@ function QuestieOptions:Initialize()
     configFrame:Hide()
     coroutine.yield()
 
-    AceConfigDialog:SetDefaultSize("Questie", 640, 700)
+    AceConfigDialog:SetDefaultSize("Questie", Questie.db.profile.configWidth, Questie.db.profile.configHeight)
     AceConfigDialog:Open("Questie", configFrame) -- load the options into configFrame
     configFrame:SetLayout("Fill")
-    configFrame:EnableResize(false)
+    configFrame:EnableResize(true)
     QuestieCompat.SetResizeBounds(configFrame.frame, 550, 400)
+
+    configFrame.frame:HookScript("OnSizeChanged", function(self, width, height)
+        Questie.db.profile.configWidth = width
+        Questie.db.profile.configHeight = height
+    end)
 
     configFrame:Hide()
     coroutine.yield()

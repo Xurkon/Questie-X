@@ -38,7 +38,38 @@ local QuestieNameplate = QuestieLoader:ImportModule("QuestieNameplate")
 local QuestieCorrections = QuestieLoader:ImportModule("QuestieCorrections")
 
 -- addon/folder name
-QuestieCompat.addonName = ...
+local addonName, _ = ...
+QuestieCompat.addonName = addonName or "Questie"
+
+-- polyfill hooksecurefunc for 1.12
+if not hooksecurefunc then
+    hooksecurefunc = function(t, k, f)
+        if type(t) == "string" then
+            f = k
+            k = t
+            t = _G
+        end
+        local old = t[k]
+        if old then
+            t[k] = function(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20,
+                            a21, a22, a23, a24, a25)
+                local r1, r2, r3, r4, r5, r6, r7, r8, r9, r10 = old(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12,
+                    a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25)
+                f(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22,
+                    a23, a24, a25)
+                return r1, r2, r3, r4, r5, r6, r7, r8, r9, r10
+            end
+        else
+        end
+    end
+end
+
+-- polyfill math.mod for 3.3.5 / Retail (Lua 5.1+)
+if not math.mod then
+    math.mod = math.fmod or function(a, b)
+        return a - math.floor(a/b)*b
+    end
+end
 
 QuestieCompat.NOOP = function() end
 QuestieCompat.NOOP_MT = { __index = function() return QuestieCompat.NOOP end }
@@ -48,9 +79,12 @@ QuestieCompat.frame = CreateFrame("Frame")
 QuestieCompat.frame:RegisterEvent("ADDON_LOADED")
 QuestieCompat.frame:RegisterEvent("PLAYER_LOGIN")
 QuestieCompat.frame:RegisterEvent("PLAYER_LOGOUT")
-QuestieCompat.frame:SetScript("OnEvent", function(self, event, ...)
-    QuestieCompat[event](self, event, ...)
-end)
+QuestieCompat.frame:SetScript("OnEvent",
+    function(self, event, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21,
+             a22, a23, a24, a25)
+        QuestieCompat[event](self, event, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18,
+            a19, a20, a21, a22, a23, a24, a25)
+    end)
 
 -- current expansion level (https://wowpedia.fandom.com/wiki/WOW_PROJECT_ID)
 QuestieCompat.WOW_PROJECT_CLASSIC = 2
@@ -193,7 +227,7 @@ local mapIdToUiMapId = {}
 -- convert current mapAreaID and mapLevel to UiMapId
 -- https://wowpedia.fandom.com/wiki/API_GetCurrentMapAreaID
 -- https://wowwiki-archive.fandom.com/wiki/API_GetCurrentMapDungeonLevel
--- https://wowpedia.fandom.com/wiki/UiMapID#Classic
+-- https://wowpedia.fandom.com/wiki/UiMapIDtable.getn(Classic)
 function QuestieCompat.GetCurrentUiMapID()
     local mapID = GetCurrentMapAreaID()
     if mapID == 0 then -- both the "Cosmic" and "Azeroth" maps return a mapID of 0
@@ -217,7 +251,7 @@ end
 
 function QuestieCompat.TomTom_AddWaypoint(title, zone, x, y)
     local CZ = mapIdToCZ[QuestieCompat.UiMapData[zone].mapID]
-    return TomTom:AddZWaypoint(QuestieCompat.Round(CZ % 1 * 10), math.floor(CZ), x, y, title)
+    return TomTom:AddZWaypoint(QuestieCompat.Round(math.mod(CZ, 1) * 10), math.floor(CZ), x, y, title)
 end
 
 -- This function will do its utmost to retrieve some sort of valid position
@@ -260,6 +294,9 @@ function QuestieCompat.GetPlayerMapPosition()
 end
 
 QuestieCompat.C_Map = {
+    GetPlayerMapPosition = function(uiMapID, unitToken)
+        return QuestieCompat.GetPlayerMapPosition()
+    end,
     -- Returns map information.
     -- https://wowpedia.fandom.com/wiki/API_C_Map.GetMapInfo
     GetMapInfo = function(uiMapID)
@@ -285,6 +322,10 @@ QuestieCompat.C_Map = {
         local x, y, instanceID = QuestieCompat.HBD:GetWorldCoordinatesFromZone(mapPos.x, mapPos.y, uiMapID)
         return instanceID or 0, { x = x or 0, y = y or 0 }
     end,
+    -- Stub for GetMapChildrenInfo to prevent crashes on unsupported clients
+    GetMapChildrenInfo = function(mapID, mapType, allDescendants)
+        return {}
+    end,
 }
 
 -- https://www.townlong-yak.com/framexml/classic/Blizzard_MapCanvas/Blizzard_MapCanvas.lua
@@ -299,12 +340,12 @@ QuestieCompat.WorldMapFrame = {
         ShowUIPanel(WorldMapFrame)
     end,
     GetCanvas = function(self)
-        return WorldMapButton
+        return WorldMapDetailFrame or WorldMapButton or WorldMapFrame
     end,
     GetMapID = QuestieCompat.GetCurrentUiMapID,
     SetMapID = function(self, UiMapID)
         local mapID = QuestieCompat.UiMapData[UiMapID].mapID
-        local mapLevel = QuestieCompat.Round(mapID % 1 * 10)
+        local mapLevel = QuestieCompat.Round(math.mod(mapID, 1) * 10)
 
         SetMapByID(math.floor(mapID) - 1)
         if mapLevel > 0 then
@@ -520,7 +561,7 @@ function QuestieCompat.CalculateNextResetTime()
 
     Questie.db.profile.weeklyResetHour = Questie.db.profile.weeklyResetHour or
         tonumber(date("%H", Questie.db.profile.dailyResetTime + 300))
-    local dayOffset = (Questie.db.profile.weeklyResetDay - currentDate.weekday + 7) % 7
+    local dayOffset = math.mod(Questie.db.profile.weeklyResetDay - currentDate.weekday + 7, 7)
     if dayOffset == 0 and currentDate.hour >= Questie.db.profile.weeklyResetHour then
         dayOffset = 7
     end
@@ -727,9 +768,16 @@ local GUIDType = {
 function QuestieCompat.UnitGUID(unit)
     local guid = UnitGUID(unit)
     if guid then
-        local type = tonumber(guid:sub(5, 5), 16) % 8
+        local math_mod = math.mod or math.fmod
+        local type
+        if math_mod then
+            type = math_mod(tonumber(string.sub(guid, 5, 5), 16), 8)
+        else
+            local val = tonumber(string.sub(guid, 5, 5), 16)
+            type = val - math.floor(val / 8) * 8
+        end
         if type and (type == 1 or type == 3 or type == 5) then
-            local id = tonumber(guid:sub(6, 12), 16)
+            local id = tonumber(string.sub(guid, 6, 12), 16)
             -- Creature-0-[serverID]-[instanceID]-[zoneUID]-[npcID]-[spawnUID]
             return string.format("%s-0-4170-0-41-%d-00000F4B37", GUIDType[type], id)
         end
@@ -858,13 +906,13 @@ local LARGE_NUMBER_SEPERATOR = ".";
 function QuestieCompat.FormatLargeNumber(amount)
     amount = tostring(amount);
     local newDisplay = "";
-    local strlen = amount:len();
+    local strlen = string.len(amount);
     --Add each thing behind a comma
     for i = 4, strlen, 3 do
-        newDisplay = LARGE_NUMBER_SEPERATOR .. amount:sub(-(i - 1), -(i - 3)) .. newDisplay;
+        newDisplay = LARGE_NUMBER_SEPERATOR .. string.sub(amount, -(i - 1), -(i - 3)) .. newDisplay;
     end
     --Add everything before the first comma
-    newDisplay = amount:sub(1, (strlen % 3 == 0) and 3 or (strlen % 3)) .. newDisplay;
+    newDisplay = string.sub(amount, 1, (math.mod(strlen, 3) == 0) and 3 or (math.mod(strlen, 3))) .. newDisplay;
     return newDisplay;
 end
 
@@ -877,7 +925,7 @@ end
 QuestieCompat.Round = Round
 
 local function GenerateHexColor(r, g, b, a)
-    return ("ff%.2x%.2x%.2x"):format(Round(r * 255), Round(g * 255), Round(b * 255), Round((a or 1) * 255));
+    return string.format(("ff%.2x%.2x%.2x"), Round(r * 255), Round(g * 255), Round(b * 255), Round((a or 1) * 255));
 end
 
 -- Returns the color value associated with a given class.
@@ -1107,43 +1155,16 @@ local function errorhandler(err)
     return geterrorhandler()(err)
 end
 
-local function CreateDispatcher(argCount)
-    local code = [[
-		local xpcall, errorhandler = ...
-		local method, ARGS
-		local function call() return method(ARGS) end
-
-		local function dispatch(func, eh, ...)
-			 method = func
-			 if not method then return end
-			 ARGS = ...
-			 return xpcall(call, eh or errorhandler)
-		end
-
-		return dispatch
-	]]
-
-    local ARGS = {}
-    for i = 1, argCount do ARGS[i] = "arg" .. i end
-    code = code:gsub("ARGS", table.concat(ARGS, ", "))
-    return assert(loadstring(code, "safecall Dispatcher[" .. argCount .. "]"))(xpcall, errorhandler)
+local method, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25
+local function call()
+    return method(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25)
 end
 
-local Dispatchers = setmetatable({}, {
-    __index = function(self, argCount)
-        local dispatcher = CreateDispatcher(argCount)
-        rawset(self, argCount, dispatcher)
-        return dispatcher
-    end
-})
-
-Dispatchers[0] = function(func, eh)
-    return xpcall(func, eh or errorhandler)
-end
-
-function QuestieCompat.xpcall(func, eh, ...)
+function QuestieCompat.xpcall(func, eh, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25)
     if type(func) == "function" then
-        return Dispatchers[select('#', ...)](func, eh, ...)
+        method = func
+        a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 = p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20, p21, p22, p23, p24, p25
+        return xpcall(call, eh or errorhandler)
     end
 end
 
@@ -1183,7 +1204,7 @@ end
 
 function QuestieCompat.Save(self)
     local result = ""
-    for i = 1, #self._bin do
+    for i = 1, table.getn(self._bin) do
         result = result .. table.concat(self._bin[i])
     end
     return result
@@ -1211,7 +1232,8 @@ local function isNamePlate(frame)
     return false
 end
 
-local function scanWorldFrameChildren(frame, ...)
+local function scanWorldFrameChildren(frame, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17,
+                                      a18, a19, a20, a21, a22, a23, a24, a25)
     if not frame then return end
 
     if not npFrames[frame] and isNamePlate(frame) then
@@ -1224,7 +1246,8 @@ local function scanWorldFrameChildren(frame, ...)
             QuestieCompat.NameplateCreated(frame)
         end
     end
-    return scanWorldFrameChildren(...)
+    return scanWorldFrameChildren(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19,
+        a20, a21, a22, a23, a24, a25)
 end
 
 function QuestieCompat.NameplateCreated(frame)
@@ -1267,8 +1290,8 @@ function QuestieCompat.UpdateNameplate()
 end
 
 function QuestieCompat:QuestieTooltips_RegisterObjectiveTooltip(questId, key, objective)
-    if key:find("m_") then
-        local name = QuestieDB.QueryNPCSingle(tonumber(key:sub(3)), "name")
+    if string.find(key, "m_") then
+        local name = QuestieDB.QueryNPCSingle(tonumber(string.sub(key, 3)), "name")
         npActiveQuestNPCs[name] = key
     end
 end
@@ -1393,10 +1416,10 @@ local _QuestEventHandler = QuestEventHandler.private
 local QUEST_COMPLETE_MSG = string.gsub(ERR_QUEST_COMPLETE_S, "(%%s)", "(.+)")
 local completeQuestCache = {}
 
-local DAILY_QUESTS_MSG = DAILY_QUESTS_REMAINING:gsub("%%d", "(%%d+)"):gsub("|4(.-)$", "")
+local DAILY_QUESTS_MSG = string.gsub(DAILY_QUESTS_REMAINING, "%%d", "(%%d+)"):gsub("|4(.-)$", "")
 
 function QuestieCompat:CHAT_MSG_SYSTEM(event, message)
-    local questName = message:match(QUEST_COMPLETE_MSG)
+    local questName = string.match(message, QUEST_COMPLETE_MSG)
     if questName then
         local questId = completeQuestCache[questName] or QuestieCompat.GetQuestIDFromName(questName)
 
@@ -1417,7 +1440,7 @@ function QuestieCompat:CHAT_MSG_SYSTEM(event, message)
     end
 
     if Questie.db.profile.resetDailyQuests then
-        local dailyQuestCount = tonumber(message:match(DAILY_QUESTS_MSG))
+        local dailyQuestCount = tonumber(string.match(message, DAILY_QUESTS_MSG))
         if dailyQuestCount and (dailyQuestCount == GetMaxDailyQuests()) then
             QuestieCompat.C_Timer.After(1, function()
                 QuestieCompat.ResetDailyQuests(true)
@@ -1507,7 +1530,7 @@ end
 
 -- disable builtin quest progress tooltips, re-enable on logout
 function QuestieCompat:ToggleQuestTrackingTooltips(event)
-    local value = tostring(event:find("LOGOUT") and 1 or 0)
+    local value = tostring(string.find(event, "LOGOUT") and 1 or 0)
     SetCVar("showQuestTrackingTooltips", value)
 end
 
@@ -1644,7 +1667,7 @@ end
 
 function QuestieCompat.LoadCorrections(_LoadCorrections, validationTables)
     for dbName in pairs(correctionsRegistry) do
-        local dbKeysReversed = QuestieDB[dbName:sub(1, -5) .. "KeysReversed"]
+        local dbKeysReversed = QuestieDB[string.sub(dbName, 1, -5) .. "KeysReversed"]
         for i, corrections in ipairs(correctionsRegistry[dbName]) do
             _LoadCorrections(dbName, corrections(), dbKeysReversed, validationTables)
         end

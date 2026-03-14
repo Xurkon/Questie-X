@@ -1,8 +1,51 @@
 # Changelog
 
+## v1.1.4 — Questie-X: Plugin Architecture & Monorepo Launch
+
+> This release marks the official rebranding from **Questie-335** / **PE-Questie** to **Questie-X** and introduces the new plugin architecture. Custom server databases are now distributed as standalone addons rather than embedded folders, allowing each server community to maintain and release its own database independently.
+
+### Architecture Changes
+
+- **[Repo]** Repository renamed and re-homed to `Xurkon/Questie-X`. Remote updated from `PE-Questie` to `Questie-X`.
+- **[Plugin API]** Introduced `QuestiePluginAPI` (`Modules/Libs/QuestiePluginAPI.lua`). Plugins register themselves and inject quest, NPC, object, item, and zone data without modifying core files.
+- **[Server Detection]** Added `QuestieServer` module (`Modules/QuestieServer.lua`) for improved runtime server environment detection.
+- **[Network]** Added `QuestieLearnerComms` module (`Modules/Network/QuestieLearnerComms.lua`) for cross-client quest data sharing.
+- **[Database]** Removed embedded `Database/Ascension/` and `Database/Ebonhold/` folders. All custom server data is now distributed via separate plugin addons.
+- **[Monorepo]** `Plugins/` directory added to the repo. `Questie-Ascension` and `Questie-Ebonhold` are linked here via NTFS junctions pointing to their own repositories (`Questie-X-AscensionDB`, `Questie-X-EbonholdDB`), keeping plugin development in sync.
+
+### New Plugins
+
+- **Questie-Ascension** — Project Ascension server database. Repository: [Questie-X-AscensionDB](https://github.com/Xurkon/Questie-X-AscensionDB)
+- **Questie-Ebonhold** — Ebonhold server database. Repository: [Questie-X-EbonholdDB](https://github.com/Xurkon/Questie-X-EbonholdDB)
+
+### TOC / Addon Identity
+
+- **[TOC]** Core addon `.toc` files updated to `Questie-X` title and `v1.1.4` version. New `.toc` variants added: `Questie-X.toc`, `Questie-X-Classic.toc`, `Questie-X-TBC.toc`, `Questie-X-Turtle.toc`.
+- **[TOC]** Legacy `Questie-335` `.toc` files are retained so users who already have the addon installed under that folder name continue to work without renaming.
+- **[Libs]** Added `LibDeflate`, `XXH_Lua_Lib`, `LibDBIcon-1.0`, and `LibDataBroker-1.1` to the Libs directory.
+
+### Fixes
+
+- **[Compat]** Updated `Compat.lua` and `HBD.lua` compatibility shims.
+- **[Database]** Updated `QuestieDB.lua`, `tbcNPCFixes`, `tbcQuestFixes`, `wotlkNPCFixes`, `wotlkQuestFixes` with latest corrections.
+- **[Map]** Updated `HBDHooks.lua` and `QuestieMap.lua`.
+- **[Options]** Updated `QuestieOptions.lua` and `QuestieOptionsDefaults.lua`.
+- **[Tracker]** Updated `QuestieTracker.lua` and `TrackerHeaderFrame.lua`.
+- **[Tooltips]** Updated `MapIconTooltip.lua` and `Tooltip.lua`.
+- **[Quest]** Updated `QuestLogCache.lua`, `QuestieQuest.lua`, `QuestieDBMIntegration.lua`, `QuestieLearner.lua`, `QuestieStream.lua`.
+- **[Libs]** Updated `QuestieLib.lua` and `QuestieFramePool.lua`.
+
+---
+
 ## v9.9.2 — Final Pre-Refactor Release
 
 > ⚠️ **This is the final stable release before a major architectural refactoring.** All active features and quest data from previous releases are preserved. Future versions will introduce breaking changes to improve multi-server support, the database plugin system, and the zone registration API.
+
+### Fixes
+
+- **[Map]** Resolved an issue where NPC names and objective text were inconsistently missing from map tooltips.
+  - Added support for `killcredit` and `spell` objective types in `MapIconTooltip.lua`.
+  - Implemented proactive creature name prepending in `QuestieTooltips:GetTooltip` to ensure data visibility for rare/custom objectives.
 
 ### New Ebonhold Quests
 

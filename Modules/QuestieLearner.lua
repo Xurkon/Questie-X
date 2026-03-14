@@ -373,6 +373,54 @@ function QuestieLearner:SerializeTable(t, indent)
     return "{" .. table.concat(parts, ",") .. "}"
 end
 
+local CREATURE_HEX_PREFIXES = {
+    ["F130"] = true, -- Creature
+    ["F131"] = true, -- Vehicle
+    ["F110"] = true, -- Pet
+    ["F111"] = true, -- Pet
+}
+
+local HEX_PREFIXES = {
+    ["F130"] = "Creature",
+    ["F131"] = "Vehicle",
+    ["F140"] = "GameObject",
+    ["F110"] = "Creature",
+    ["F111"] = "Creature",
+}
+
+local function GetIdAndTypeFromGUID(guid)
+    if not guid then return nil, nil end
+    local unitType, _, _, _, _, parsedId = strsplit("-", guid)
+    local id = tonumber(parsedId)
+    if id and id > 0 and unitType then
+        return id, unitType
+    end
+    if string.sub(guid, 1, 2) == "0x" and string.len(guid) >= 18 then
+        local prefix = string.upper(string.sub(guid, 3, 6))
+        local unitType = HEX_PREFIXES[prefix]
+        if unitType then
+            local low32 = tonumber(string.sub(guid, 11, 18), 16)
+            if low32 then
+                local id = math.mod(low32, 8388608)
+                if id > 0 then return id, unitType end
+            end
+        end
+    end
+    return nil, nil
+end
+
+local function GetNpcIdFromGUID(guid)
+    local id, unitType = GetIdAndTypeFromGUID(guid)
+    if unitType == "Creature" or unitType == "Vehicle" then return id end
+    return nil
+end
+
+local function GetObjectIdFromGUID(guid)
+    local id, unitType = GetIdAndTypeFromGUID(guid)
+    if unitType == "GameObject" then return id end
+    return nil
+end
+
 function QuestieLearner:RegisterEvents()
     local frame = CreateFrame("Frame", "QuestieLearnerFrame")
 
@@ -383,6 +431,7 @@ function QuestieLearner:RegisterEvents()
     frame:RegisterEvent("QUEST_ACCEPTED")
     frame:RegisterEvent("LOOT_OPENED")
     frame:RegisterEvent("GOSSIP_SHOW")
+    frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 
     frame:SetScript("OnEvent", function(_, event, ...)
         if event == "UPDATE_MOUSEOVER_UNIT" then
@@ -399,10 +448,57 @@ function QuestieLearner:RegisterEvents()
             self:OnLootOpened()
         elseif event == "GOSSIP_SHOW" then
             self:OnGossipShow()
+        elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
+            self:OnCombatLogEvent(...)
         end
     end)
 
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Events registered")
+end
+
+function QuestieLearner:OnCombatLogEvent(timestamp, event, sourceGUID, sourceName, sourceFlags, destGUID, destName,
+                                         destFlags, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25)
+    if event == "UNIT_DIED" and destGUID then
+        local npcId = nil
+
+        -- Path 1: extract from GUID directly (handles both dash and hex formats)
+        npcId = GetNpcIdFromGUID(destGUID)
+
+        -- Path 2: GUID-keyed cache populated by OnTargetChanged / OnMouseoverUnit.
+        if not npcId and _Learner.guidNpcCache then
+            local cached = _Learner.guidNpcCache[destGUID]
+            if cached then
+                npcId = cached.npcId
+            end
+        end
+
+        -- Path 3: hex prefix + name scan for untargeted creatures not in cache.
+        if not npcId and destGUID and string.match(destGUID, "^0x") then
+            local prefix = string.upper(string.sub(destGUID, 3, 6))
+            if CREATURE_HEX_PREFIXES[prefix] and _Learner.guidNpcCache then
+                for _, cached in pairs(_Learner.guidNpcCache) do
+                    if cached.name == destName then
+                        npcId = cached.npcId
+                        break
+                    end
+                end
+            end
+        end
+
+        if npcId and npcId > 0 then
+            -- TTL cleanup: drop entries older than 10 minutes
+            if _Learner.guidNpcCache then
+                local now = time()
+                for g, cached in pairs(_Learner.guidNpcCache) do
+                    if (now - (cached.ts or 0)) > 600 then
+                        _Learner.guidNpcCache[g] = nil
+                    end
+                end
+            end
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] UNIT_DIED: recording NPC", npcId, destName)
+            self:LearnNPC(npcId, destName, nil, nil, nil, nil)
+        end
+    end
 end
 
 function QuestieLearner:OnMouseoverUnit()
@@ -411,11 +507,10 @@ function QuestieLearner:OnMouseoverUnit()
 
     local guid = UnitGUID("mouseover")
     if not guid then return end
+    if guid == _Learner._lastMouseoverGuid then return end
+    _Learner._lastMouseoverGuid = guid
 
-    local unitType, _, _, _, _, npcId = strsplit("-", guid)
-    if unitType ~= "Creature" and unitType ~= "Vehicle" then return end
-
-    npcId = tonumber(npcId)
+    local npcId = GetNpcIdFromGUID(guid)
     if not npcId or npcId <= 0 then return end
 
     local name = UnitName("mouseover")
@@ -430,6 +525,10 @@ function QuestieLearner:OnMouseoverUnit()
         end
     end
 
+    _Learner.guidNpcCache = _Learner.guidNpcCache or {}
+    _Learner.guidNpcCache[guid] = { npcId = npcId, name = name, ts = time() }
+
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Cached mouseover NPC:", npcId, name, "guid:", guid)
     self:LearnNPC(npcId, name, level, nil, nil, factionString)
 end
 
@@ -439,16 +538,19 @@ function QuestieLearner:OnTargetChanged()
 
     local guid = UnitGUID("target")
     if not guid then return end
+    if guid == _Learner._lastTargetGuid then return end
+    _Learner._lastTargetGuid = guid
 
-    local unitType, _, _, _, _, npcId = strsplit("-", guid)
-    if unitType ~= "Creature" and unitType ~= "Vehicle" then return end
-
-    npcId = tonumber(npcId)
+    local npcId = GetNpcIdFromGUID(guid)
     if not npcId or npcId <= 0 then return end
 
     local name = UnitName("target")
     local level = UnitLevel("target")
 
+    _Learner.guidNpcCache = _Learner.guidNpcCache or {}
+    _Learner.guidNpcCache[guid] = { npcId = npcId, name = name, ts = time() }
+
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Cached target NPC:", npcId, name, "guid:", guid)
     self:LearnNPC(npcId, name, level, nil, nil, nil)
 end
 
@@ -464,10 +566,13 @@ function QuestieLearner:OnQuestDetail()
 
     local npcGuid = UnitGUID("npc")
     if npcGuid then
-        local unitType, _, _, _, _, npcId = strsplit("-", npcGuid)
-        if unitType == "Creature" or unitType == "Vehicle" then
-            npcId = tonumber(npcId)
-            if npcId and npcId > 0 then
+        local npcId, unitType = GetIdAndTypeFromGUID(npcGuid)
+        if npcId and npcId > 0 and unitType then
+            if unitType == "GameObject" then
+                self:LearnQuestGiver(questId, npcId, true)
+                local npcName = UnitName("npc")
+                self:LearnObject(npcId, npcName)
+            elseif unitType == "Creature" or unitType == "Vehicle" then
                 self:LearnQuestGiver(questId, npcId, true)
                 local npcName = UnitName("npc")
                 self:LearnNPC(npcId, npcName, nil, nil, 2, nil)
@@ -482,10 +587,13 @@ function QuestieLearner:OnQuestComplete()
 
     local npcGuid = UnitGUID("npc")
     if npcGuid then
-        local unitType, _, _, _, _, npcId = strsplit("-", npcGuid)
-        if unitType == "Creature" or unitType == "Vehicle" then
-            npcId = tonumber(npcId)
-            if npcId and npcId > 0 then
+        local npcId, unitType = GetIdAndTypeFromGUID(npcGuid)
+        if npcId and npcId > 0 and unitType then
+            if unitType == "GameObject" then
+                self:LearnQuestGiver(questId, npcId, false)
+                local npcName = UnitName("npc")
+                self:LearnObject(npcId, npcName)
+            elseif unitType == "Creature" or unitType == "Vehicle" then
                 self:LearnQuestGiver(questId, npcId, false)
                 local npcName = UnitName("npc")
                 self:LearnNPC(npcId, npcName, nil, nil, 2, nil)
@@ -508,14 +616,7 @@ end
 
 function QuestieLearner:OnLootOpened()
     local targetGuid = UnitGUID("target")
-    local npcId = nil
-
-    if targetGuid then
-        local unitType, _, _, _, _, id = strsplit("-", targetGuid)
-        if unitType == "Creature" then
-            npcId = tonumber(id)
-        end
-    end
+    local npcId = targetGuid and GetNpcIdFromGUID(targetGuid) or nil
 
     local numItems = GetNumLootItems()
     for i = 1, numItems do
@@ -543,10 +644,7 @@ function QuestieLearner:OnGossipShow()
     local npcGuid = UnitGUID("npc")
     if not npcGuid then return end
 
-    local unitType, _, _, _, _, npcId = strsplit("-", npcGuid)
-    if unitType ~= "Creature" and unitType ~= "Vehicle" then return end
-
-    npcId = tonumber(npcId)
+    local npcId = GetNpcIdFromGUID(npcGuid)
     if not npcId or npcId <= 0 then return end
 
     local npcName = UnitName("npc")

@@ -1636,14 +1636,68 @@ function QuestieQuest:PopulateQuestLogInfo(quest)
         quest.isComplete = true
     end
 
+    -- Live fallback quests (no static DB entry) manage their own Objectives.
+    -- Their per-objective Update() functions read directly from QuestLogCache.
+    if quest._isLogFallback then
+        for _, obj in pairs(quest.Objectives) do
+            obj:Update()
+        end
+        return true
+    end
+
     --Uses the category order to draw the quests and trusts the database order.
 
     local questObjectives = QuestieQuest:GetAllLeaderBoardDetails(quest.Id) or {} -- DO NOT MODIFY THE RETURNED TABLE
 
+
     for objectiveIndex, objective in pairs(questObjectives) do
         if objective.type and string.len(objective.type) > 1 then
-            if (not quest.ObjectiveData) or (not quest.ObjectiveData[objectiveIndex]) then
-                Questie:Error(l10n("Missing objective data for quest "), quest.Id, " ", objective.text)
+            if (not quest.ObjectiveData) or (not quest.ObjectiveData[objectiveIndex]) or (not quest.ObjectiveData[objectiveIndex].Id) then
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] Missing objective data for quest", quest.Id, objective.text, "creating fallback objective")
+                if not quest.Objectives[objectiveIndex] then
+                    local fallbackSpawnList = {}
+                    local objType = objective.type or "monster"
+
+                    if objType == "monster" then
+                        local l10n = QuestieLoader:ImportModule("l10n")
+                        local zoneId = quest.zoneOrSort and quest.zoneOrSort > 0 and quest.zoneOrSort or nil
+                        if zoneId and l10n and l10n.raresByZone and l10n.raresByZone[zoneId] then
+                            local function _GetIconScaleForMonster()
+                                return Questie.db.profile.monsterScale or 1
+                            end
+                            for _, npcId in ipairs(l10n.raresByZone[zoneId]) do
+                                local npcName = QuestieDB.QueryNPCSingle(npcId, "name")
+                                local npcSpawns = QuestieDB.QueryNPCSingle(npcId, "spawns")
+                                if npcName and npcSpawns and npcSpawns[zoneId] then
+                                    fallbackSpawnList[npcId] = {
+                                        Id = npcId,
+                                        Name = npcName,
+                                        Spawns = { [zoneId] = npcSpawns[zoneId] },
+                                        Waypoints = {},
+                                        Hostile = true,
+                                        Icon = Questie.ICON_TYPE_SLAY,
+                                        GetIconScale = _GetIconScaleForMonster,
+                                        IconScale = _GetIconScaleForMonster(),
+                                        TooltipKey = "m_" .. npcId,
+                                    }
+                                end
+                            end
+                        end
+                    end
+
+                    quest.Objectives[objectiveIndex] = {
+                        Id = 0, -- Dynamic fallback, no static DB ID known
+                        Index = objectiveIndex,
+                        questId = quest.Id,
+                        _lastUpdate = 0,
+                        Description = objective.text,
+                        spawnList = fallbackSpawnList,
+                        AlreadySpawned = {},
+                        Update = _QuestieQuest.ObjectiveUpdate,
+                        Type = objType,
+                    }
+                end
+                quest.Objectives[objectiveIndex]:Update()
             else
                 if not quest.Objectives[objectiveIndex] then
                     quest.Objectives[objectiveIndex] = {
@@ -1651,7 +1705,7 @@ function QuestieQuest:PopulateQuestLogInfo(quest)
                         Index = objectiveIndex,
                         questId = quest.Id,
                         _lastUpdate = 0,
-                        Description = objective.text,
+                        Description = (objective.text and objective.text ~= "") and objective.text or (quest.ObjectiveData and quest.ObjectiveData[objectiveIndex] and quest.ObjectiveData[objectiveIndex].Text) or "",
                         spawnList = {},
                         AlreadySpawned = {},
                         Update = _QuestieQuest.ObjectiveUpdate,
@@ -1731,7 +1785,9 @@ function _QuestieQuest.ObjectiveUpdate(self)
             local finished = obj.finished or false -- ensure its boolean false and not nil (hack)
 
             self.Type = obj.type;
-            self.Description = obj.text
+            local quest = QuestieDB.GetQuest(self.questId)
+            local fallbackText = quest and quest.ObjectiveData and quest.ObjectiveData[self.Index] and quest.ObjectiveData[self.Index].Text or ""
+            self.Description = (obj.text and obj.text ~= "") and obj.text or fallbackText
             self.Collected = tonumber(numFulfilled);
             self.Needed = tonumber(numRequired);
             self.Completed = (self.Needed == self.Collected and self.Needed > 0) or

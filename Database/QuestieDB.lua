@@ -1163,6 +1163,10 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
 
     if (not rawdata) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB.GetQuest] rawdata is nil for questID:", questId)
+        if questId == 0 then
+            Questie:Error("[QuestieDB.GetQuest] rawdata is nil for questID:", questId)
+            print(debugstack())
+        end
         return nil
     end
 
@@ -1322,6 +1326,7 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
                     Type = "killcredit",
                     IdList = creditObjective[1],
                     RootId = creditObjective[2],
+                    Id = creditObjective[2] or (creditObjective[1] and creditObjective[1][1]) or 0,
                     Text = creditObjective[3]
                 }
 
@@ -1476,6 +1481,14 @@ function QuestieDB:GetCreatureLevels(quest)
             for _, itemObjective in pairs(quest.objectives[3]) do
                 local itemId = itemObjective[1]
                 local npcIds = QuestieDB.QueryItemSingle(itemId, "npcDrops")
+                if npcIds then
+                    _CollectCreatureLevels(npcIds)
+                end
+            end
+        end
+        if quest.objectives[5] then -- Kill credit objectives
+            for _, creditObjective in pairs(quest.objectives[5]) do
+                local npcIds = creditObjective[1]
                 if npcIds then
                     _CollectCreatureLevels(npcIds)
                 end

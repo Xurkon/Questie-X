@@ -43,6 +43,15 @@ function QuestieWotlkQuestFixes:Load()
     local specKeys = QuestieProfessions.specializationKeys
 
     return {
+        [10482] = {
+            [questKeys.objectives] = {
+                nil,
+                nil,
+                nil,
+                nil,
+                { { { 16876, 16925, 18952, 19701 }, 16876, "Bonechewer Orcs slain" } },
+            },
+        },
         [55] = {
             [questKeys.objectives] = {{{1200}}},
         },

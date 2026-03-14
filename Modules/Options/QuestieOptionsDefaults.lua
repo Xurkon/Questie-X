@@ -164,6 +164,8 @@ function QuestieOptionsDefaults:Load()
 
             TrackerWidth = 0,
             TrackerHeight = 0,
+            configWidth = 640,
+            configHeight = 700,
 
             townsfolkConfig = {
                 ["Repair"] = false,

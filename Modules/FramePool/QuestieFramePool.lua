@@ -223,10 +223,10 @@ function QuestieFramePool:CreateLine(iconFrame, startX, startY, endX, endY, line
         lineFrame.frameId = lineFrameCount;
     end
 
-    local canvas = WorldMapFrame:GetCanvas()
+    local canvas = WorldMapFrame:GetCanvas() or WorldMapDetailFrame or WorldMapFrame
 
-    local width = canvas:GetWidth();
-    local height = canvas:GetHeight();
+    local width = canvas and canvas.GetWidth and canvas:GetWidth() or 1002;
+    local height = canvas and canvas.GetHeight and canvas:GetHeight() or 668;
 
     --Setting the parent is required to get the correct frame levels.
 

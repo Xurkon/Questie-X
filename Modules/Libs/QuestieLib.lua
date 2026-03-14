@@ -306,8 +306,8 @@ end
 ---@return Level requiredMaxLevel
 function QuestieLib.GetTbcLevel(questId, playerLevel)
     local questLevel, requiredLevel =
-        QuestieDB.QueryQuestSingle(questId, "questLevel"),
-        QuestieDB.QueryQuestSingle(questId, "requiredLevel")
+        QuestieDB.QueryQuestSingle(questId, "questLevel") or 1,
+        QuestieDB.QueryQuestSingle(questId, "requiredLevel") or 1
 
     if questLevel == -1 then
         local level = playerLevel or QuestiePlayer.GetPlayerLevel()
@@ -322,7 +322,7 @@ function QuestieLib.GetTbcLevel(questId, playerLevel)
     -- Ascension level scaling (effective level only)
     questLevel = Ascension_GetEffectiveQuestLevel(questId, questLevel, playerLevel)
 
-    return questLevel, requiredLevel, QuestieDB.QueryQuestSingle(questId, "requiredMaxLevel")
+    return questLevel, requiredLevel, QuestieDB.QueryQuestSingle(questId, "requiredMaxLevel") or 0
 end
 
 
@@ -456,18 +456,18 @@ local cachedVersion
 ---@return number, number, number
 function QuestieLib:GetAddonVersionInfo()
     if (not cachedVersion) then
-        cachedVersion = GetAddOnMetadata(addonName, "Version")
+        cachedVersion = GetAddOnMetadata(addonName, "Version") or "0.0.0"
     end
 
     local major, minor, patch = string.match(cachedVersion, "(%d+)%p(%d+)%p(%d+)")
 
-    return tonumber(major), tonumber(minor), tonumber(patch)
+    return tonumber(major) or 0, tonumber(minor) or 0, tonumber(patch) or 0
 end
 
 function QuestieLib:GetAddonVersionString()
     if (not cachedVersion) then
-        -- This brings up the ## Version from the TOC
-        cachedVersion = GetAddOnMetadata(addonName, "Version")
+        -- This brings up the ## Version from the TOC, falling back to various potential folder names on custom realms
+        cachedVersion = GetAddOnMetadata(addonName, "Version") or GetAddOnMetadata("Questie-X", "Version") or GetAddOnMetadata("Questie-Ebonhold", "Version") or "Unknown"
     end
 
     return "v" .. cachedVersion

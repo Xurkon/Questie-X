@@ -9,8 +9,9 @@ local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
 local Sounds = QuestieLoader:ImportModule("Sounds")
 
 --- COMPATIBILITY ---
+local QuestieCompat = QuestieCompat -- Ensure it's loaded
 local GetQuestLogTitle = QuestieCompat.GetQuestLogTitle
-local C_QuestLog_GetQuestObjectives = QuestieCompat.C_QuestLog.GetQuestObjectives
+local C_QuestLog_GetQuestObjectives = QuestieCompat.C_QuestLog and QuestieCompat.C_QuestLog.GetQuestObjectives
 local HaveQuestData = QuestieCompat.HaveQuestData
 
 local stringByte = string.byte
@@ -88,7 +89,7 @@ local function GetNewObjectives(questId, oldObjectives, questLogIndex)
     local changedObjIds      -- not assigning {} for easier nil when nothing changed
     local objectives = C_QuestLog_GetQuestObjectives(questId, questLogIndex)
 
-    for objIndex = 1, #objectives do -- iterate manually to be sure getting those in order
+    for objIndex = 1, table.getn(objectives) do -- iterate manually to be sure getting those in order
         local oldObj = oldObjectives[objIndex]
         local newObj = objectives[objIndex]
         -- Check if objective.text is in game's cache
@@ -102,7 +103,7 @@ local function GetNewObjectives(questId, oldObjectives, questLogIndex)
                 if (not changedObjIds) then
                     changedObjIds = { objIndex }
                 else
-                    changedObjIds[#changedObjIds + 1] = objIndex
+                    changedObjIds[table.getn(changedObjIds) + 1] = objIndex
                 end
 
                 if oldObj and newObj and oldObj.numRequired ~= oldObj.numFulfilled and newObj.numRequired == newObj.numFulfilled then
@@ -177,15 +178,15 @@ function QuestLogCache.CheckForChanges(questIdsToCheck)
                     local newObjectives, changedObjIds = GetNewObjectives(questId, cachedObjectives, questLogIndex)
 
                     if newObjectives then
-                        if (not cachedQuest) or (#cachedObjectives == #newObjectives and #cachedObjectives > 0 and
+                        if (not cachedQuest) or (table.getn(cachedObjectives) == table.getn(newObjectives) and table.getn(cachedObjectives) > 0 and
                                 (cachedQuest.title ~= title or cachedQuest.questTag ~= questTag or cachedQuest.isComplete ~= isComplete)) then
                             changedObjIds = {}
-                            for i = 1, #newObjectives do
+                            for i = 1, table.getn(newObjectives) do
                                 changedObjIds[i] = i
                             end
 
                             if isComplete == 1 then
-                                for i = 1, #newObjectives do
+                                for i = 1, table.getn(newObjectives) do
                                     local o = newObjectives[i]
                                     o.finished = true
                                     o.numFulfilled = o.numRequired
@@ -235,6 +236,11 @@ end
 function QuestLogCache.RemoveQuest(questId)
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestLogCache.RemoveQuest] remove questId:", questId)
     cache[questId] = nil
+    -- Also evict any live fallback object so stale tracker entries don't persist.
+    local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
+    if QuestieDB and QuestieDB.InvalidateLiveQuest then
+        QuestieDB.InvalidateLiveQuest(questId)
+    end
 end
 
 --- Tests if game client's cache has all quest log quests and objectives cached.
@@ -249,7 +255,7 @@ function QuestLogCache.TestGameCache()
             if HaveQuestData(questId) then
                 local objectives = C_QuestLog_GetQuestObjectives(questId, questLogIndex)
 
-                for objIndex = 1, #objectives do
+                for objIndex = 1, table.getn(objectives) do
                     local text = objectives[objIndex].text
                     -- Check if objective.text is not in game's cache
                     if (not text) or (stringByte(text, 1) == 32) then
@@ -298,12 +304,12 @@ end
 ---@param o table @objective
 local function DebugPrintObjective(q, i, o)
     if (o.raw_numFulfilled == o.numFulfilled) and (o.raw_finished == o.finished) then
-        print(" ", i .. "/" .. #q.objectives .. ":",
+        print(" ", i .. "/" .. table.getn(q.objectives) .. ":",
             o.numFulfilled .. "/" .. o.numRequired .. "=" .. tostring(o.finished),
             o.type,
             "\"" .. o.raw_text .. "\" \"" .. o.text .. "\"")
     else
-        print(" ", i .. "/" .. #q.objectives .. ":",
+        print(" ", i .. "/" .. table.getn(q.objectives) .. ":",
             o.raw_numFulfilled .. "/" .. o.numRequired .. "=" .. tostring(o.raw_finished),
             "FIX:", o.numFulfilled .. "/" .. o.numRequired .. "=" .. tostring(o.finished),
             o.type,

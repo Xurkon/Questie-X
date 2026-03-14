@@ -39,7 +39,7 @@ local StreamPool = {}
 
 local function _StreamReset(self)
     self._pointer = 1
-    self._bin = {}
+    self._bin = {{}}
     self._level = 0
 end
 
@@ -126,12 +126,16 @@ function QuestieStreamLib:GetStream(mode) -- returns a new stream
 end
 
 function QuestieStreamLib:_writeByte(val)
-    --print("Writing " .. val .. " at " .. self._pointer)
-    self._bin[self._pointer] = stringchar(val)
-    --if val > 255 or val < 0 then
-    --    stringchar(val) -- error
-    --end
-    self._pointer = self._pointer + 1
+    local p = self._pointer
+    local chunkId = math.floor((p - 1) / 100000) + 1
+    local localIdx = ((p - 1) % 100000) + 1
+    
+    if not self._bin[chunkId] then
+        self._bin[chunkId] = {}
+    end
+    
+    self._bin[chunkId][localIdx] = stringchar(val)
+    self._pointer = p + 1
 end
 
 function QuestieStreamLib:_writeByte_assert(val)
@@ -142,8 +146,18 @@ function QuestieStreamLib:_writeByte_assert(val)
 end
 
 function QuestieStreamLib:_readByte()
-    self._pointer = self._pointer + 1
-    return self._bin[self._pointer-1]
+    local p = self._pointer
+    self._pointer = p + 1
+    if type(self._bin) == "string" then
+        return stringbyte(self._bin, p)
+    else
+        local chunkId = math.floor((p - 1) / 100000) + 1
+        local localIdx = ((p - 1) % 100000) + 1
+        if self._bin[chunkId] then
+            return stringbyte(self._bin[chunkId][localIdx] or "\0")
+        end
+        return 0
+    end
 end
 
 function QuestieStreamLib:SetPointer(pointer)
@@ -461,23 +475,15 @@ end
 
 
 function QuestieStreamLib:Save()
-    --if self._pointer-1 > unpack_limit then
-        --for i=1,self._pointer-1 do
-            --print(self._bin[i])
-        --    self._bin[i] = stringchar(self._bin[i])
-        --end
-        --return table.concat(self._bin)
-    --end
-    --return stringchar(unpack(self._bin))
-    return table.concat(self._bin)
+    local chunks = {}
+    for i=1, #self._bin do
+        table.insert(chunks, table.concat(self._bin[i]))
+    end
+    return table.concat(chunks)
 end
 
 function QuestieStreamLib:Load(bin)
     self._pointer = 1
-    if self._mode == "raw" or self._mode == "raw_assert" then
-        self._bin = bin
-    else
-        self._bin = {stringbyte(bin, 1, -1)}
-    end
+    self._bin = bin
     self._level = 0
 end

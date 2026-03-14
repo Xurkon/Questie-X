@@ -34,7 +34,40 @@ Prefix commits to auto-generate changelog entries:
 
 ---
 
-## 2. Core Architecture & System Overview
+## 2. Repository Structure & Multi-Client Architecture
+
+**Wiki Page:** [Architecture](https://github.com/Questie/Questie/wiki/Architecture)
+
+Questie-X utilizes a centralized repository structure that serves multiple client versions simultaneously through a plugin architecture and directory junctions.
+
+### Centralized Repository Location
+
+The single source of truth for the codebase is located at:
+`C:\Users\kance\Documents\GitHub\Questie-X`
+
+**Do not edit code directly inside the WoW Interface/AddOns folder.** Always edit within the GitHub repository to ensure changes are tracked and universally applied.
+
+### Plugin Architecture
+
+Plugins use appropriately named addon folders (e.g., `Questie-Turtle`, `Questie-Ebonhold`, `Questie-Ascension`) for server specific databases or even additional features. These specific folders exist in the player's `AddOns` directory but they are **Directory Junctions** pointing back to the central `Questie-X` Github folder.
+
+1. **Core Logic**: Exists entirely within `Questie-X`.
+2. **Expansion Detection**: The addon dynamically determines the current client era (Classic, TBC, WotLK) and server (Turtle, Ebonhold, Ascension) on initialization using API detection and realm names.
+3. **Database Selection**: Based on the detected environment, the correct database module (e.g., `wotlkNpcDB.lua`, `classicNpcDB.lua`, or a custom server DB like `TurtleDB`) is prioritized.
+
+### Managing Junctions (Windows)
+
+When installing or testing Questie across multiple WoW installations, use directory junctions instead of copying the folder:
+
+```powershell
+New-Item -ItemType Junction -Path "C:\TurtleWoW\Interface\AddOns\Questie-Turtle" -Target "C:\Users\kance\Documents\GitHub\Questie-X"
+```
+
+This ensures all client instances run the exact same codebase, and any fixes made for one client instantly benefit all others.
+
+---
+
+## 3. Core Architecture & System Overview
 
 **Wiki Page:** [Overview](https://github.com/Questie/Questie/wiki/Overview)
 
@@ -220,6 +253,24 @@ The tracker UI consists of several key components:
 * **HBD Integration:** Uses `HereBeDragons` (via `HBDHooks.lua`) for coordinate conversions.
 * **Tooltip System:** `MapIconTooltip` and `TooltipHandler` provide hover info, including party member progress.
 
+#### Map Tooltip Data Visibility (Resolution for Missing NPC Names)
+
+**Problem:** NPC names and objective descriptions were intermittently missing from map pins, particularly for custom "kill rare" or "kill credit" quests.
+
+**Root Causes & Solutions:**
+
+1. **Unsupported Objective Types in Map Tooltips:**
+   - **Issue:** `MapIconTooltip.lua` was only handling `monster`, `object`, and `event` types. Custom server objectives often use `killcredit` or `spell` types.
+   - **Fix:** Added explicit handling for `killcredit` and `spell` types in `MapIconTooltip:Show()`'s `handleMapIcon` function to ensure their data is collected for the tooltip.
+
+2. **Objective Descriptions Lacking Metadata:**
+   - **Issue:** Some custom objectives have generic descriptions like "Rare slain" but the database entry itself contains the specific NPC name.
+   - **Fix:** Modified `QuestieTooltips:GetTooltip` (in `Tooltip.lua`) to proactively prepend the creature's name (retrieved from `objective.spawnList`) to the tooltip text if a name is available.
+
+3. **Data Masking via Shallow Overwrites:**
+   - **Issue:** Custom server database integration often uses shallow merges (overwriting the entire NPC node). If a custom entry only provides coordinates, it "obliterates" the base NPC's name and metadata.
+   - **Recommendation:** Always ensure custom database entries include the full metadata array if overriding an entire node, or use the `Tooltip.lua` prepending fallback to ensure visibility.
+
 ### QuestieArrow & Finisher Tracking (`QuestieArrow.lua`)
 
 * **Finisher Waypoints:** The Questie Arrow (`QuestieArrow:UpdateNearestTargets`) relies on `quest.isComplete` and `QuestieDB.IsComplete` to switch from targeting objectives to targeting the quest turn-in (Finisher) NPC or Object.
@@ -316,11 +367,11 @@ For quests requiring all NPCs of a specific type in a zone (e.g., "kill all beas
 
 **Wowhead Filter URL Format:**
 
-```
+```url
 https://www.wowhead.com/wotlk/npcs/beasts?filter=6;ZONE_ID;0
 ```
 
-- Replace `beasts` with the creature type (beasts, humanoids, dragonkin, etc.)
+* Replace `beasts` with the creature type (beasts, humanoids, dragonkin, etc.)
 * Replace `ZONE_ID` with the zone ID (e.g., 3522 for Blade's Edge Mountains, 3523 for Netherstorm)
 
 **Extraction Method:**
@@ -336,10 +387,12 @@ https://www.wowhead.com/wotlk/npcs/beasts?filter=6;ZONE_ID;0
 3. This returns all NPC IDs and names matching the filter
 
 **Example Use Cases:**
+
 * Quest 50085 (Savage Heights): Extracted 47 beast NPCs from Blade's Edge Mountains
 * Quest 50086 (Unstable Fauna): Extracted 18 beast NPCs from Netherstorm
 
 **Benefits:**
+
 * Faster than manual lookup
 * Ensures no NPCs are missed
 * Provides complete list for `killCreditObjective` implementation
@@ -358,8 +411,14 @@ Instead, add the missing data to the **specific server's database folder** (e.g.
 
 * **Reason:** Updating the main Questie database files (including standard corrections) will wipe local changes. Custom server database files are preserved during updates.
 
-**CRITICAL OVERRIDE WARNING FOR CUSTOM DBs:**
-When adding missing coordinate data to pre-existing base NPCs via `EbonholdNpcDB.lua`, the custom database engine **does not perform a deep merge**. If you inject an entry that only defines the `[npcKeys.spawns]` array, it will obliterate the entire base NPC node (wiping its name, health, rank, and other metrics). This results in `attempt to index nil` errors rendering the Map Tooltips.
+**CRITICAL OVERRIDE WARNING FOR CUSTOM- [x] Research why NPC names are missing from map pins
+- [/] Fix Map Pin Tooltip Name Visibility
+    - [x] Research `MapIconTooltip.lua` logic
+    - [x] Create implementation plan
+    - [/] Modify `MapIconTooltip.lua` to always show names
+    - [ ] Verify fix in-game
+- [ ] Debug `questID = 0` error in `QuestieDB.lua` (Pending stack trace)
+ `[npcKeys.spawns]` array, it will obliterate the entire base NPC node (wiping its name, health, rank, and other metrics). This results in `attempt to index nil` errors rendering the Map Tooltips.
 
 To safely override base coordinates, you must:
 
@@ -419,6 +478,7 @@ NPCs/objects from base WotLK/TBC/Classic databases already exist with spawn data
 
 **Example Use Case:**
 Quest 50026 requires killing 30 elementals. Six different elemental NPC types exist (17156, 17157, 22309, 22310, 22311, 22313). Using `killCreditObjective` ensures:
+
 * All six NPC types show on the map
 * Single tracker counter increments for any kill
 * No duplicate "0/30" entries in the tracker
@@ -435,7 +495,7 @@ Missing objective data for quest <ID> Complete 6 quests in <Zone>
 
 **Wrong Approach (do not do this):**
 
-```lua
+```lualua
 -- Adding an all-nil [10] table does NOT create ObjectiveData entries
 [50111] = {
     ...
@@ -493,6 +553,7 @@ Missing objective data for quest <ID> Complete 6 quests in <Zone>
 ```
 
 **Behavior:**
+
 * Quest starter icon appears on the map
 * No turn-in icon appears after objectives are complete
 * Quest automatically completes on the server when objectives finish
@@ -537,3 +598,43 @@ Missing objective data for quest <ID> Complete 6 quests in <Zone>
     * **Fix**: Override the quest finisher in `wotlkQuestFixes.lua` to point to a distinct NPC or Object (e.g., moving the arrow from the King to the Anvil).
 3. **Apply HideConditions**: If an objective is redundant once a breadcrumb quest is accepted, apply `hideIfQuestActive` to the correction data for that objective.
 4. **Confirm Database Loading**: Ensure `QuestieDB.GetQuest` is correctly parsing the `HideCondition` field for the objective type.
+
+---
+
+## 14. Lua 5.0 Compatibility & Patching
+
+### Objective
+
+Questie-X acts as a multi-expansion client and must support the Turtle WoW custom client, which runs on a **Lua 5.0** derivative.
+
+### Common Incompatibilities
+
+The `fix_ace3_turtle.py` script automates patching of third-party libraries (like Ace3, LibDeflate) and the `Compat/` bridging layer to avoid the following Lua 5.1+ features:
+
+1. **Modulo Operator (`%`)**
+    * **Issue**: `%` operator is not supported in Lua 5.0. Must use `math.mod(a, b)`.
+    * **Patching Complexity**: Advanced AST-aware character scanning is required to properly handle nested parentheses (e.g., `(a - (a % b))`) and avoid matching format strings inside quotes or comments.
+2. **Length Operator (`#`)**
+    * **Issue**: `#table` is unsupported. Must use `table.getn(table)`.
+    * **Patching Context**: Applies to `#identifier` but does not apply to string formats or hash color codes. Wait for the parser to properly demarcate block comments.
+3. **String Method Calls (`string:method()`)**
+    * **Issue**: Calling string library methods directly on string variables (e.g., `str:sub()`) randomly fails depending on the WoW client environment execution context.
+    * **Patching Context**: Must be rewritten to direct static library calls (e.g., `string.sub(str, ...)`).
+4. **Varargs (`...`) Parameter References**
+    * **Issue**: Lua 5.0 does not natively support expanding `...` into a parameter list or tables dynamically without `unpack(arg)`.
+    * **Patching Context**: Many Ace3 components define fixed arguments (`a1, a2, a3, ..., a25`) rather than relying on `...` passing.
+5. **Missing Global Functions (`hooksecurefunc`, `select`, etc.)**
+    * **Issue**: API wrappers or functions introduced in Lua 5.1 or TBC (e.g., `hooksecurefunc`, `select`, `C_Timer`) are missing in Vanilla (1.12.1).
+    * **Fix**: Polyfill these within the environment (e.g., `Compat.lua` or `QuestieLoader.lua`) early in the load order, or bridge them safely via `QuestieCompat` to ensure library compatibility.
+6. **Arithmetic/Comparisons with Nil API Constants**
+    * **Issue**: Conditional checks against undefined client variables like `WOW_PROJECT_ID` (absent on 1.12) trigger "attempt to compare two nil values" exceptions.
+    * **Fix**: Use explicit `nil` checks, default fallback values, or dedicated boolean flags (`Questie.IsVanilla112`) mapped in `VersionCheck.lua` instead of raw API checks.
+7. **Duplicate Embedded Libraries**
+    * **Issue**: Legacy `.toc` definitions or redundant `Libs/` subdirectories (e.g., `AceTimer` defined multiple times) override `LibStub` scoping unpredictably, resulting in load exceptions (`attempt to call global 'LibStub' (a nil value)`).
+    * **Fix**: Maintain a single source of truth for all embedded libraries and carefully prune duplicate includes from `.toc` and `embeds.xml` files.
+
+### Patching Best Practices
+
+* Always back up original library files before running Python patchers.
+* Use strict parsers that mask out string liberals, block comments (`--[[ ]]`), and line comments (`--`) before scanning the AST.
+* Confirm whether failing components actually require patching. Minor syntax anomalies can appear inside history or external workflow scripts without affecting actual client gameplay execution.

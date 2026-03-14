@@ -698,7 +698,9 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
     QuestieMap:QueueDraw(QuestieMap.ICON_MINIMAP_TYPE, Questie, iconMinimap, uiMapId, x / 100, y / 100, true, floatOnEdge)
     QuestieMap:QueueDraw(QuestieMap.ICON_MAP_TYPE, Questie, iconMap, uiMapId, x / 100, y / 100, showFlag)
     local r, g, b = iconMinimap.texture:GetVertexColor()
-    QuestieDBMIntegration:RegisterHudQuestIcon(tostring(iconMap), data.Icon, uiMapId, x, y, r, g, b)
+    if QuestieDBMIntegration.RegisterHudQuestIcon then
+        QuestieDBMIntegration:RegisterHudQuestIcon(tostring(iconMap), data.Icon, uiMapId, x, y, r, g, b)
+    end
 
     if not QuestieMap.questIdFrames[data.Id] then
         QuestieMap.questIdFrames[data.Id] = {}

@@ -414,6 +414,44 @@ function QuestieOptions.tabs.advanced:Initialize()
                     end
                 end,
             },
+            compat_header = {
+                type = "header",
+                order = 6,
+                name = l10n('3.3.5 Compatibility Settings'),
+            },
+            plugin_header = {
+                type = "header",
+                order = 7,
+                name = "|cFF5EBAF3Loaded Questie-X Plugins|r",
+            },
+            plugin_status_desc = {
+                type = "description",
+                order = 7.01,
+                fontSize = "medium",
+                name = function()
+                    if not QuestiePluginAPI or not QuestiePluginAPI.registeredPlugins then
+                        return "|cFF888888Plugin API not loaded.|r"
+                    end
+
+                    local output = ""
+                    local hasPlugins = false
+
+                    for pluginName, plugin in pairs(QuestiePluginAPI.registeredPlugins) do
+                        hasPlugins = true
+                        output = output .. "|cFF5EBAF3[Questie-" .. pluginName .. "]|r"
+                        output = output .. "  Quests: |cFFFFD700" .. tostring(plugin.stats.QUEST) .. "|r"
+                        output = output .. "  NPCs: |cFFFFD700" .. tostring(plugin.stats.NPC) .. "|r"
+                        output = output .. "  Objects: |cFFFFD700" .. tostring(plugin.stats.OBJECT) .. "|r"
+                        output = output .. "  Items: |cFFFFD700" .. tostring(plugin.stats.ITEM) .. "|r\n"
+                    end
+
+                    if not hasPlugins then
+                        output = "|cFF888888No plugins loaded.|r"
+                    end
+
+                    return output
+                end,
+            },
         },
     }
 end

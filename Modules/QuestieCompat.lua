@@ -372,3 +372,85 @@ function QuestieCompat.GetItemCooldown(itemID)
         return GetItemCooldown(itemID)
     end
 end
+
+--- C_QuestLog Shim
+QuestieCompat.C_QuestLog = QuestieCompat.C_QuestLog or {}
+
+function QuestieCompat.C_QuestLog.GetNumQuestLogEntries()
+    return GetNumQuestLogEntries()
+end
+
+function QuestieCompat.C_QuestLog.GetQuestLogTitle(questIndex)
+    return GetQuestLogTitle(questIndex)
+end
+
+function QuestieCompat.C_QuestLog.GetQuestLogSelection()
+    return GetQuestLogSelection()
+end
+
+function QuestieCompat.C_QuestLog.GetQuestInfo(questID)
+    return QuestieCompat.GetQuestInfo(questID)
+end
+
+function QuestieCompat.C_QuestLog.GetAllQuestIDs()
+    local questIDs = {}
+    local numEntries = GetNumQuestLogEntries()
+    for i = 1, numEntries do
+        local questTitle, level, suggestedGroup, isHeader, isCollapsed, isComplete, frequency, questID, startEvent, displayQuestID = GetQuestLogTitle(i)
+        if questID and questID ~= 0 then
+            table.insert(questIDs, questID)
+        end
+    end
+    return questIDs
+end
+
+function QuestieCompat.C_QuestLog.GetQuestObjectives(questID)
+    local questIndex = GetQuestLogIndexByID(questID)
+    if not questIndex then return nil end
+    return QuestieCompat.GetQuestObjectives(questIndex)
+end
+
+function QuestieCompat.C_QuestLog.IsQuestFlaggedCompleted(questID)
+    return IsQuestFlaggedCompleted(questID)
+end
+
+function QuestieCompat.C_QuestLog.GetQuestPlayerQuestLink(questID)
+    return GetQuestLink(questID)
+end
+
+--- C_Map Shim
+QuestieCompat.C_Map = QuestieCompat.C_Map or {}
+
+function QuestieCompat.C_Map.GetPlayerMapPosition(uiMapID)
+    local x, y = GetPlayerMapPosition(uiMapID)
+    if x == 0 and y == 0 then
+        x, y = GetPlayerMapPosition("player")
+    end
+    return x, y
+end
+
+function QuestieCompat.C_Map.GetBestMapForUnit(unit)
+    if unit == "player" then
+        return GetCurrentMapAreaID()
+    end
+    return GetCurrentMapAreaID()
+end
+
+function QuestieCompat.C_Map.GetMapInfo(uiMapID)
+    return GetMapInfo(uiMapID)
+end
+
+--- GetTrackedAchievements Shim
+QuestieCompat.GetTrackedAchievements = QuestieCompat.GetTrackedAchievements or function()
+    return {}
+end
+
+--- IsAchievementCompleted Shim
+QuestieCompat.IsAchievementCompleted = QuestieCompat.IsAchievementCompleted or function(achievementID)
+    return GetAchievementNumCriteria(achievementID) > 0
+end
+
+--- LibUIDropDownMenu Shim
+QuestieCompat.LibUIDropDownMenu = QuestieCompat.LibUIDropDownMenu or {}
+QuestieCompat.LibUIDropDownMenu.UIDropDownMenu_Menu_NewSize = function()
+end

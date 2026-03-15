@@ -85,6 +85,8 @@ local AvailableQuests = QuestieLoader:ImportModule("AvailableQuests")
 local SeasonOfDiscovery = QuestieLoader:ImportModule("SeasonOfDiscovery")
 ---@type QuestieLearner
 local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+---@type QuestieServer
+local QuestieServer = QuestieLoader:ImportModule("QuestieServer")
 
 --- COMPATIBILITY ---
 local WOW_PROJECT_ID = QuestieCompat.WOW_PROJECT_ID
@@ -154,9 +156,15 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
     Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage1] Starting QuestieOptions.Initialize Thread.")
     ThreadLib.ThreadSimple(QuestieOptions.Initialize, 0)
 
+    if QuestieServer and QuestieServer.Init then
+        QuestieServer:Init()
+    end
+
     MinimapIcon:Init()
 
-    HBDHooks:Init()
+    if HBDHooks and HBDHooks.Init then
+        HBDHooks:Init()
+    end
 
     Questie:SetIcons()
 

@@ -20,6 +20,7 @@ Modules\Libs\QuestieLoader.lua
 # COMPATIBILITY
 Modules\QuestieCompat.lua
 Compat\embeds.xml
+Libs\XXH_Lua_Lib\XXH_Lua_Lib.lua
 
 Modules\VersionCheck.lua
 

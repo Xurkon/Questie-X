@@ -21,6 +21,7 @@ Modules\Libs\QuestieLoader.lua
 Modules\QuestieCompat.lua
 Libs\LibStub\LibStub.lua
 embeds.xml
+Libs\XXH_Lua_Lib\XXH_Lua_Lib.lua
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 Libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
 Libs\Krowi_WorldMapButtons\Krowi_WorldMapButtons-1.4.lua

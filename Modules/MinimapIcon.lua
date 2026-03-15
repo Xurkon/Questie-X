@@ -22,20 +22,22 @@ local l10n = QuestieLoader:ImportModule("l10n")
 local _LibDBIcon = LibStub("LibDBIcon-1.0");
 
 function MinimapIcon:Init()
-    _LibDBIcon:Register("Questie", _MinimapIcon:CreateDataBrokerObject(), Questie.db.profile.minimap);
-    Questie.minimapConfigIcon = _LibDBIcon
+    if _LibDBIcon and _LibDBIcon.Register then
+        _LibDBIcon:Register("Questie", _MinimapIcon:CreateDataBrokerObject(), Questie.db.profile.minimap);
+        Questie.minimapConfigIcon = _LibDBIcon
 
-    local button = _LibDBIcon:GetIcon("Questie")
-    if button and button.icon then
-        if button.icon.AddMaskTexture then
-            local mask = button:CreateMaskTexture()
-            mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
-            mask:SetAllPoints(button.icon)
-            button.icon:AddMaskTexture(mask)
-        elseif button.icon.SetMask then
-            pcall(function()
-                button.icon:SetMask("Interface\\CharacterFrame\\TempPortraitAlphaMask")
-            end)
+        local button = _LibDBIcon.GetMinimapButton and _LibDBIcon:GetMinimapButton("Questie")
+        if button and button.icon then
+            if button.icon.AddMaskTexture then
+                local mask = button:CreateMaskTexture()
+                mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
+                mask:SetAllPoints(button.icon)
+                button.icon:AddMaskTexture(mask)
+            elseif button.icon.SetMask then
+                pcall(function()
+                    button.icon:SetMask("Interface\\CharacterFrame\\TempPortraitAlphaMask")
+                end)
+            end
         end
     end
 end

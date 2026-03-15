@@ -166,7 +166,7 @@
 
 <body>
     <div class="hero">
-        <h1>Questie Changelog</h1>
+        <img src="QuestieXlogo.png" alt="Questie-X Logo" width="400" />
         <p class="subtitle">Complete history of changes, fixes, and additions.</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
             <a href="index.html"
@@ -176,6 +176,29 @@
     </div>
 
     <div class="container">
+        <h2 id="v114">v1.1.4 — Monorepo & Maintenance</h2>
+        <h3>UI Enhancements</h3>
+        <ul>
+            <li><strong>Resizable Options</strong>: The Questie options window is now resizable with corner drag functionality. Size and position persist between sessions.</li>
+            <li><strong>LuaBrowser Fixes</strong>: Increased window width for LuaBrowser UI. Fixed list entry anchoring, font sizes, and button spacing for improved readability.</li>
+        </ul>
+        <h3>Core & Compatibility</h3>
+        <ul>
+            <li><strong>Lua 5.0 Polyfills</strong>: Globally polyfilled <code>string.match</code> and <code>string.gmatch</code> using <code>string.find</code> and <code>string.gfind</code> for legacy client compatibility.</li>
+            <li><strong>AceTimer Patches</strong>: Applied Lua 5.0 compatibility fixes (<code>math.mod</code>) to embedded <code>AceTimer-3.0</code> instances in ElvUI and OG-RaidHelper.</li>
+            <li><strong>Color Polyfills</strong>: Updated <code>CreateColor</code> polyfill with <code>SetRGB</code>, <code>SetRGBA</code>, <code>SetColor</code>, and <code>GetColor</code> methods.</li>
+        </ul>
+        <h3>Map & Tooltips</h3>
+        <ul>
+            <li><strong>Tooltip Reliability</strong>: Fixed <code>OnEnter</code> handlers to consistently populate NPC names and objective text on map pins and world unit tooltips.</li>
+            <li><strong>Debug Cleanup</strong>: Resolved <code>[QuestieTooltips:GetTooltip] m_20509</code> debug message spam.</li>
+        </ul>
+        <h3>Quest Data</h3>
+        <ul>
+            <li><strong>Bonechewer Fixes</strong>: Scraped and injected spawn coordinates for NPCs 16876, 16925, 19701, and 18952 from Wowhead.</li>
+            <li><strong>Quest 10482</strong>: Correctly mapped Bonechewer NPCs to quest objectives in both WotLK and TBC database correction files.</li>
+        </ul>
+
         <h2 id="v990">v9.9.0</h2>
         <h3>New Ebonhold Quests</h3>
         <ul>

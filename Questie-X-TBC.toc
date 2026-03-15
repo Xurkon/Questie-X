@@ -1,12 +1,11 @@
 ## Interface: 30300
-## Title: Questie-X-TBC|cFF00FF00 v9.5.1|r
-## Author: Fixed for Bronzebeard by Majed
+## Title: Questie-X-TBC|cFF00FF00 v1.1.4|r
 ## Notes: A standalone Classic QuestHelper
 ## Notes-esMX: Ayundante de misión
 ## Notes-esES: Ayundante de misión
 ## Notes-ptBR: Ajudante de missão
 ## Notes-frFR: Assistant de quête
-## Version: 9.9.0
+## Version: 1.1.4
 ## RequiredDeps:
 ## OptionalDeps: Ace3, CallbackHandler-1.0, HereBeDragons, LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0, LibStub, LibUIDropDownMenu
 ## SavedVariables: QuestieConfig

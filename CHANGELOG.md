@@ -1,8 +1,8 @@
 # Changelog
 
-## v1.1.4 — Questie-X: Plugin Architecture & Monorepo Launch
+## v1.1.4 — Questie-X: Plugin Architecture & Maintenance Update
 
-> This release marks the official rebranding from **Questie-335** / **PE-Questie** to **Questie-X** and introduces the new plugin architecture. Custom server databases are now distributed as standalone addons rather than embedded folders, allowing each server community to maintain and release its own database independently.
+> This release marks the official rebranding from **Questie-335** / **PE-Questie** to **Questie-X** and introduces the new plugin architecture. Additionally, this version includes significant UI enhancements, core compatibility refinements for legacy clients, and critical database corrections.
 
 ### Architecture Changes
 
@@ -11,29 +11,40 @@
 - **[Server Detection]** Added `QuestieServer` module (`Modules/QuestieServer.lua`) for improved runtime server environment detection.
 - **[Network]** Added `QuestieLearnerComms` module (`Modules/Network/QuestieLearnerComms.lua`) for cross-client quest data sharing.
 - **[Database]** Removed embedded `Database/Ascension/` and `Database/Ebonhold/` folders. All custom server data is now distributed via separate plugin addons.
-- **[Monorepo]** `Plugins/` directory added to the repo. `Questie-Ascension` and `Questie-Ebonhold` are linked here via NTFS junctions pointing to their own repositories (`Questie-X-AscensionDB`, `Questie-X-EbonholdDB`), keeping plugin development in sync.
+- **[Monorepo]** `Plugins/` directory added to the repo. `Questie-Ascension` and `Questie-Ebonhold` are linked here via NTFS junctions pointing to their own repositories, keeping plugin development in sync.
+
+### UI Enhancements
+
+- **[Options]** Resizable Options window! The Questie options UI can now be resized with corner drag functionality. Size and position persist between sessions.
+- **[LuaBrowser]** Increased window width and fixed anchoring/font sizes to prevent UI overlap and improve readability.
+- **[Tutorial]** Improved tutorial flows for objective type selection.
+
+### Core & Compatibility
+
+- **[Lua 5.0]** Globally polyfilled `string.match` and `string.gmatch` using `string.find` and `string.gfind` to ensure universal compatibility with legacy WoW clients (e.g., Turtle WoW).
+- **[AceTimer]** Patched embedded `AceTimer-3.0` instances in ElvUI and OG-RaidHelper to resolve `math.mod` errors on Lua 5.0 clients.
+- **[Colors]** Updated `CreateColor` polyfill with `SetRGB`, `SetRGBA`, `SetColor`, and `GetColor` methods.
+- **[Comm]** Improved cross-client data sharing stability.
+
+### Map & Tooltips
+
+- **[Tooltips]** NPC names and objective text now populate reliably on map pins and world unit tooltips.
+- **[Tooltips]** Resolved `[QuestieTooltips:GetTooltip] m_20509` debug log spam.
+
+### Quest Data
+
+- **[Database]** Scraped and injected missing spawn coordinates for Bonechewer Mutant, Raider, Evoker, and Scavenger (NPC IDs 16876, 16925, 19701, 18952) from Wowhead.
+- **[Quest 10482]** Correctly mapped Bonechewer NPCs to quest objectives in both WotLK and TBC database correction files.
 
 ### New Plugins
 
-- **Questie-Ascension** — Project Ascension server database. Repository: [Questie-X-AscensionDB](https://github.com/Xurkon/Questie-X-AscensionDB)
-- **Questie-Ebonhold** — Ebonhold server database. Repository: [Questie-X-EbonholdDB](https://github.com/Xurkon/Questie-X-EbonholdDB)
+- **Questie-Ascension** — Project Ascension server database.
+- **Questie-Ebonhold** — Ebonhold server database. [Questie-X-EbonholdDB](https://github.com/Xurkon/Questie-X-EbonholdDB)
 
 ### TOC / Addon Identity
 
-- **[TOC]** Core addon `.toc` files updated to `Questie-X` title and `v1.1.4` version. New `.toc` variants added: `Questie-X.toc`, `Questie-X-Classic.toc`, `Questie-X-TBC.toc`, `Questie-X-Turtle.toc`.
-- **[TOC]** Legacy `Questie-335` `.toc` files are retained so users who already have the addon installed under that folder name continue to work without renaming.
+- **[TOC]** Core addon `.toc` files updated to `Questie-X` title and `v1.1.4` version.
 - **[Libs]** Added `LibDeflate`, `XXH_Lua_Lib`, `LibDBIcon-1.0`, and `LibDataBroker-1.1` to the Libs directory.
-
-### Fixes
-
-- **[Compat]** Updated `Compat.lua` and `HBD.lua` compatibility shims.
-- **[Database]** Updated `QuestieDB.lua`, `tbcNPCFixes`, `tbcQuestFixes`, `wotlkNPCFixes`, `wotlkQuestFixes` with latest corrections.
-- **[Map]** Updated `HBDHooks.lua` and `QuestieMap.lua`.
-- **[Options]** Updated `QuestieOptions.lua` and `QuestieOptionsDefaults.lua`.
-- **[Tracker]** Updated `QuestieTracker.lua` and `TrackerHeaderFrame.lua`.
-- **[Tooltips]** Updated `MapIconTooltip.lua` and `Tooltip.lua`.
-- **[Quest]** Updated `QuestLogCache.lua`, `QuestieQuest.lua`, `QuestieDBMIntegration.lua`, `QuestieLearner.lua`, `QuestieStream.lua`.
-- **[Libs]** Updated `QuestieLib.lua` and `QuestieFramePool.lua`.
 
 ---
 

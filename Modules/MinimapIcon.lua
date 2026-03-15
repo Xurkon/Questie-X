@@ -93,7 +93,7 @@ function _MinimapIcon:CreateDataBrokerObject()
         end,
 
         OnTooltipShow = function (tooltip)
-            tooltip:AddLine("Questie ".. QuestieLib:GetAddonVersionString(), 1, 1, 1);
+            tooltip:AddLine("Questie-X ".. QuestieLib:GetAddonVersionString(), 1, 1, 1);
             tooltip:AddLine(Questie:Colorize(l10n('Left Click') , 'gray') .. ": ".. l10n('Toggle Menu'));
             tooltip:AddLine(Questie:Colorize(l10n('Ctrl + Shift + Left Click') , 'gray') .. ": ".. l10n('Toggle Questie'));
             tooltip:AddLine(Questie:Colorize(l10n('Right Click') , 'gray') .. ": ".. l10n('Questie Options'));

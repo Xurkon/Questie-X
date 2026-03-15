@@ -3,16 +3,16 @@ local l10n = QuestieLoader:ImportModule("l10n")
 
 local myJourneyLocales = {
     ["Questie Options"] = {
-        ["ptBR"] = "Opções do Questie",
-        ["ruRU"] = "Настройки Questie",
-        ["deDE"] = "Questie-Einstellungen",
-        ["koKR"] = "Questie 설정",
-        ["esMX"] = "Opciones",
-        ["enUS"] = true,
-        ["zhCN"] = "打开 Questie",
-        ["zhTW"] = "設定選項",
-        ["esES"] = "Opciones",
-        ["frFR"] = "Options Questie",
+        ["ptBR"] = "Opções do Questie-X",
+        ["ruRU"] = "Настройки Questie-X",
+        ["deDE"] = "Questie-X-Einstellungen",
+        ["koKR"] = "Questie-X 설정",
+        ["esMX"] = "Opciones de Questie-X",
+        ["enUS"] = "Questie-X Options",
+        ["zhCN"] = "打开 Questie-X",
+        ["zhTW"] = "Questie-X 設定選項",
+        ["esES"] = "Opciones de Questie-X",
+        ["frFR"] = "Options Questie-X",
     },
     ["My Journey"] = {
         ["ptBR"] = "Minha jornada",

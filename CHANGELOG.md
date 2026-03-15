@@ -16,6 +16,7 @@
 ### UI Enhancements
 
 - **[Options]** Resizable Options window! The Questie options UI can now be resized with corner drag functionality. Size and position persist between sessions.
+- **[Options]** New **Credits Tab**! A dedicated tab in the options menu to acknowledge contributors and community partners.
 - **[Tutorial]** Improved tutorial flows for objective type selection.
 
 ### Core & Compatibility
@@ -44,6 +45,15 @@
 
 - **[TOC]** Core addon `.toc` files updated to `Questie-X` title and `v1.1.4` version.
 - **[Libs]** Added `LibDeflate`, `XXH_Lua_Lib`, `LibDBIcon-1.0`, and `LibDataBroker-1.1` to the Libs directory.
+
+### Bug Fixes
+
+- **[QuestieDB]** Overhauled `QuestieDB.IsComplete` to accurately verify all objectives are finished using `numFulfilled == numRequired` instead of the unreliable server-side `finished` flag.
+  - Resolves completion state bugs for quests using consumable items (e.g. Cold Iron Key for quest 12843).
+  - Fixed Quest Arrow priority logic to properly transition to finishers once objectives are complete.
+- **[QuestieQuest]** Implemented `HideCondition` mechanism for objectives, allowing specific spawns to be hidden based on quest log status (`hideIfQuestActive` / `hideIfQuestComplete`).
+- **[Cache]** Demoted Cache Validation "0/15 Error" to Debug level to reduce user confusion during login and reloads.
+- **[Network]** Fixed sender trust validation in `QuestieLearnerComms`.
 
 ---
 

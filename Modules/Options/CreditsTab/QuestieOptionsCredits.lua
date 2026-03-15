@@ -18,7 +18,10 @@ function QuestieOptions.tabs.credits:Initialize()
                 type = "description",
                 order = 0.5,
                 name = "",
-                image = "Interface\\AddOns\\Questie-X\\Icons\\QuestieXlogo.tga",
+                image = function()
+                    local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
+                    return QuestieLib.AddonPath .. "Icons\\QuestieXlogo.tga"
+                end,
                 imageWidth = 512,
                 imageHeight = 128,
             },

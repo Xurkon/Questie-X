@@ -24,13 +24,29 @@ local _LibDBIcon = LibStub("LibDBIcon-1.0");
 function MinimapIcon:Init()
     _LibDBIcon:Register("Questie", _MinimapIcon:CreateDataBrokerObject(), Questie.db.profile.minimap);
     Questie.minimapConfigIcon = _LibDBIcon
+
+    local button = _LibDBIcon:GetIcon("Questie")
+    if button and button.icon then
+        if button.icon.AddMaskTexture then
+            local mask = button:CreateMaskTexture()
+            mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
+            mask:SetAllPoints(button.icon)
+            button.icon:AddMaskTexture(mask)
+        elseif button.icon.SetMask then
+            pcall(function()
+                button.icon:SetMask("Interface\\CharacterFrame\\TempPortraitAlphaMask")
+            end)
+        end
+    end
 end
 
 function _MinimapIcon:CreateDataBrokerObject()
     local LDBDataObject = LibStub("LibDataBroker-1.1"):NewDataObject("Questie", {
         type = "data source",
         text = Questie.db.profile.ldbDisplayText,
-        icon = QuestieLib.AddonPath.."Icons\\complete.blp",
+        icon = QuestieLib.AddonPath.."Icons\\mmapIcon.tga",
+        iconCoords = {0, 1, 0, 1},
+        iconR = 1, iconG = 1, iconB = 1,
 
         OnClick = function (_, button)
             if (not Questie.started) then

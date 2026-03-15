@@ -18,7 +18,7 @@ function QuestieOptions.tabs.credits:Initialize()
                 type = "description",
                 order = 0.5,
                 name = "",
-                image = "Interface\\AddOns\\Questie-X\\docs\\QuestieXlogo.png",
+                image = "Interface\\AddOns\\Questie-X\\Icons\\QuestieXlogo.tga",
                 imageWidth = 512,
                 imageHeight = 128,
             },

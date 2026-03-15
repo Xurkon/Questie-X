@@ -16,7 +16,6 @@
 ### UI Enhancements
 
 - **[Options]** Resizable Options window! The Questie options UI can now be resized with corner drag functionality. Size and position persist between sessions.
-- **[LuaBrowser]** Increased window width and fixed anchoring/font sizes to prevent UI overlap and improve readability.
 - **[Tutorial]** Improved tutorial flows for objective type selection.
 
 ### Core & Compatibility

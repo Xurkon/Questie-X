@@ -277,7 +277,7 @@ function QuestieOptions.tabs.advanced:Initialize()
             github_text = {
                 type = "description",
                 order = 4.8,
-                name = function() return Questie:Colorize(l10n('Questie is under active development and being maintained by Xurkon. Please check my GitHub for the latest build or to report issues. (( https://github.com/Xurkon/PE-Questie ))'), 'purple'); end,
+                name = function() return Questie:Colorize(l10n('Questie-X is under active development and being maintained by Xurkon. Please check my GitHub for the latest build or to report issues. (( https://github.com/Xurkon/Questie-X ))'), '87CEEB'); end,
                 fontSize = "medium",
             },
             HeaderDev = {

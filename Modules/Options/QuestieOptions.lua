@@ -137,6 +137,8 @@ _CreateOptionsTable = function()
     coroutine.yield()
     local advanced_tab = QuestieOptions.tabs.advanced:Initialize()
     coroutine.yield()
+    local credits_tab = QuestieOptions.tabs.credits:Initialize()
+    coroutine.yield()
     return {
         name = "Questie",
         handler = Questie,
@@ -155,6 +157,7 @@ _CreateOptionsTable = function()
             nameplate_tab = nameplate_tab,
             dbm_hud_tab = dbm_hud_tab,
             advanced_tab = advanced_tab,
+            credits_tab = credits_tab,
             profiles_tab = LibStub("AceDBOptions-3.0"):GetOptionsTable(Questie.db)
         }
     }

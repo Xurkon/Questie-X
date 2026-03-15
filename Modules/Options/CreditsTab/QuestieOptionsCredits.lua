@@ -14,6 +14,14 @@ function QuestieOptions.tabs.credits:Initialize()
         type = "group",
         order = 10,
         args = {
+            logo = {
+                type = "description",
+                order = 0.5,
+                name = "",
+                image = "Interface\\AddOns\\Questie-X\\docs\\QuestieXlogo.png",
+                imageWidth = 512,
+                imageHeight = 128,
+            },
             credits_header = {
                 type = "header",
                 order = 1,

@@ -11,7 +11,6 @@
 - **[Server Detection]** Added `QuestieServer` module (`Modules/QuestieServer.lua`) for improved runtime server environment detection.
 - **[Network]** Added `QuestieLearnerComms` module (`Modules/Network/QuestieLearnerComms.lua`) for cross-client quest data sharing.
 - **[Database]** Removed embedded `Database/Ascension/` and `Database/Ebonhold/` folders. All custom server data is now distributed via separate plugin addons.
-- **[Monorepo]** `Plugins/` directory added to the repo. `Questie-Ascension` and `Questie-Ebonhold` are linked here via NTFS junctions pointing to their own repositories, keeping plugin development in sync.
 
 ### UI Enhancements
 

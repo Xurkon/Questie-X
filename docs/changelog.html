@@ -176,27 +176,88 @@
     </div>
 
     <div class="container">
-        <h2 id="v114">v1.1.4 — Plugin Architecture & Maintenance</h2>
+        <h2 id="v114">v1.1.4 — Questie-X: Plugin Architecture & Maintenance Update</h2>
+        <p><em>This release marks the official rebranding from <strong>Questie-335</strong> / <strong>PE-Questie</strong> to <strong>Questie-X</strong> and introduces the new plugin architecture. Additionally, this version includes significant UI enhancements, core compatibility refinements for legacy clients, and critical database corrections.</em></p>
+
+        <h3>Architecture Changes</h3>
+        <ul>
+            <li><strong>[Repo]</strong> Repository renamed and re-homed to <code>Xurkon/Questie-X</code>. Remote updated from <code>PE-Questie</code> to <code>Questie-X</code>.</li>
+            <li><strong>[Plugin API]</strong> Introduced <code>QuestiePluginAPI</code> (<code>Modules/Libs/QuestiePluginAPI.lua</code>). Plugins register themselves and inject quest, NPC, object, item, and zone data without modifying core files.</li>
+            <li><strong>[Server Detection]</strong> Added <code>QuestieServer</code> module (<code>Modules/QuestieServer.lua</code>) for improved runtime server environment detection.</li>
+            <li><strong>[Network]</strong> Added <code>QuestieLearnerComms</code> module (<code>Modules/Network/QuestieLearnerComms.lua</code>) for cross-client quest data sharing.</li>
+            <li><strong>[Database]</strong> Removed embedded <code>Database/Ascension/</code> and <code>Database/Ebonhold/</code> folders. All custom server data is now distributed via separate plugin addons.</li>
+        </ul>
+
         <h3>UI Enhancements</h3>
         <ul>
-            <li><strong>Resizable Options</strong>: The Questie options window is now resizable with corner drag functionality. Size and position persist between sessions.</li>
+            <li><strong>[Options]</strong> Resizable Options window! The Questie options UI can now be resized with corner drag functionality. Size and position persist between sessions.</li>
+            <li><strong>[Options]</strong> New <strong>Credits Tab</strong>! A dedicated tab in the options menu to acknowledge contributors and community partners.</li>
+            <li><strong>[Tutorial]</strong> Improved tutorial flows for objective type selection.</li>
         </ul>
+
         <h3>Core & Compatibility</h3>
         <ul>
-            <li><strong>Lua 5.0 Polyfills</strong>: Globally polyfilled <code>string.match</code> and <code>string.gmatch</code> using <code>string.find</code> and <code>string.gfind</code> for legacy client compatibility.</li>
-            <li><strong>AceTimer Patches</strong>: Applied Lua 5.0 compatibility fixes (<code>math.mod</code>) to embedded <code>AceTimer-3.0</code> instances in ElvUI and OG-RaidHelper.</li>
-            <li><strong>Color Polyfills</strong>: Updated <code>CreateColor</code> polyfill with <code>SetRGB</code>, <code>SetRGBA</code>, <code>SetColor</code>, and <code>GetColor</code> methods.</li>
+            <li><strong>[Lua 5.0]</strong> Globally polyfilled <code>string.match</code> and <code>string.gmatch</code> using <code>string.find</code> and <code>string.gfind</code> to ensure universal compatibility with legacy WoW clients (e.g., Turtle WoW).</li>
+            <li><strong>[AceTimer]</strong> Patched embedded <code>AceTimer-3.0</code> instances in ElvUI and OG-RaidHelper to resolve <code>math.mod</code> errors on Lua 5.0 clients.</li>
+            <li><strong>[Colors]</strong> Updated <code>CreateColor</code> polyfill with <code>SetRGB</code>, <code>SetRGBA</code>, <code>SetColor</code>, and <code>GetColor</code> methods.</li>
+            <li><strong>[Comm]</strong> Improved cross-client data sharing stability.</li>
         </ul>
+
         <h3>Map & Tooltips</h3>
         <ul>
-            <li><strong>Tooltip Reliability</strong>: Fixed <code>OnEnter</code> handlers to consistently populate NPC names and objective text on map pins and world unit tooltips.</li>
-            <li><strong>Debug Cleanup</strong>: Resolved <code>[QuestieTooltips:GetTooltip] m_20509</code> debug message spam.</li>
+            <li><strong>[Tooltips]</strong> NPC names and objective text now populate reliably on map pins and world unit tooltips.</li>
+            <li><strong>[Tooltips]</strong> Resolved <code>[QuestieTooltips:GetTooltip] m_20509</code> debug log spam.</li>
         </ul>
+
         <h3>Quest Data</h3>
         <ul>
-            <li><strong>Bonechewer Fixes</strong>: Scraped and injected spawn coordinates for NPCs 16876, 16925, 19701, and 18952 from Wowhead.</li>
-            <li><strong>Quest 10482</strong>: Correctly mapped Bonechewer NPCs to quest objectives in both WotLK and TBC database correction files.</li>
+            <li><strong>[Database]</strong> Scraped and injected missing spawn coordinates for Bonechewer Mutant, Raider, Evoker, and Scavenger (NPC IDs 16876, 16925, 19701, 18952) from Wowhead.</li>
+            <li><strong>[Quest 10482]</strong> Correctly mapped Bonechewer NPCs to quest objectives in both WotLK and TBC database correction files.</li>
         </ul>
+
+        <h3>New Plugins</h3>
+        <ul>
+            <li><strong>Questie-Ascension</strong> &mdash; Project Ascension server database.</li>
+            <li><strong>Questie-Ebonhold</strong> &mdash; Ebonhold server database.</li>
+        </ul>
+
+        <h3>TOC / Addon Identity</h3>
+        <ul>
+            <li><strong>[TOC]</strong> Core addon <code>.toc</code> files updated to <code>Questie-X</code> title and <code>v1.1.4</code> version.</li>
+            <li><strong>[Libs]</strong> Added <code>LibDeflate</code>, <code>XXH_Lua_Lib</code>, <code>LibDBIcon-1.0</code>, and <code>LibDataBroker-1.1</code> to the Libs directory.</li>
+        </ul>
+
+        <h3>Bug Fixes</h3>
+        <ul>
+            <li><strong>[QuestieDB]</strong> Overhauled <code>QuestieDB.IsComplete</code> to accurately verify all objectives are finished using <code>numFulfilled == numRequired</code> instead of the unreliable server-side <code>finished</code> flag.</li>
+            <li><strong>[QuestieQuest]</strong> Implemented <code>HideCondition</code> mechanism for objectives, allowing specific spawns to be hidden based on quest log status (<code>hideIfQuestActive</code> / <code>hideIfQuestComplete</code>).</li>
+            <li><strong>[Cache]</strong> Demoted Cache Validation "0/15 Error" to Debug level to reduce user confusion during login.</li>
+        </ul>
+
+        <hr>
+
+        <h2 id="v992">v9.9.2 — Final Pre-Refactor Release</h2>
+        <p><em>⚠️ This is the final stable release before a major architectural refactoring. All active features and quest data from previous releases are preserved.</em></p>
+
+        <h3>Fixes</h3>
+        <ul>
+            <li><strong>[Map]</strong> Resolved an issue where NPC names and objective text were inconsistently missing from map tooltips.</li>
+        </ul>
+
+        <h3>New Ebonhold Quests</h3>
+        <ul>
+            <li><strong>Western Plaguelands Trophy</strong> (ID 50187) - Kill 1 Rare in Western Plaguelands.</li>
+        </ul>
+
+        <hr>
+
+        <h2 id="v991">v9.9.1</h2>
+        <h3>New Ebonhold Quests</h3>
+        <ul>
+            <li><strong>Brood of the Black Flight</strong> (ID 50057) - Kill 30 Dragonkin in Burning Steppes.</li>
+        </ul>
+
+        <hr>
 
         <h2 id="v990">v9.9.0</h2>
         <h3>New Ebonhold Quests</h3>

@@ -14,6 +14,9 @@ _Learner.pendingQuests = {}
 _Learner.pendingItems = {}
 _Learner.pendingObjects = {}
 
+-- Direct reference to learnedData, set on Initialize
+QuestieLearner.data = nil
+
 local function GetZoneId()
     local mapId = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
     if mapId then return mapId end
@@ -95,7 +98,10 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
         end
     end
 
+    existing.mc = (existing.mc or 0) + 1
+
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Learned NPC:", npcId, name or "?")
+    _Learner:BroadcastIfCommsAvailable("NPC", npcId, existing)
 end
 
 function QuestieLearner:LearnQuest(questId, name, questLevel, requiredLevel, zoneOrSort, objectives)
@@ -121,7 +127,10 @@ function QuestieLearner:LearnQuest(questId, name, questLevel, requiredLevel, zon
         end
     end
 
+    existing.mc = (existing.mc or 0) + 1
+
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Learned Quest:", questId, name or "?")
+    _Learner:BroadcastIfCommsAvailable("QUEST", questId, existing)
 end
 
 function QuestieLearner:LearnQuestGiver(questId, npcId, isStart)
@@ -175,7 +184,10 @@ function QuestieLearner:LearnItem(itemId, name, itemLevel, requiredLevel, itemCl
     if itemClass and not existing[12] then existing[12] = itemClass end
     if itemSubClass and not existing[13] then existing[13] = itemSubClass end
 
+    existing.mc = (existing.mc or 0) + 1
+
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Learned Item:", itemId, name or "?")
+    _Learner:BroadcastIfCommsAvailable("ITEM", itemId, existing)
 end
 
 function QuestieLearner:LearnItemDrop(itemId, npcId)
@@ -231,7 +243,10 @@ function QuestieLearner:LearnObject(objectId, name)
         end
     end
 
+    existing.mc = (existing.mc or 0) + 1
+
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Learned Object:", objectId, name or "?")
+    _Learner:BroadcastIfCommsAvailable("OBJECT", objectId, existing)
 end
 
 function QuestieLearner:InjectLearnedData()
@@ -653,9 +668,97 @@ end
 
 function QuestieLearner:Initialize()
     EnsureLearnedData()
+    QuestieLearner.data = Questie.db.global.learnedData
     self:RegisterEvents()
     self:InjectLearnedData()
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Initialized")
+end
+
+-- Called by LearnNPC/Quest/Item/Object after every write. Broadcasts only if comms module is loaded.
+function _Learner:BroadcastIfCommsAvailable(typ, id, data)
+    local QuestieLearnerComms = QuestieLoader:ImportModule("QuestieLearnerComms")
+    if QuestieLearnerComms and QuestieLearnerComms.BroadcastLearnedData then
+        local op = (data.mc and data.mc > 1) and "UPDATE" or "NEW"
+        QuestieLearnerComms:BroadcastLearnedData(op, typ, id, data)
+    end
+end
+
+-- Receives validated, decoded data from QuestieLearnerComms and merges it into local learnedData.
+function QuestieLearner:HandleNetworkData(typ, id, d)
+    if not self:IsEnabled() then return end
+    if not EnsureLearnedData() then return end
+    if not typ or not id or not d then return end
+
+    local store
+    if typ == "NPC" then
+        if not Questie.db.global.learnedData.settings.learnNpcs then return end
+        store = Questie.db.global.learnedData.npcs
+    elseif typ == "QUEST" then
+        if not Questie.db.global.learnedData.settings.learnQuests then return end
+        store = Questie.db.global.learnedData.quests
+    elseif typ == "ITEM" then
+        if not Questie.db.global.learnedData.settings.learnItems then return end
+        store = Questie.db.global.learnedData.items
+    elseif typ == "OBJECT" then
+        if not Questie.db.global.learnedData.settings.learnObjects then return end
+        store = Questie.db.global.learnedData.objects
+    else
+        return
+    end
+
+    local existing = store[id]
+    if not existing then
+        store[id] = d
+        store[id].mc = 1
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Network NEW", typ, id)
+        return
+    end
+
+    -- Merge: adopt non-nil fields from remote that we don't have locally
+    for k, v in pairs(d) do
+        if k ~= "mc" and existing[k] == nil then
+            existing[k] = v
+        end
+    end
+
+    -- Merge coordinate tables (index [7] for NPCs, [4] for Objects)
+    local coordKey = (typ == "NPC") and 7 or (typ == "OBJECT" and 4 or nil)
+    if coordKey and type(d[coordKey]) == "table" then
+        existing[coordKey] = existing[coordKey] or {}
+        for zoneId, coords in pairs(d[coordKey]) do
+            existing[coordKey][zoneId] = existing[coordKey][zoneId] or {}
+            for _, coord in ipairs(coords) do
+                local found = false
+                for _, existCoord in ipairs(existing[coordKey][zoneId]) do
+                    if math.abs(existCoord[1] - coord[1]) < 1 and math.abs(existCoord[2] - coord[2]) < 1 then
+                        found = true
+                        break
+                    end
+                end
+                if not found then
+                    table.insert(existing[coordKey][zoneId], coord)
+                end
+            end
+        end
+    end
+
+    -- Merge item drop list (index [2] for Items)
+    if typ == "ITEM" and type(d[2]) == "table" then
+        existing[2] = existing[2] or {}
+        for _, npcId in ipairs(d[2]) do
+            local found = false
+            for _, existId in ipairs(existing[2]) do
+                if existId == npcId then found = true; break end
+            end
+            if not found then table.insert(existing[2], npcId) end
+        end
+    end
+
+    existing.mc = (existing.mc or 0) + 1
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Network MERGE", typ, id, "mc:", existing.mc)
+
+    -- Keep .data reference in sync
+    QuestieLearner.data = Questie.db.global.learnedData
 end
 
 return QuestieLearner

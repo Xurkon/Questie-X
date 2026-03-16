@@ -13,9 +13,21 @@ local addonPrefix = "QuestieLearner"
 local hiddenChannelName = "questiecomm"
 local ProtocolVersion = 1
 
+-- Dev Logging Flags — defined first so all functions below can call DebugLog
+local LOG_CRITICAL = true
+local LOG_DEVELOP = false
+
+local function DebugLog(tier, msg)
+    if tier == "CRITICAL" and LOG_CRITICAL then
+        Questie:Print("|cFF00FF00[QL-CRITICAL]|r " .. msg)
+    elseif tier == "DEVELOP" and LOG_DEVELOP then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "|cFF00FFFF[QL-DEV]|r " .. msg)
+    end
+end
+
 -- Throttling (Token Bucket)
 local bucketCapacity = 9
-local bucketWindow = 60 -- seconds
+local bucketWindow = 60
 local tokenRefillRate = bucketCapacity / bucketWindow
 local currentTokens = bucketCapacity
 local lastTokenUpdate = GetTime()
@@ -24,50 +36,50 @@ local lastChatMessageTime = 0
 local rateLimitQueue = {}
 
 -- Deduplication & Quarantine
-local messageCache = {} -- [hash] = true
+local messageCache = {}
 local incomingMessageQueue = {}
 
 -- Sender Trust System
-local senderTrust = {} -- [sender] = { strikes = 0, lastMsg = 0, count = 0 }
+local senderTrust = {}
 local bannedSenders = {}
+local mutedUntil = {}
 local XXH = LibStub("XXH_Lua_Lib", true)
 
 local function RecordStrike(sender, reason)
     if not senderTrust[sender] then senderTrust[sender] = { strikes = 0, lastMsg = 0, count = 0 } end
     senderTrust[sender].strikes = senderTrust[sender].strikes + 1
     DebugLog("DEVELOP", sender .. " gained a strike (" .. reason .. "). Total: " .. senderTrust[sender].strikes)
-    
+
     if senderTrust[sender].strikes >= 7 then
         bannedSenders[sender] = true
         DebugLog("CRITICAL", "Sender " .. sender .. " permanently banned (7 strikes).")
     elseif senderTrust[sender].strikes >= 3 then
-        DebugLog("CRITICAL", "Sender " .. sender .. " temporarily muted (3 strikes).")
+        mutedUntil[sender] = GetTime() + 300 -- 5-minute mute
+        DebugLog("CRITICAL", "Sender " .. sender .. " muted for 5 minutes (3 strikes).")
     end
 end
 
 local function IsSenderTrusted(sender)
     if bannedSenders[sender] then return false end
-    if not senderTrust[sender] then senderTrust[sender] = { strikes = 0, lastMsg = 0, count = 0 } end
-    
-    -- Transient 3-strike mute (e.g. timeout for 5 minutes). Simplified for now: just relies on the strike count limit logic above/below or explicit ban.
-    if senderTrust[sender].strikes >= 3 then
-        -- Could add timeout decay here, but static 7 ban is enforced
+    if mutedUntil[sender] then
+        if GetTime() < mutedUntil[sender] then return false end
+        mutedUntil[sender] = nil -- mute expired
     end
-    
-    -- Basic Spam Check
+    if not senderTrust[sender] then senderTrust[sender] = { strikes = 0, lastMsg = 0, count = 0 } end
+
     local now = GetTime()
     if now - senderTrust[sender].lastMsg < 1.0 then
         senderTrust[sender].count = senderTrust[sender].count + 1
         if senderTrust[sender].count > 10 then
             RecordStrike(sender, "Spamming")
-            senderTrust[sender].count = 0 -- Reset to avoid immediate cascade, rely on strike
+            senderTrust[sender].count = 0
             return false
         end
     else
         senderTrust[sender].count = 1
     end
     senderTrust[sender].lastMsg = now
-    
+
     return true
 end
 
@@ -76,36 +88,22 @@ local function IsDuplicateMessage(serializedData)
     if XXH then
         hash = XXH.xxh32(serializedData, 0)
     else
-        -- Fallback simple sum
         hash = 0
-        for i = 1, table.getn(serializedData) do
-            hash = mod((hash + string.byte(serializedData, i)), 4294967296)
+        for i = 1, string.len(serializedData) do
+            hash = math.mod(hash + string.byte(serializedData, i), 4294967296)
         end
     end
-    
+
     if messageCache[hash] then return true end
-    
-    -- Limit cache size
+
     local count = 0
     for _ in pairs(messageCache) do count = count + 1 end
     if count > 500 then
-        messageCache = {} -- Simple clear for now
+        messageCache = {}
     end
-    
+
     messageCache[hash] = true
     return false
-end
-
--- Dev Logging Flags
-local LOG_CRITICAL = true
-local LOG_DEVELOP = false -- Set to true for deep debugging
-
-local function DebugLog(tier, msg)
-    if tier == "CRITICAL" and LOG_CRITICAL then
-        Questie:Print("|cFF00FF00[QL-CRITICAL]|r " .. msg)
-    elseif tier == "DEVELOP" and LOG_DEVELOP then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "|cFF00FFFF[QL-DEV]|r " .. msg)
-    end
 end
 
 function QuestieLearnerComms:Initialize()
@@ -267,10 +265,6 @@ function _QuestieLearnerComms:ProcessRawMessage(encodedMsg, sender)
     local typ = payload.typ
     local id = payload.id
     local d = payload.d
-
-    if not typ or not id or not d then return end
-
-    DebugLog("DEVELOP", "Received " .. tostring(op) .. " " .. tostring(typ) .. " " .. tostring(id) .. " from " .. tostring(sender))
 
     if not typ or not id or not d then return end
 

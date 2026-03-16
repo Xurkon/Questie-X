@@ -438,11 +438,12 @@ function QuestieOptions.tabs.advanced:Initialize()
 
                     for pluginName, plugin in pairs(QuestiePluginAPI.registeredPlugins) do
                         hasPlugins = true
+                        local stats = plugin.stats or {}
                         output = output .. "|cFF5EBAF3[Questie-" .. pluginName .. "]|r"
-                        output = output .. "  Quests: |cFFFFD700" .. tostring(plugin.stats.QUEST) .. "|r"
-                        output = output .. "  NPCs: |cFFFFD700" .. tostring(plugin.stats.NPC) .. "|r"
-                        output = output .. "  Objects: |cFFFFD700" .. tostring(plugin.stats.OBJECT) .. "|r"
-                        output = output .. "  Items: |cFFFFD700" .. tostring(plugin.stats.ITEM) .. "|r\n"
+                        output = output .. "  Quests: |cFFFFD700" .. tostring(stats.QUEST or 0) .. "|r"
+                        output = output .. "  NPCs: |cFFFFD700" .. tostring(stats.NPC or 0) .. "|r"
+                        output = output .. "  Objects: |cFFFFD700" .. tostring(stats.OBJECT or 0) .. "|r"
+                        output = output .. "  Items: |cFFFFD700" .. tostring(stats.ITEM or 0) .. "|r\n"
                     end
 
                     if not hasPlugins then

@@ -44,16 +44,63 @@ end
 if not select then
     select = function(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25)
         if index == "#" then
-            return arg and arg.n or table.getn(arg or {})
+            local n = 25
+            while n > 0 do
+                if n == 25 and a25 ~= nil then return 25 end
+                if n == 24 and a24 ~= nil then return 24 end
+                if n == 23 and a23 ~= nil then return 23 end
+                if n == 22 and a22 ~= nil then return 22 end
+                if n == 21 and a21 ~= nil then return 21 end
+                if n == 20 and a20 ~= nil then return 20 end
+                if n == 19 and a19 ~= nil then return 19 end
+                if n == 18 and a18 ~= nil then return 18 end
+                if n == 17 and a17 ~= nil then return 17 end
+                if n == 16 and a16 ~= nil then return 16 end
+                if n == 15 and a15 ~= nil then return 15 end
+                if n == 14 and a14 ~= nil then return 14 end
+                if n == 13 and a13 ~= nil then return 13 end
+                if n == 12 and a12 ~= nil then return 12 end
+                if n == 11 and a11 ~= nil then return 11 end
+                if n == 10 and a10 ~= nil then return 10 end
+                if n == 9 and a9 ~= nil then return 9 end
+                if n == 8 and a8 ~= nil then return 8 end
+                if n == 7 and a7 ~= nil then return 7 end
+                if n == 6 and a6 ~= nil then return 6 end
+                if n == 5 and a5 ~= nil then return 5 end
+                if n == 4 and a4 ~= nil then return 4 end
+                if n == 3 and a3 ~= nil then return 3 end
+                if n == 2 and a2 ~= nil then return 2 end
+                if n == 1 and a1 ~= nil then return 1 end
+                return 0
+            end
+            return 0
         end
-        index = tonumber(index) or 1
-        if index < 1 then error("bad argument #1 to 'select' (index out of range)") end
-        if index > (arg and arg.n or table.getn(arg or {})) then return end
-        local result = {}
-        for i = index, (arg and arg.n or table.getn(arg or {})) do
-            table.insert(result, arg[i])
-        end
-        return unpack(result)
+        if index == 1 then return a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 2 then return a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 3 then return a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 4 then return a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 5 then return a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 6 then return a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 7 then return a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 8 then return a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 9 then return a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 10 then return a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 11 then return a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 12 then return a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 13 then return a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 14 then return a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 15 then return a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 16 then return a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 17 then return a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 18 then return a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 19 then return a19, a20, a21, a22, a23, a24, a25 end
+        if index == 20 then return a20, a21, a22, a23, a24, a25 end
+        if index == 21 then return a21, a22, a23, a24, a25 end
+        if index == 22 then return a22, a23, a24, a25 end
+        if index == 23 then return a23, a24, a25 end
+        if index == 24 then return a24, a25 end
+        if index == 25 then return a25 end
+        return nil
     end
 end
 

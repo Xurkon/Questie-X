@@ -38,25 +38,47 @@ If you also had previously learned data, you should see:
 
 ## Test 2 — Mouseover Filter (Quest Giver ONLY)
 
-### 2a — Quest Giver NPC
+> **Note:** Since v1.2.6, debug output only prints when an NPC is seen for the **first time ever**. If the NPC already exists in `learnedData` from a previous session, mouseover is silent — this is correct behavior. Use the steps below to force a visible test.
 
-Walk up to an NPC with a **yellow `!`** above its head (not yet accepted), or a **yellow `?`** (turn-in).
+### 2a — Find the NPC ID
+
+Target the quest giver NPC and run:
+```
+/script local guid = UnitGUID("target"); local id = tonumber(select(6, strsplit("-", guid))); print("NPC ID:", id)
+```
+
+### 2b — Clear it from learned data, then hover
+
+```
+/script local id = <npcId>; Questie.db.global.learnedData.npcs[id] = nil; print("Cleared NPC", id)
+```
+
+Now move your cursor off and back onto the quest giver.
 
 **Expected output:**
 ```
-[QuestieLearner] Cached mouseover NPC: <id> <NpcName> guid: 0x...
-[QuestieLearner] Learned NPC: <id> <NpcName>
+[QuestieLearner] New NPC learned: <id> <NpcName>
 ```
 
-### 2b — Random Mob (Should Be Ignored)
+### 2c — Verify the npcFlags filter directly
 
-Mouseover a wolf, enemy soldier, random creature — anything without a quest icon.
+While mousing over the quest giver:
+```
+/script print("Flags:", UnitNPCFlags and UnitNPCFlags("mouseover") or "nil")
+```
+Expected: a number with bit 1 set (e.g. `2`, `3`, `35` — any value where `math.floor(value/2) % 2 == 1`).
 
-**Expected output:** Nothing. No `[QuestieLearner]` line should print.
+While mousing over a random mob:
+```
+/script print("Flags:", UnitNPCFlags and UnitNPCFlags("mouseover") or "nil")
+```
+Expected: `0` or a value without the questgiver bit — and **no** `[QuestieLearner]` line should appear.
 
-### Why This Matters
+### 2d — Random Mob (Should Be Ignored)
 
-Before v1.2.6, every single NPC moused over was recorded, flooding `learnedData.npcs` with useless entries. Now only `UnitNPCFlags` bit `0x02` (QUESTGIVER) or already-known DB quest NPCs are recorded.
+Mouseover any wolf, enemy soldier, or non-quest creature.
+
+**Expected:** Nothing printed. No `[QuestieLearner]` line.
 
 ---
 

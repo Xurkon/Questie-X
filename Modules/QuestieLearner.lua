@@ -524,10 +524,10 @@ function QuestieLearner:OnMouseoverUnit()
     local isQuestGiver = NpcFlagsHasQuestGiver(npcFlags)
 
     if not isQuestGiver then
-        -- Check if the DB already knows this NPC as a quest starter or finisher
-        local dbNpc = QuestieDB and QuestieDB.GetNPC and QuestieDB:GetNPC(npcId)
-        if dbNpc and (dbNpc[7] or dbNpc[8]) then
-            -- known quest-related NPC: update coordinates only
+        -- Silently check raw table — do NOT call GetNPC which logs CRITICAL for every miss
+        local rawNpc = QuestieDB and QuestieDB.npcData and QuestieDB.npcData[npcId]
+        if rawNpc and (rawNpc[10] or rawNpc[11]) then
+            -- known quest starter (key 10) or quest ender (key 11)
             isQuestGiver = true
         end
     end

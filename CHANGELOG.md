@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.2.6 — QuestieLearner Comprehensive Overhaul
+
+> Rewrote QuestieLearner from scratch to fix all known data-capture deficiencies. Adds full quest field coverage, grid-based coordinate clustering, quest-giver-only mouseover filtering, async item-info retry, object loot detection, and live inject-on-import so imported data takes effect without a reload.
+
+### QuestieLearner.lua — Full Rewrite
+
+- **[Quest capture completeness]** `LearnQuest` now accepts a generic `data` table keyed by Questie wiki array indices rather than individual positional arguments. `OnQuestDetail` captures title, objectives text block, quest description body, and current zone as `zoneOrSort[8]`. `OnQuestAccepted` fills quest level from `GetQuestLogTitle`, per-objective text from `GetQuestLogLeaderBoard`, and required money from `GetQuestLogRequiredMoney`. `OnQuestComplete` captures finish/reward text via `GetRewardText`.
+- **[Mouseover filter]** `OnMouseoverUnit` now only learns an NPC if its `UnitNPCFlags` bitmask includes the `QUESTGIVER` bit (`0x02`), OR if the NPC already exists in `QuestieDB` as a known quest starter/finisher. All other NPCs are silently ignored — this eliminates the flood of irrelevant NPC entries the learner previously accumulated.
+- **[Target changed]** `OnTargetChanged` no longer calls `LearnNPC` on every target switch. It now only populates the `guidNpcCache` for kill-tracking purposes, avoiding recording non-quest NPCs.
+- **[Coordinate clustering — grid bucketing]** Replaced the naive "within 1 unit radius" deduplication with a 2×2 grid bucket scheme (`COORD_GRID = 2.0`). A new point is inserted only when no existing point shares the same grid cell. This prevents coordinate scatter across a kill area while still preserving distinct spawn clusters. The `InsertIfNewBucket` helper is shared across NPC, Object, and all merge paths (including `InjectLearnedData` and `HandleNetworkData`).
+- **[Object recording]** `OnLootOpened` now checks whether the loot source GUID is a `GameObject` (not just a creature). If so, `LearnObject` is called with the object's ID and name. `OnGossipShow` records both objects and NPCs via `GetIdAndTypeFromGUID`. `OnQuestDetail` and `OnQuestComplete` also record the interacting object when the quest giver/finisher is a `GameObject`.
+- **[Item loot — async GetItemInfo retry]** `OnLootOpened` queues unresolved item links (where `GetItemInfo` returns nil because the item is not yet in the client cache) into `_Learner.pendingItemLinks`. A new `OnGetItemInfoReceived(itemId)` handler fires on the `GET_ITEM_INFO_RECEIVED` event, resolves queued links for that item ID, and calls `LearnItem`/`LearnItemDrop` once the data is available. This fixes silent data loss on first-encounter loots.
+- **[Quest giver entity type]** `LearnQuestGiver` now accepts an `entityType` argument (1=NPC, 2=GameObject, 3=item) and stores starters/finishers in the correct sub-array slot matching the Questie wiki spec `{ [1]={npcIds}, [2]={objIds}, [3]={itemIds} }`.
+- **[Kill tracking fallback]** `OnCombatLogEvent` retains all three GUID-resolution paths (dash-split, GUID cache, hex-prefix) with a 10-minute TTL cache cleanup. Uses `CombatLogGetCurrentEventInfo()` with fallback to varargs for cross-client compatibility.
+- **[GET_ITEM_INFO_RECEIVED event]** Registered in `RegisterEvents` so the async item retry path fires correctly.
+- **[InjectLearnedData — grid clustering]** All coordinate merge loops in `InjectLearnedData` now use `InsertIfNewBucket` instead of the old radius check.
+
+### QuestieLearnerExport.lua — Import Live-Inject Fix
+
+- **[MergeImport → InjectLearnedData]** After `MergeType` completes for all four categories, `MergeImport` now immediately calls `QuestieLearner:InjectLearnedData()`. Imported data is pushed into `QuestieDB.*DataOverrides` in the same frame — override-driven map pins update without a `/reload`. A full reload is still needed to pick up newly imported quest starters/finishers for quests already tracked in the player's quest log.
+
+### README — Import Clarification
+
+- Corrected the "no reload required" claim. The import flow now accurately describes when an immediate effect is visible versus when a `/reload` is beneficial.
+
+---
+
 ## v1.2.5 — Ebonhold DB Plugin Load Fix
 
 > Fixed a fatal load-time crash in all four Ebonhold DB files caused by calling `GetRealmName()` and `QuestieLoader:CreateModule()` at file scope (before WoW's API is fully available). Switched to plain global table population; realm-gating and injection remain safely deferred to `EbonholdLoader.lua`'s `PLAYER_LOGIN` handler.

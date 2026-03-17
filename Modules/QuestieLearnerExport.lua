@@ -288,6 +288,12 @@ function QuestieLearnerExport:MergeImport()
     self.lastImportData  = nil
     self.lastImportStats = nil
 
+    -- Push merged data into QuestieDB overrides immediately (no reload required for override data)
+    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+    if QuestieLearner and QuestieLearner.InjectLearnedData then
+        QuestieLearner:InjectLearnedData()
+    end
+
     local msg = "Import complete: merged " .. merged .. " entries, skipped " .. skipped .. " (already known)."
     Questie:Debug(Questie.DEBUG_DEVELOP, "[LearnerExport]", msg)
     return true, msg

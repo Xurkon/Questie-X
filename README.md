@@ -245,7 +245,7 @@ To load data exported by another player or provided by the community:
 
 1. Open Questie-X options → **Database** tab.
 2. Paste the export string into the import text box.
-3. Click **Import**. Questie-X decodes and merges the data into your local database immediately — no reload required.
+3. Click **Import**. Questie-X decodes and merges the data into your local database and immediately injects it into the active override tables — map pins and tracker entries update without a full reload. A `/reload` is only required if you want newly imported quest starters/finishers to appear on the world map for quests already in your log.
 
 Imported entries follow the same validation rules as received broadcast entries. Conflicts (same NPC ID with different coordinates) are resolved by keeping the entry with the most data fields populated.
 

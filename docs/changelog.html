@@ -176,6 +176,34 @@
     </div>
 
     <div class="container">
+        <h2 id="v126">v1.2.6 — QuestieLearner Comprehensive Overhaul</h2>
+        <p><em>Rewrote QuestieLearner from scratch to fix all known data-capture deficiencies. Adds full quest field coverage, grid-based coordinate clustering, quest-giver-only mouseover filtering, async item-info retry, object loot detection, and live inject-on-import so imported data takes effect without a reload.</em></p>
+
+        <h3>QuestieLearner.lua — Full Rewrite</h3>
+        <ul>
+            <li><strong>[Quest capture completeness]</strong> <code>LearnQuest</code> now accepts a generic <code>data</code> table keyed by Questie wiki array indices rather than individual positional arguments. <code>OnQuestDetail</code> captures title, objectives text block, quest description body, and current zone as <code>zoneOrSort[8]</code>. <code>OnQuestAccepted</code> fills quest level from <code>GetQuestLogTitle</code>, per-objective text from <code>GetQuestLogLeaderBoard</code>, and required money from <code>GetQuestLogRequiredMoney</code>. <code>OnQuestComplete</code> captures finish/reward text via <code>GetRewardText</code>.</li>
+            <li><strong>[Mouseover filter]</strong> <code>OnMouseoverUnit</code> now only learns an NPC if its <code>UnitNPCFlags</code> bitmask includes the <code>QUESTGIVER</code> bit (<code>0x02</code>), OR if the NPC already exists in <code>QuestieDB</code> as a known quest starter/finisher. All other NPCs are silently ignored — this eliminates the flood of irrelevant NPC entries the learner previously accumulated.</li>
+            <li><strong>[Target changed]</strong> <code>OnTargetChanged</code> no longer calls <code>LearnNPC</code> on every target switch. It now only populates the <code>guidNpcCache</code> for kill-tracking purposes, avoiding recording non-quest NPCs.</li>
+            <li><strong>[Coordinate clustering — grid bucketing]</strong> Replaced the naive "within 1 unit radius" deduplication with a 2×2 grid bucket scheme (<code>COORD_GRID = 2.0</code>). A new point is inserted only when no existing point shares the same grid cell. This prevents coordinate scatter across a kill area while still preserving distinct spawn clusters. The <code>InsertIfNewBucket</code> helper is shared across NPC, Object, and all merge paths (including <code>InjectLearnedData</code> and <code>HandleNetworkData</code>).</li>
+            <li><strong>[Object recording]</strong> <code>OnLootOpened</code> now checks whether the loot source GUID is a <code>GameObject</code>. If so, <code>LearnObject</code> is called with the object's ID and name. <code>OnGossipShow</code> records both objects and NPCs via <code>GetIdAndTypeFromGUID</code>. <code>OnQuestDetail</code> and <code>OnQuestComplete</code> also record the interacting object when the quest giver/finisher is a <code>GameObject</code>.</li>
+            <li><strong>[Item loot — async GetItemInfo retry]</strong> <code>OnLootOpened</code> queues unresolved item links (where <code>GetItemInfo</code> returns nil because the item is not yet in the client cache) into <code>_Learner.pendingItemLinks</code>. A new <code>OnGetItemInfoReceived(itemId)</code> handler fires on the <code>GET_ITEM_INFO_RECEIVED</code> event, resolves queued links for that item ID, and calls <code>LearnItem</code>/<code>LearnItemDrop</code> once the data is available. This fixes silent data loss on first-encounter loots.</li>
+            <li><strong>[Quest giver entity type]</strong> <code>LearnQuestGiver</code> now accepts an <code>entityType</code> argument (1=NPC, 2=GameObject, 3=item) and stores starters/finishers in the correct sub-array slot matching the Questie wiki spec <code>{ [1]={npcIds}, [2]={objIds}, [3]={itemIds} }</code>.</li>
+            <li><strong>[Kill tracking]</strong> <code>OnCombatLogEvent</code> retains all three GUID-resolution paths (dash-split, GUID cache, hex-prefix) with a 10-minute TTL cache cleanup. Uses <code>CombatLogGetCurrentEventInfo()</code> with fallback to varargs for cross-client compatibility.</li>
+            <li><strong>[InjectLearnedData — grid clustering]</strong> All coordinate merge loops now use <code>InsertIfNewBucket</code> instead of the old radius check.</li>
+        </ul>
+
+        <h3>QuestieLearnerExport.lua — Import Live-Inject Fix</h3>
+        <ul>
+            <li><strong>[MergeImport → InjectLearnedData]</strong> After merging all four data categories, <code>MergeImport</code> immediately calls <code>QuestieLearner:InjectLearnedData()</code>. Imported data is pushed into <code>QuestieDB.*DataOverrides</code> in the same frame — override-driven map pins update without a <code>/reload</code>. A full reload is still needed to pick up newly imported quest starters/finishers for quests already in the player's quest log.</li>
+        </ul>
+
+        <h3>README — Import Clarification</h3>
+        <ul>
+            <li>Corrected the "no reload required" claim. The import flow now accurately describes when an immediate effect is visible versus when a <code>/reload</code> is beneficial.</li>
+        </ul>
+    </div>
+
+    <div class="container">
         <h2 id="v125">v1.2.5 — Ebonhold &amp; Ascension DB Plugin Load Fix</h2>
         <p><em>Fixed a fatal load-time crash in all four Ebonhold DB files (and identically in the Ascension DB files) caused by calling <code>GetRealmName()</code> and <code>QuestieLoader:CreateModule()</code> at file scope — before WoW's API is fully available. Switched to plain global table population; realm-gating and injection remain safely deferred to the loader's <code>PLAYER_LOGIN</code> handler.</em></p>
 

@@ -463,8 +463,8 @@ function QuestieOptions.tabs.database:Initialize()
                     end
 
                     -- For pull-type plugins (e.g. WotLKDB) that never call InjectDatabase,
-                    -- stats stay at 0. Fall back to counting QuestieDB.*Data directly since
-                    -- this function is called after init has completed.
+                    -- stats stay at 0. Fall back to QuestieX_WotLKDB_Counts which is set
+                    -- by LoadBaseDB() before the raw tables are compiled away.
                     local function GetPluginCounts(pluginName, stats)
                         local q = stats.QUEST  or 0
                         local n = stats.NPC    or 0
@@ -472,12 +472,12 @@ function QuestieOptions.tabs.database:Initialize()
                         local i = stats.ITEM   or 0
 
                         if q == 0 and n == 0 and o == 0 and i == 0 then
-                            local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
-                            if QuestieDB then
-                                q = CountTable(QuestieDB.questData)
-                                n = CountTable(QuestieDB.npcData)
-                                o = CountTable(QuestieDB.objectData)
-                                i = CountTable(QuestieDB.itemData)
+                            local counts = _G["QuestieX_" .. pluginName .. "_Counts"]
+                            if counts then
+                                q = counts.QUEST  or 0
+                                n = counts.NPC    or 0
+                                o = counts.OBJECT or 0
+                                i = counts.ITEM   or 0
                             end
                         end
 

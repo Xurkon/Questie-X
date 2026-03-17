@@ -96,7 +96,7 @@ end
 -- =========================================================================
 
 local function XXH32(str, seed)
-    local len = #str
+    local len = string.len(str)
     seed = band(seed or 0, U32_MASK)
 
     local h32
@@ -283,7 +283,7 @@ end
 
 local function XXH64_small(str, seed)
     -- Specialized fast path for len <= 16 (avoids extra branching/loops)
-    local len = #str
+    local len = string.len(str)
     local h_hi, h_lo = 0, band(seed or 0, U32_MASK)
     -- h = seed + P5
     h_hi, h_lo = add64(h_hi, h_lo, P64_5_H, P64_5_L)
@@ -343,7 +343,7 @@ local function XXH64_small(str, seed)
 end
 
 local function XXH64(str, seed)
-    local len = #str
+    local len = string.len(str)
     if len <= 16 then
         return XXH64_small(str, seed)
     end
@@ -436,7 +436,7 @@ local function XXH64(str, seed)
     end
 
     -- 4-byte tail: h ^= (read32 * P1); h = rotl(h, 23) * P2 + P3
-    if index <= #str - 3 then
+    if index <= string.len(str) - 3 then
         local v32 = read_u32_le(str, index)
         local m_h, m_l = mul_u32_const64(v32, P64_1_H, P64_1_L)
         h_hi = bxor(h_hi, m_h); h_lo = bxor(h_lo, m_l)
@@ -447,7 +447,7 @@ local function XXH64(str, seed)
     end
 
     -- 1-byte tails: for each b, h ^= (b * P5); h = rotl(h, 11) * P1
-    while index <= #str do
+    while index <= string.len(str) do
         local b = sbyte(str, index)
         local m_h, m_l = mul_u32_const64(b, P64_5_H, P64_5_L)
         h_hi = bxor(h_hi, m_h); h_lo = bxor(h_lo, m_l)
@@ -477,8 +477,8 @@ end
 
 local function to_hex_bytes(str)
     local t = {}
-    for i = 1, #str do
-        t[#t + 1] = string.format("%02X", sbyte(str, i))
+    for i = 1, string.len(str) do
+        t[table.getn(t) + 1] = string.format("%02X", sbyte(str, i))
     end
     return table.concat(t, " ")
 end
@@ -486,7 +486,7 @@ end
 local function parse_hex_bytes(hex)
     local out = {}
     for byte in string.gmatch(hex, "%x%x") do
-        out[#out + 1] = string.char(tonumber(byte, 16))
+        out[table.getn(out) + 1] = string.char(tonumber(byte, 16))
     end
     return table.concat(out)
 end

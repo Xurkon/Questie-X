@@ -122,3 +122,5 @@ QuestieDB._itemAdapterQueryOrder = {}
 for key, id in pairs(QuestieDB.itemKeys) do
     QuestieDB._itemAdapterQueryOrder[id] = key
 end
+
+-- itemData is nil until a DB plugin sets it

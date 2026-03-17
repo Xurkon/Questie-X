@@ -17,10 +17,6 @@ local QuestieQuestBlacklist = QuestieLoader:ImportModule("QuestieQuestBlacklist"
 local QuestieNPCBlacklist = QuestieLoader:ImportModule("QuestieNPCBlacklist")
 ---@type QuestieItemBlacklist
 local QuestieItemBlacklist = QuestieLoader:ImportModule("QuestieItemBlacklist")
----@type HardcoreBlacklist
-local HardcoreBlacklist = QuestieLoader:ImportModule("HardcoreBlacklist")
----@type SeasonOfDiscovery
-local SeasonOfDiscovery = QuestieLoader:ImportModule("SeasonOfDiscovery")
 
 ---@type QuestieQuestFixes
 local QuestieQuestFixes = QuestieLoader:ImportModule("QuestieQuestFixes")
@@ -79,8 +75,6 @@ QuestieCorrections.TBC_ONLY = 1 -- Hide only in TBC
 QuestieCorrections.CLASSIC_ONLY = 2 -- Hide only in Classic
 QuestieCorrections.WOTLK_ONLY = 3 -- Hide only in Wotlk
 QuestieCorrections.TBC_AND_WOTLK = 4 -- Hide in TBC and Wotlk
-QuestieCorrections.SOD_ONLY = 5 -- Hide when *not* Season of Discovery; use for SoD-only quests
-QuestieCorrections.HIDE_SOD = 6 -- Hide when Season of Discovery; use to hide quests that are not available in SoD
 QuestieCorrections.CLASSIC_AND_TBC = 7 -- Hide in both Classic and TBC
 
 QuestieCorrections.killCreditObjectiveFirst = {} -- Only used for TBC quests
@@ -93,7 +87,6 @@ local function filterExpansion(values)
     local isClassic = Questie.IsClassic
     local isTBC = Questie.IsTBC
     local isWotlk = Questie.IsWotlk
-    local isSoD = Questie.IsSoD
     for k, v in pairs(values) do
         if v == QuestieCorrections.WOTLK_ONLY then
             if isWotlk then
@@ -115,18 +108,6 @@ local function filterExpansion(values)
             end
         elseif v == QuestieCorrections.TBC_AND_WOTLK then
             if isTBC or isWotlk then
-                values[k] = true
-            else
-                values[k] = nil
-            end
-        elseif v == QuestieCorrections.SOD_ONLY then
-            if not isSoD then
-                values[k] = true
-            else
-                values[k] = nil
-            end
-        elseif v == QuestieCorrections.HIDE_SOD then
-            if isSoD then
                 values[k] = true
             else
                 values[k] = nil
@@ -188,11 +169,6 @@ do
             addOverride(QuestieDB.objectDataOverrides, QuestieWotlkObjectFixes:LoadFactionFixes())
         end
 
-        -- Season of Discovery Corrections
-        if Questie.IsSoD then
-            addOverride(QuestieDB.questDataOverrides, SeasonOfDiscovery:LoadFactionQuestFixes())
-        end
-
         QuestieCorrections.questItemBlacklist = filterExpansion(QuestieItemBlacklist:Load())
         QuestieCorrections.questNPCBlacklist = filterExpansion(QuestieNPCBlacklist:Load())
         QuestieCorrections.hiddenQuests = filterExpansion(QuestieQuestBlacklist:Load())
@@ -218,13 +194,6 @@ do
             end
         end
 
-        -- Hardcore Blacklist
-        if (Questie.IsHardcore) then
-            for id, _ in pairs(HardcoreBlacklist:Load()) do
-                QuestieCorrections.hiddenQuests[id] = true
-            end
-        end
-
         if QuestieCompat.Is335 then QuestieCompat.LoadBlacklists() end
 
         if Questie.db.profile.showEventQuests then
@@ -245,6 +214,7 @@ end
 ---@param noOverwrites true? Do not overwrite existing values
 ---@param noNewEntries true? Do not create new entries in the database
 local _LoadCorrections = function(databaseTableName, corrections, reversedKeys, validationTables, noOverwrites, noNewEntries)
+    if not QuestieDB[databaseTableName] then return end
     for id, data in pairs(corrections) do
         for key, value in pairs(data) do
             -- Create the id if missing unless noNewEntries is set
@@ -271,39 +241,30 @@ end
 
 ---@param validationTables table? Only used by the CI validation scripts to validate the corrections against the original database values and find irrelevant corrections
 function QuestieCorrections:Initialize(validationTables)
-    QuestieQuestFixes:LoadMissingQuests()
+    if QuestieQuestFixes and QuestieQuestFixes.LoadMissingQuests then
+        QuestieQuestFixes:LoadMissingQuests()
+    end
 
     -- Classic Corrections
-    _LoadCorrections("questData", QuestieClassicQuestReputationFixes:Load(), QuestieDB.questKeysReversed, validationTables)
-    _LoadCorrections("questData", QuestieQuestFixes:Load(), QuestieDB.questKeysReversed, validationTables)
-    _LoadCorrections("npcData", QuestieNPCFixes:Load(), QuestieDB.npcKeysReversed, validationTables)
-    _LoadCorrections("itemData", QuestieItemFixes:Load(), QuestieDB.itemKeysReversed, validationTables)
-    _LoadCorrections("objectData", QuestieObjectFixes:Load(), QuestieDB.objectKeysReversed, validationTables)
+    if QuestieClassicQuestReputationFixes then _LoadCorrections("questData", QuestieClassicQuestReputationFixes:Load(), QuestieDB.questKeysReversed, validationTables) end
+    if QuestieQuestFixes   then _LoadCorrections("questData",  QuestieQuestFixes:Load(),   QuestieDB.questKeysReversed, validationTables) end
+    if QuestieNPCFixes     then _LoadCorrections("npcData",    QuestieNPCFixes:Load(),     QuestieDB.npcKeysReversed,   validationTables) end
+    if QuestieItemFixes    then _LoadCorrections("itemData",   QuestieItemFixes:Load(),    QuestieDB.itemKeysReversed,  validationTables) end
+    if QuestieObjectFixes  then _LoadCorrections("objectData", QuestieObjectFixes:Load(),  QuestieDB.objectKeysReversed, validationTables) end
 
-    if Questie.IsTBC or Questie.IsWotlk then
-        _LoadCorrections("questData", QuestieTBCQuestFixes:Load(), QuestieDB.questKeysReversed, validationTables)
-        _LoadCorrections("npcData", QuestieTBCNpcFixes:Load(), QuestieDB.npcKeysReversed, validationTables)
-        _LoadCorrections("itemData", QuestieTBCItemFixes:Load(), QuestieDB.itemKeysReversed, validationTables)
-        _LoadCorrections("objectData", QuestieTBCObjectFixes:Load(), QuestieDB.objectKeysReversed, validationTables)
+    if Questie.IsTBC or Questie.IsWotlk or QuestieCompat.Is335 then
+        if QuestieTBCQuestFixes  then _LoadCorrections("questData",  QuestieTBCQuestFixes:Load(),  QuestieDB.questKeysReversed, validationTables) end
+        if QuestieTBCNpcFixes    then _LoadCorrections("npcData",    QuestieTBCNpcFixes:Load(),    QuestieDB.npcKeysReversed,   validationTables) end
+        if QuestieTBCItemFixes   then _LoadCorrections("itemData",   QuestieTBCItemFixes:Load(),   QuestieDB.itemKeysReversed,  validationTables) end
+        if QuestieTBCObjectFixes then _LoadCorrections("objectData", QuestieTBCObjectFixes:Load(), QuestieDB.objectKeysReversed, validationTables) end
     end
 
-    if Questie.IsWotlk then
-        _LoadCorrections("questData", QuestieWotlkQuestFixes:Load(), QuestieDB.questKeysReversed, validationTables)
-        _LoadCorrections("npcData", QuestieWotlkNpcFixes:LoadAutomatics(), QuestieDB.npcKeysReversed, validationTables)
-        _LoadCorrections("npcData", QuestieWotlkNpcFixes:Load(), QuestieDB.npcKeysReversed, validationTables)
-        _LoadCorrections("itemData", QuestieWotlkItemFixes:Load(), QuestieDB.itemKeysReversed, validationTables)
-        _LoadCorrections("objectData", QuestieWotlkObjectFixes:Load(), QuestieDB.objectKeysReversed, validationTables)
-    end
-
-    if Questie.IsSoD then
-        _LoadCorrections("questData", SeasonOfDiscovery:LoadBaseQuests(), QuestieDB.questKeysReversed, validationTables)
-        _LoadCorrections("questData", SeasonOfDiscovery:LoadQuests(), QuestieDB.questKeysReversed, validationTables)
-        _LoadCorrections("npcData", SeasonOfDiscovery:LoadBaseNPCs(), QuestieDB.npcKeysReversed, validationTables)
-        _LoadCorrections("npcData", SeasonOfDiscovery:LoadNPCs(), QuestieDB.npcKeysReversed, validationTables)
-        _LoadCorrections("itemData", SeasonOfDiscovery:LoadBaseItems(), QuestieDB.itemKeysReversed, validationTables)
-        _LoadCorrections("itemData", SeasonOfDiscovery:LoadItems(), QuestieDB.itemKeysReversed, validationTables)
-        _LoadCorrections("objectData", SeasonOfDiscovery:LoadBaseObjects(), QuestieDB.objectKeysReversed, validationTables)
-        _LoadCorrections("objectData", SeasonOfDiscovery:LoadObjects(), QuestieDB.objectKeysReversed, validationTables)
+    if Questie.IsWotlk or QuestieCompat.Is335 then
+        if QuestieWotlkQuestFixes  then _LoadCorrections("questData",  QuestieWotlkQuestFixes:Load(),         QuestieDB.questKeysReversed, validationTables) end
+        if QuestieWotlkNpcFixes    then _LoadCorrections("npcData",    QuestieWotlkNpcFixes:LoadAutomatics(), QuestieDB.npcKeysReversed,   validationTables) end
+        if QuestieWotlkNpcFixes    then _LoadCorrections("npcData",    QuestieWotlkNpcFixes:Load(),           QuestieDB.npcKeysReversed,   validationTables) end
+        if QuestieWotlkItemFixes   then _LoadCorrections("itemData",   QuestieWotlkItemFixes:Load(),          QuestieDB.itemKeysReversed,  validationTables) end
+        if QuestieWotlkObjectFixes then _LoadCorrections("objectData", QuestieWotlkObjectFixes:Load(),        QuestieDB.objectKeysReversed, validationTables) end
     end
 
     --- Corrections that apply to all versions
@@ -312,6 +273,7 @@ function QuestieCorrections:Initialize(validationTables)
     if QuestieCompat.Is335 then QuestieCompat.LoadCorrections(_LoadCorrections, validationTables) end
 
     local patchCount = 0
+    if type(QuestieDB.questData) == "table" then
     for _, quest in pairs(QuestieDB.questData) do
         if (not quest[QuestieDB.questKeys.requiredRaces]) or quest[QuestieDB.questKeys.requiredRaces] == 0 then
             -- check against questgiver
@@ -349,6 +311,7 @@ function QuestieCorrections:Initialize(validationTables)
             end
         end
     end
+    end -- type(questData) == "table"
 
     QuestieCorrections:MinimalInit()
 

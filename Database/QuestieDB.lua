@@ -1166,8 +1166,30 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
         if questId == 0 then
             Questie:Error("[QuestieDB.GetQuest] rawdata is nil for questID:", questId)
             print(debugstack())
+            return nil
         end
-        return nil
+        -- Build a minimal live-fallback quest from the quest log so the tracker still works
+        local logEntry = QuestLogCache.GetQuest(questId)
+        if not logEntry then return nil end
+        local fallback = {
+            Id             = questId,
+            name           = logEntry.title or tostring(questId),
+            level          = logEntry.level or 0,
+            questLevel     = logEntry.level or 0,
+            requiredLevel  = 0,
+            zoneOrSort     = 0,
+            questFlags     = 0,
+            specialFlags   = 0,
+            Starts         = { CreatureStarts = {}, ObjectStarts = {}, ItemStarts = {} },
+            Finisher       = { Type = "monster", Id = 0, Name = "" },
+            Objectives     = {},
+            ObjectiveData  = {},
+            ExtraObjectives= {},
+            _isLogFallback = true,
+            isComplete     = (logEntry.isComplete == 1),
+        }
+        _QuestieDB.questCache[questId] = fallback
+        return fallback
     end
 
     ---@class Quest
@@ -1435,10 +1457,14 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
                 local spawnList = {}
 
                 for _, ref in pairs(o[5]) do
-                    for k, v in pairs(_QuestieQuest.objectiveSpawnListCallTable[ref[1]](ref[2], specialObjective)) do
-                        -- we want to be able to override the icon in the corrections (e.g. Questie.ICON_TYPE_OBJECT on objects instead of Questie.ICON_TYPE_LOOT)
-                        v.Icon = o[2]
-                        spawnList[k] = v
+                    local callFn = _QuestieQuest.objectiveSpawnListCallTable[ref[1]]
+                    local spawnResult = callFn and callFn(ref[2], specialObjective)
+                    if spawnResult then
+                        for k, v in pairs(spawnResult) do
+                            -- we want to be able to override the icon in the corrections (e.g. Questie.ICON_TYPE_OBJECT on objects instead of Questie.ICON_TYPE_LOOT)
+                            v.Icon = o[2]
+                            spawnList[k] = v
+                        end
                     end
                 end
 
@@ -1712,7 +1738,9 @@ function _QuestieDB:DeleteGatheringNodes()
     local objectSpawnsKey = QuestieDB.objectKeys.spawns
     for i=1, #prune do
         local id = prune[i]
-        QuestieDB.objectData[id][objectSpawnsKey] = nil
+        if QuestieDB.objectData[id] then
+            QuestieDB.objectData[id][objectSpawnsKey] = nil
+        end
     end
 end
 

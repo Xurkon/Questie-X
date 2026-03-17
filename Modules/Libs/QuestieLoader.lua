@@ -106,10 +106,10 @@ end
 
 -- The only public class except for Questie
 ---@class QuestieLoader
-QuestieLoader = {}
+QuestieLoader = QuestieLoader or {}
 
 
-local modules = {}
+local modules = (QuestieLoader._modules) or {}
 
 QuestieLoader._modules = modules -- store reference so modules can be iterated for profiling
 

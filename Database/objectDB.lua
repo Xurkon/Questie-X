@@ -38,3 +38,5 @@ QuestieDB._objectAdapterQueryOrder = {}
 for key, id in pairs(QuestieDB.objectKeys) do
     QuestieDB._objectAdapterQueryOrder[id] = key
 end
+
+-- objectData is nil until a DB plugin sets it

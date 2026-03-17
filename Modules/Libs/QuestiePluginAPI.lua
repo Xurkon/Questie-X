@@ -2,6 +2,20 @@
 local QuestiePluginAPI = QuestieLoader:CreateModule("QuestiePluginAPI")
 
 QuestiePluginAPI.registeredPlugins = {}
+QuestiePluginAPI.loadedDBFlavor    = nil   -- set by the first DB plugin that calls FinishLoading
+
+--- Returns true if at least one DB plugin has fully loaded.
+---@return boolean
+function QuestiePluginAPI:IsAnyPluginLoaded()
+    for _ in pairs(self.registeredPlugins) do return true end
+    return false
+end
+
+--- Returns the flavor key of the loaded DB plugin ("WotLK", "Classic", "TBC", "Turtle", "Ascension", etc.)
+---@return string|nil
+function QuestiePluginAPI:GetLoadedFlavor()
+    return self.loadedDBFlavor
+end
 
 ---@class QuestiePlugin
 local QuestiePlugin = {}
@@ -181,7 +195,8 @@ function QuestiePlugin:InjectUiMapData(customUiMapData)
 end
 
 --- Signals that the plugin has finished loading. This automatically cleans up necessary caches.
-function QuestiePlugin:FinishLoading()
+---@param flavorKey string|nil  Optional flavor label e.g. "WotLK", "Classic", "Turtle"
+function QuestiePlugin:FinishLoading(flavorKey)
     local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
     if not QuestieDB then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestiePluginAPI] Plugin '" .. self.name .. "' FinishLoading failed: QuestieDB module not found.")
@@ -195,5 +210,40 @@ function QuestiePlugin:FinishLoading()
     if QuestieDB.autoBlacklist then
         QuestieDB.autoBlacklist = {}
     end
+
+    if flavorKey then
+        QuestiePluginAPI.loadedDBFlavor = flavorKey
+    elseif not QuestiePluginAPI.loadedDBFlavor then
+        QuestiePluginAPI.loadedDBFlavor = self.name
+    end
+
     Questie:Debug(Questie.DEBUG_INFO, "[QuestiePluginAPI] Plugin '" .. self.name .. "' finished loading successfully.")
+end
+
+--- Injects XP-per-level data used by QuestieXP. The table must be keyed by level number.
+---@param xpTable table  { [level] = xp_required, ... }
+function QuestiePlugin:InjectXpData(xpTable)
+    if type(xpTable) ~= "table" then return end
+    local QuestXP = QuestieLoader:ImportModule("QuestieXP")
+    if not QuestXP then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestiePluginAPI] Plugin '" .. self.name .. "': InjectXpData — QuestieXP module not loaded, skipping.")
+        return
+    end
+    QuestXP.db = xpTable
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestiePluginAPI] Plugin '" .. self.name .. "' injected XP data (" .. tostring(#xpTable) .. " levels).")
+end
+
+--- Applies expansion-specific correction tables that are stored in QuestieDB
+--- correction globals (set by correction files loaded by the plugin TOC).
+--- Call this AFTER InjectDatabase calls and BEFORE FinishLoading.
+function QuestiePlugin:InjectCorrections()
+    local QuestieCorrections = QuestieLoader:ImportModule("QuestieCorrections")
+    if not QuestieCorrections then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestiePluginAPI] Plugin '" .. self.name .. "': InjectCorrections — QuestieCorrections module not loaded, skipping.")
+        return
+    end
+    if QuestieCorrections.ApplyAll then
+        QuestieCorrections:ApplyAll()
+    end
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestiePluginAPI] Plugin '" .. self.name .. "' applied corrections.")
 end

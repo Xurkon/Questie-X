@@ -1,4 +1,4 @@
----@class QuestieWotlkItemFixes
+﻿---@class QuestieWotlkItemFixes
 local QuestieWotlkItemFixes = QuestieLoader:CreateModule("QuestieWotlkItemFixes")
 local _QuestieWotlkItemFixes = {}
 
@@ -734,6 +734,7 @@ function QuestieWotlkItemFixes:Load()
 end
 
 function _QuestieWotlkItemFixes:InsertMissingItemIds()
+    if not QuestieDB.itemData then return end
     -- Boost quest items
     QuestieDB.itemData[199335] = {} -- Teleport Scroll: Menethil Harbor
     QuestieDB.itemData[199336] = {} -- Teleport Scroll: Stormwind Harbor

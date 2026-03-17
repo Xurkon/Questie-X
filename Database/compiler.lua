@@ -345,13 +345,23 @@ readers["extraobjectives"] = function(stream)
     if count > 0 then
         local ret = {}
         for i=1,count do
-            ret[i] = {
+            local entry = {
                 readers["spawnlist"](stream),
                 stream:ReadInt24(),
                 stream:ReadShortString(),
                 stream:ReadInt24(),
                 readers["reflist"](stream)
             }
+            local condCount = stream:ReadByte()
+            if condCount > 0 then
+                local conds = {}
+                for _=1,condCount do
+                    local k = stream:ReadShortString()
+                    conds[k] = stream:ReadInt24()
+                end
+                entry[6] = conds
+            end
+            ret[i] = entry
         end
         return ret
     end
@@ -663,6 +673,18 @@ QuestieDBCompiler.writers = {
                 stream:WriteShortString(data[3]) -- description
                 stream:WriteInt24(data[4] or 0) -- objective index (or 0)
                 QuestieDBCompiler.writers["reflist"](stream, data[5] or {})
+                local conds = data[6]
+                if type(conds) == "table" then
+                    local n = 0
+                    for _ in pairs(conds) do n = n + 1 end
+                    stream:WriteByte(n)
+                    for k, v in pairs(conds) do
+                        stream:WriteShortString(k)
+                        stream:WriteInt24(v)
+                    end
+                else
+                    stream:WriteByte(0)
+                end
             end
         else
             stream:WriteByte(0)
@@ -792,6 +814,11 @@ skippers["extraobjectives"] = function(stream)
         stream._pointer = stream:ReadShort() + stream._pointer
         stream._pointer = stream._pointer + 3
         reflistSkipper(stream)
+        local condCount = stream:ReadByte()
+        for _=1,condCount do
+            stream._pointer = stream:ReadShort() + stream._pointer -- skip ShortString key
+            stream._pointer = stream._pointer + 3                  -- skip Int24 value
+        end
     end
 end
 
@@ -1029,6 +1056,14 @@ function QuestieDBCompiler:Compile()
         return
     end
 
+    local hasData = type(QuestieDB.questData) == "string"
+                 or type(QuestieDB.questData) == "table"
+                 or (type(QuestieDB.questDataOverrides) == "table" and next(QuestieDB.questDataOverrides) ~= nil)
+    if not hasData then
+        Questie:Print("|cFFFF4444[Questie-X]|r No database plugin loaded. Install a DB plugin for your server — see Options \226\134\146 Database.")
+        return
+    end
+
     QuestieDBCompiler._isCompiling = true -- some unknown addon that is popular in china causes player_logged_in event to fire many times which triggers db compile multiple times
 
     QuestieDBCompiler.startTime = GetTime()
@@ -1087,10 +1122,6 @@ function QuestieDBCompiler:ValidateNPCs()
             elseif type(a) == "table" then
                 if not equals(a, (b or {})) then
                     Questie:Warning("Nonmatching table at " .. key .. "  " .. id .. " for ID: ".. npcId)
-                    DevTools_Dump({
-                        ["Compiled Table:"] = a,
-                        ["Base Table:"] = b
-                    })
                     return
                 end
             end
@@ -1135,10 +1166,6 @@ function QuestieDBCompiler:ValidateObjects()
             elseif type(a) == "table" then
                 if not equals(a, (b or {})) then
                     Questie:Warning("Nonmatching table at " .. key .. "  " .. id  .. " for ID: ".. objectId)
-                    DevTools_Dump({
-                        ["Compiled Table:"] = a,
-                        ["Base Table:"] = b
-                    })
                     return
                 end
             end
@@ -1252,10 +1279,6 @@ function QuestieDBCompiler:ValidateItems()
             elseif type(a) == "table" then
                 if not equals(a, (b or {})) then
                     Questie:Warning("Nonmatching table at " .. key .. "  " .. id  .. " for ID: ".. itemId)
-                    DevTools_Dump({
-                        ["Compiled Table:"] = a,
-                        ["Base Table:"] = b
-                    })
                     return
                 end
             end
@@ -1291,7 +1314,7 @@ function QuestieDBCompiler:ValidateQuests()
     local function getTbcLevel(questLevel, requiredLevel, playerLevel)
         if (questLevel == -1) then
             local level = playerLevel
-            if (requiredLevel > level) then
+            if (requiredLevel and requiredLevel > level) then
                 questLevel = requiredLevel;
             else
                 questLevel = level;
@@ -1349,10 +1372,6 @@ function QuestieDBCompiler:ValidateQuests()
 
                 if not equals(a, (b or {})) then
                     Questie:Warning("Nonmatching table at " .. key .. "  " .. id .. " for ID: ".. questId)
-                    DevTools_Dump({
-                        ["Compiled Table:"] = a,
-                        ["Base Table:"] = b
-                    })
                     return
                 end
             end

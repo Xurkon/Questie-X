@@ -402,7 +402,7 @@ function Townsfolk:PopulateVendors(itemList, existingTable, restrictLevel)
                         if not flagCache[vendorId] then
                             flagCache[vendorId] = flags
                         end
-                        if bitband(flags, QuestieDB.npcFlags.VENDOR) == QuestieDB.npcFlags.VENDOR then
+                        if flags and bitband(flags, QuestieDB.npcFlags.VENDOR) == QuestieDB.npcFlags.VENDOR then
                             tbl[vendorId] = true
                         end
                     end

@@ -253,6 +253,7 @@ end
 ---@param level number @The quest level
 ---@param blizzLike boolean @True = [40+], false/nil = [40D/R]
 function QuestieLib:GetQuestString(questId, name, level, blizzLike)
+    if not name then return tostring(questId) end
     local questType, questTag = QuestieDB.GetQuestTagInfo(questId)
 
     if questType and questTag then

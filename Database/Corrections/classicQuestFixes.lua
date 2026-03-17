@@ -16,6 +16,7 @@ local l10n = QuestieLoader:ImportModule("l10n")
 -- https://github.com/Questie/Questie/wiki/Corrections
 
 function QuestieQuestFixes:LoadMissingQuests()
+    if not QuestieDB.questData then return end
     QuestieDB.questData[5640] = {} -- Desperate Prayer
     QuestieDB.questData[5678] = {} -- Arcane Feedback
 

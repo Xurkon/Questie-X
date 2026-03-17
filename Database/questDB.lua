@@ -126,3 +126,6 @@ QuestieDB._questAdapterQueryOrder = {}
 for key, id in pairs(QuestieDB.questKeys) do
     QuestieDB._questAdapterQueryOrder[id] = key
 end
+
+-- questData is nil until a DB plugin sets it (e.g. Questie-X-WotLKDB)
+-- LoadDatabase checks truthiness before calling loadstring; {} would be truthy and crash it

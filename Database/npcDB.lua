@@ -95,3 +95,5 @@ QuestieDB._npcAdapterQueryOrder = {}
 for key, id in pairs(QuestieDB.npcKeys) do
     QuestieDB._npcAdapterQueryOrder[id] = key
 end
+
+-- npcData is nil until a DB plugin sets it

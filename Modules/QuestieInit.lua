@@ -94,15 +94,31 @@ local C_Timer = QuestieCompat.C_Timer
 
 local coYield = coroutine.yield
 
+local function _dbStats(t)
+    if type(t) ~= "table" then return "type=" .. type(t) end
+    local n, minK, maxK = 0, math.huge, 0
+    for k in pairs(t) do
+        n = n + 1
+        if type(k) == "number" then
+            if k < minK then minK = k end
+            if k > maxK then maxK = k end
+        end
+    end
+    return "count=" .. n .. " minID=" .. (minK == math.huge and 0 or minK) .. " maxID=" .. maxK
+end
+
 local function loadFullDatabase()
     print("\124cFF4DDBFF [1/9] " .. l10n("Loading database") .. "...")
 
     QuestieInit:LoadBaseDB()
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] After LoadBaseDB  - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag]                     obj:"  .. _dbStats(QuestieDB.objectData) .. " item:" .. _dbStats(QuestieDB.itemData))
 
     print("\124cFF4DDBFF [2/9] " .. l10n("Applying database corrections") .. "...")
 
     coYield()
     QuestieCorrections:Initialize()
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] After Corrections - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
 
     print("\124cFF4DDBFF [3/9] " .. l10n("Initializing townfolks") .. "...")
     coYield()
@@ -221,9 +237,12 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
         l10n("Questie DB has updated!") ..
         "\124r\124cFFFF6F22 " .. l10n("Data is being processed, this may take a few moments and cause some lag..."))
         loadFullDatabase()
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] Before Compile - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
         QuestieDBCompiler:Compile()
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] After  Compile - quest:type=" .. type(QuestieDB.questData) .. " npc:type=" .. type(QuestieDB.npcData))
         dbCompiled = true
     else
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] DB was CACHED (no recompile)")
         l10n:Initialize()
         coYield()
         QuestieCorrections:MinimalInit()
@@ -388,17 +407,48 @@ end
 
 
 function QuestieInit:LoadDatabase(key)
-    if QuestieDB[key] then
+    if type(QuestieDB[key]) == "string" then
         coYield()
-        QuestieDB[key] = loadstring(QuestieDB[key]) -- load the table from string (returns a function)
+        local fn, loadErr = loadstring(QuestieDB[key])
         coYield()
-        QuestieDB[key] = QuestieDB[key]()           -- execute the function (returns the table)
+        if fn then
+            local ok, result = pcall(fn)
+            if ok then
+                QuestieDB[key] = result
+            else
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] ERROR executing('" .. key .. "'): " .. tostring(result))
+                QuestieDB[key] = nil
+            end
+        else
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] ERROR loadstring('" .. key .. "'): " .. tostring(loadErr) .. " | len=" .. string.len(QuestieDB[key] or ""))
+            QuestieDB[key] = nil
+        end
+    elseif type(QuestieDB[key]) == "table" then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[LoadDatabase] '" .. key .. "' already a table (split-file format), skipping loadstring")
     else
         Questie:Debug(Questie.DEBUG_DEVELOP, "Database is missing, this is likely do to era vs tbc: ", key)
+    end
+    if not QuestieDB[key] then
+        QuestieDB[key] = {}
     end
 end
 
 function QuestieInit:LoadBaseDB()
+    local function _pullGlobal(dbKey, globalName)
+        if type(_G[globalName]) == "table" then
+            QuestieDB[dbKey] = _G[globalName]
+            _G[globalName] = nil
+            return true
+        end
+        return false
+    end
+    local _pulled = {
+        quest  = _pullGlobal("questData",  "QuestieX_WotLKDB_quest"),
+        npc    = _pullGlobal("npcData",    "QuestieX_WotLKDB_npc"),
+        object = _pullGlobal("objectData", "QuestieX_WotLKDB_object"),
+        item   = _pullGlobal("itemData",   "QuestieX_WotLKDB_item"),
+    }
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] WotLKDB pull: quest=" .. tostring(_pulled.quest) .. " npc=" .. tostring(_pulled.npc) .. " obj=" .. tostring(_pulled.object) .. " item=" .. tostring(_pulled.item))
     QuestieInit:LoadDatabase("npcData")
     QuestieInit:LoadDatabase("objectData")
     QuestieInit:LoadDatabase("questData")

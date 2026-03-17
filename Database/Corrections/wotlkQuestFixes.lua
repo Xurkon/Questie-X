@@ -1,4 +1,4 @@
----@class QuestieWotlkQuestFixes
+﻿---@class QuestieWotlkQuestFixes
 local QuestieWotlkQuestFixes = QuestieLoader:CreateModule("QuestieWotlkQuestFixes")
 local _QuestieWotlkQuestFixes = {}
 
@@ -7049,6 +7049,7 @@ function QuestieWotlkQuestFixes:Load()
 end
 
 function _QuestieWotlkQuestFixes:InsertMissingQuestIds()
+    if not QuestieDB.questData then return end
 
     -- Alliance boosted quests
     QuestieDB.questData[70395] = {} -- A New Beginning

@@ -978,6 +978,11 @@ function QuestieQuest:UpdateObjectiveNotes(quest)
         return
     end
 
+    -- Fallback quests have no static DB data; their objectives are managed in PopulateQuestLogInfo
+    if quest._isLogFallback then
+        return
+    end
+
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest] UpdateObjectiveNotes:", quest.Id)
     for objectiveIndex, objective in pairs(quest.Objectives) do
         local result, err = xpcall(QuestieQuest.PopulateObjective, ERR_FUNCTION, QuestieQuest, quest, objectiveIndex,
@@ -988,7 +993,7 @@ function QuestieQuest:UpdateObjectiveNotes(quest)
         end
     end
 
-    if next(quest.SpecialObjectives) then
+    if quest.SpecialObjectives and next(quest.SpecialObjectives) then
         for _, objective in pairs(quest.SpecialObjectives) do
             local result, err = xpcall(QuestieQuest.PopulateObjective, ERR_FUNCTION, QuestieQuest, quest, 0, objective,
                 true)
@@ -1639,7 +1644,27 @@ function QuestieQuest:PopulateQuestLogInfo(quest)
     -- Live fallback quests (no static DB entry) manage their own Objectives.
     -- Their per-objective Update() functions read directly from QuestLogCache.
     if quest._isLogFallback then
+        -- Seed objectives from QuestLogCache on first call
+        if not next(quest.Objectives) then
+            local cachedObjectives = QuestLogCache.GetQuestObjectives(quest.Id)
+            if cachedObjectives then
+                for index, obj in pairs(cachedObjectives) do
+                    quest.Objectives[index] = {
+                        questId     = quest.Id,
+                        Index       = index,
+                        Description = obj.text or "",
+                        Type        = obj.type or "monster",
+                        Collected   = obj.numFulfilled or 0,
+                        Needed      = obj.numRequired or 0,
+                        Completed   = obj.finished or false,
+                        isUpdated   = false,
+                        Update      = _QuestieQuest.ObjectiveUpdate,
+                    }
+                end
+            end
+        end
         for _, obj in pairs(quest.Objectives) do
+            obj.isUpdated = false
             obj:Update()
         end
         return true

@@ -11,9 +11,9 @@
 ## Notes-esES: Ayundante de misión
 ## Notes-ptBR: Ajudante de missão
 ## Notes-frFR: Assistant de quête
-## Version: 1.1.4
+## Version: 1.2.2
 ## RequiredDeps:
-## OptionalDeps: Ace3, CallbackHandler-1.0, HereBeDragons, LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0, LibStub, LibUIDropDownMenu
+## OptionalDeps: Ace3, CallbackHandler-1.0, HereBeDragons, LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0, LibStub, LibUIDropDownMenu, Questie-X-WotLKDB, Questie-X-ClassicDB, Questie-X-TBCDB, Questie-X-TurtleDB, Questie-X-AscensionDB, Questie-X-EbonholdDB
 ## SavedVariables: QuestieConfig, QuestieLearnerDB
 ## SavedVariablesPerCharacter: QuestieConfigCharacter
 ## X-Curse-Project-ID: 334372
@@ -28,6 +28,7 @@ Modules\Libs\QuestiePluginAPI.lua
 
 # COMPATIBILITY
 Modules\QuestieCompat.lua
+Libs\LibStub\LibStub.lua
 Compat\embeds.xml
 Libs\XXH_Lua_Lib\XXH_Lua_Lib.lua
 
@@ -43,22 +44,15 @@ Modules\Libs\MessageHandler.lua
 
 #Quest XP
 Database\QuestXP\QuestieXP.lua
-Database\QuestXP\DB\xpDB-wotlk.lua
 
 # stream module (used by DB)
 Modules\QuestieStream.lua
 
 # Zones
 Database\Zones\zoneTables.lua
-
 Database\Zones\zoneDB.lua
 
-
-# Databases
-Database\Wotlk\wotlkItemDB.lua
-Database\Wotlk\wotlkNpcDB.lua
-Database\Wotlk\wotlkObjectDB.lua
-Database\Wotlk\wotlkQuestDB.lua
+# Core Database schema (data injected by DB plugins)
 Database\QuestieDB.lua
 Database\questDB.lua
 Database\objectDB.lua
@@ -67,38 +61,35 @@ Database\itemDB.lua
 Database\Constants.lua
 Database\MeetingStones.lua
 
-
-
-# Corrections
+# Corrections framework (expansion-specific fixes loaded by DB plugins)
 Database\Corrections\AutoTableUpdates.lua
 Database\Corrections\QuestieCorrections.lua
 Database\Corrections\QuestieItemBlacklist.lua
 Database\Corrections\QuestieNPCBlacklist.lua
 Database\Corrections\QuestieQuestBlacklist.lua
-#Database\Corrections\SoMPhases.lua
 Database\Corrections\QuestieEvent.lua
 
-# Automatic General Corrections
-Database\Corrections\Automatic\itemStartFixes.lua
-Database\Corrections\Automatic\classicQuestReputationFixes.lua
-
-# Classic Corrections
+# Classic corrections (always loaded; _LoadCorrections skips missing IDs gracefully)
 Database\Corrections\classicQuestFixes.lua
 Database\Corrections\classicNPCFixes.lua
 Database\Corrections\classicItemFixes.lua
 Database\Corrections\classicObjectFixes.lua
 
-# TBC Corrections
+# TBC corrections (gated by Questie.IsTBC / Questie.IsWotLK inside QuestieCorrections)
 Database\Corrections\tbcQuestFixes.lua
 Database\Corrections\tbcNPCFixes.lua
 Database\Corrections\tbcItemFixes.lua
 Database\Corrections\tbcObjectFixes.lua
 
-# Wotlk Corrections
+# WotLK corrections (gated by Questie.IsWotLK inside QuestieCorrections)
 Database\Corrections\wotlkQuestFixes.lua
 Database\Corrections\wotlkNPCFixes.lua
 Database\Corrections\wotlkItemFixes.lua
 Database\Corrections\wotlkObjectFixes.lua
+
+# Automatic General Corrections
+Database\Corrections\Automatic\itemStartFixes.lua
+Database\Corrections\Automatic\classicQuestReputationFixes.lua
 
 # Compiler
 Database\compiler.lua
@@ -109,10 +100,6 @@ Localization\Translations\Translations.xml
 
 Localization\lookups\lookupQuestCategories.lua
 Localization\lookups\lookupZones.lua
-Localization\lookups\Wotlk\lookupItems\lookupItems.xml
-Localization\lookups\Wotlk\lookupNpcs\lookupNpcs.xml
-Localization\lookups\Wotlk\lookupObjects\lookupObjects.xml
-Localization\lookups\Wotlk\lookupQuests\lookupQuests.xml
 
 # Libs
 Modules\Libs\QuestieLib.lua
@@ -169,7 +156,6 @@ Modules\Map\QuestieMap.lua
 Modules\Map\QuestieMapUtils.lua
 Modules\Map\HBDHooks.lua
 Modules\Map\WeaponMasterSkills.lua
-
 
 # Quest
 Modules\Quest\AvailableQuests.lua
@@ -246,5 +232,4 @@ Modules\QuestieProfiler.lua
 
 # Main
 Questie.lua
-
 

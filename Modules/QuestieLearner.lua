@@ -743,6 +743,17 @@ end
 -- Combat log: kill tracking with GUID-keyed cache
 ------------------------------------------------------------------------
 
+-- Returns true if npcId is referenced in any active quest objective (monster kill type)
+local function IsQuestObjectiveNpc(npcId)
+    if not QuestieDB then return false end
+    -- Check if this NPC appears in DB as a quest NPC (spawns field [7] or quest objectives)
+    local dbNpc = QuestieDB.GetNPC and QuestieDB:GetNPC(npcId)
+    if dbNpc then return true end
+    -- Check npcDataOverrides (from learner or plugins)
+    if QuestieDB.npcDataOverrides and QuestieDB.npcDataOverrides[npcId] then return true end
+    return false
+end
+
 function QuestieLearner:OnCombatLogEvent(...)
     local args = { CombatLogGetCurrentEventInfo and CombatLogGetCurrentEventInfo() or ... }
     local event    = args[2]
@@ -762,15 +773,13 @@ function QuestieLearner:OnCombatLogEvent(...)
         end
     end
 
-    -- Fallback: hex-prefix scan for creatures not in cache
-    if not npcId and destGUID and string.sub(destGUID, 1, 2) == "0x" then
-        local prefix = string.upper(string.sub(destGUID, 3, 6))
-        if CREATURE_HEX_PREFIXES[prefix] then
-            -- We don't have the ID but we have a name; nothing useful to record
-        end
-    end
-
     if not npcId or npcId <= 0 then return end
+
+    -- Only record kill coordinates for NPCs that are known quest objective targets
+    -- (already in DB, or previously cached from quest interaction).
+    -- This avoids polluting the learner with every random mob kill.
+    local isCached = _Learner.guidNpcCache and _Learner.guidNpcCache[destGUID] ~= nil
+    if not isCached and not IsQuestObjectiveNpc(npcId) then return end
 
     -- TTL cleanup: drop entries older than 10 minutes
     if _Learner.guidNpcCache then

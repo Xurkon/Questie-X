@@ -434,6 +434,13 @@ function QuestieInit:LoadDatabase(key)
 end
 
 function QuestieInit:LoadBaseDB()
+    local function _countTable(t)
+        if type(t) ~= "table" then return 0 end
+        local n = 0
+        for _ in pairs(t) do n = n + 1 end
+        return n
+    end
+
     local function _pullGlobal(dbKey, globalName)
         if type(_G[globalName]) == "table" then
             QuestieDB[dbKey] = _G[globalName]
@@ -442,6 +449,15 @@ function QuestieInit:LoadBaseDB()
         end
         return false
     end
+
+    -- Count BEFORE pulling so we have accurate numbers even after the globals are cleared
+    local _counts = {
+        QUEST  = _countTable(_G["QuestieX_WotLKDB_quest"]),
+        NPC    = _countTable(_G["QuestieX_WotLKDB_npc"]),
+        OBJECT = _countTable(_G["QuestieX_WotLKDB_object"]),
+        ITEM   = _countTable(_G["QuestieX_WotLKDB_item"]),
+    }
+
     local _pulled = {
         quest  = _pullGlobal("questData",  "QuestieX_WotLKDB_quest"),
         npc    = _pullGlobal("npcData",    "QuestieX_WotLKDB_npc"),
@@ -449,6 +465,10 @@ function QuestieInit:LoadBaseDB()
         item   = _pullGlobal("itemData",   "QuestieX_WotLKDB_item"),
     }
     Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] WotLKDB pull: quest=" .. tostring(_pulled.quest) .. " npc=" .. tostring(_pulled.npc) .. " obj=" .. tostring(_pulled.object) .. " item=" .. tostring(_pulled.item))
+
+    -- Persist counts so WotLKDB Loader.lua can populate plugin.stats after PLAYER_LOGIN
+    _G.QuestieX_WotLKDB_Counts = _counts
+
     QuestieInit:LoadDatabase("npcData")
     QuestieInit:LoadDatabase("objectData")
     QuestieInit:LoadDatabase("questData")

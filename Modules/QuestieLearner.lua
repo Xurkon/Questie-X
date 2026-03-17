@@ -688,6 +688,32 @@ function QuestieLearner:OnQuestAccepted(questLogIndex, questId)
     self:LearnQuest(questId, data)
 end
 
+-- Fires when any quest is turned in (covers auto-complete quests that skip the QUEST_COMPLETE dialog)
+function QuestieLearner:OnQuestTurnedIn(questId, xpReward, moneyReward)
+    if not self:IsEnabled() then return end
+    if not Questie.db.global.learnedData.settings.learnQuests then return end
+    if not questId or questId <= 0 then return end
+
+    local data = {}
+    -- Capture turn-in NPC/object while the gossip unit is still set
+    local npcGuid = UnitGUID("npc")
+    if npcGuid then
+        local entityId, unitType = GetIdAndTypeFromGUID(npcGuid)
+        if entityId and entityId > 0 then
+            local entityName = UnitName("npc")
+            if unitType == "GameObject" then
+                self:LearnQuestGiver(questId, entityId, 2, false)
+                self:LearnObject(entityId, entityName)
+            elseif unitType == "Creature" or unitType == "Vehicle" then
+                self:LearnQuestGiver(questId, entityId, 1, false)
+                local npcFlags = UnitNPCFlags and UnitNPCFlags("npc") or 2
+                self:LearnNPC(entityId, entityName, nil, nil, npcFlags, nil)
+            end
+        end
+    end
+    self:LearnQuest(questId, data)
+end
+
 -- Loot handler with async GetItemInfo retry
 function QuestieLearner:OnLootOpened()
     if not self:IsEnabled() then return end
@@ -715,10 +741,13 @@ function QuestieLearner:OnLootOpened()
                 if itemId and itemId > 0 then
                     local itemName, _, _, itemLevel, requiredLevel, _, _, _, _, _, _, itemClassId, itemSubClassId = GetItemInfo(link)
                     if itemName then
-                        self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
-                        if npcId then self:LearnItemDrop(itemId, npcId) end
+                        -- Only record quest items (class 12)
+                        if itemClassId == 12 then
+                            self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
+                            if npcId then self:LearnItemDrop(itemId, npcId) end
+                        end
                     else
-                        -- GetItemInfo returned nil (item not in cache); queue for retry
+                        -- GetItemInfo returned nil; queue for retry (class check happens on retry)
                         table.insert(_Learner.pendingItemLinks, { link = link, itemId = itemId, npcId = npcId })
                     end
                 end
@@ -751,8 +780,11 @@ function QuestieLearner:OnGetItemInfoReceived(itemId)
         if entry.itemId == itemId then
             local itemName, _, _, itemLevel, requiredLevel, _, _, _, _, _, _, itemClassId, itemSubClassId = GetItemInfo(entry.link)
             if itemName then
-                self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
-                if entry.npcId then self:LearnItemDrop(itemId, entry.npcId) end
+                -- Only record quest items (class 12)
+                if itemClassId == 12 then
+                    self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
+                    if entry.npcId then self:LearnItemDrop(itemId, entry.npcId) end
+                end
             else
                 table.insert(remaining, entry) -- still not cached, keep
             end
@@ -830,6 +862,7 @@ function QuestieLearner:RegisterEvents()
     frame:RegisterEvent("PLAYER_TARGET_CHANGED")
     frame:RegisterEvent("QUEST_DETAIL")
     frame:RegisterEvent("QUEST_COMPLETE")
+    frame:RegisterEvent("QUEST_TURNED_IN")
     frame:RegisterEvent("QUEST_ACCEPTED")
     frame:RegisterEvent("LOOT_OPENED")
     frame:RegisterEvent("GOSSIP_SHOW")
@@ -845,6 +878,8 @@ function QuestieLearner:RegisterEvents()
             self:OnQuestDetail()
         elseif event == "QUEST_COMPLETE" then
             self:OnQuestComplete()
+        elseif event == "QUEST_TURNED_IN" then
+            self:OnQuestTurnedIn(...)
         elseif event == "QUEST_ACCEPTED" then
             self:OnQuestAccepted(...)
         elseif event == "LOOT_OPENED" then

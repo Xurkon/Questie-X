@@ -29,6 +29,14 @@ Questie-X is a fork of the original [Questie](https://github.com/Questie/Questie
 
 Questie-X uses a **two-part install**: the core engine plus one database plugin matching your server.
 
+> **⚠️ Upgrading from the old architecture (Questie-335 / PE-Questie / any pre-v1.1.4 Questie fork)?**
+> The old addon loaded its database from files inside the core folder. Questie-X loads data from a separate plugin addon. These two systems are **not compatible** — you must fully remove the old installation before installing Questie-X, or you will get conflicts, duplicate modules, and data errors.
+>
+> **Before you install:**
+> 1. Open `Interface/AddOns/` and **delete** any folder named `Questie`, `Questie-335`, `PE-Questie`, `Questie-X` (if updating), or any other Questie variant.
+> 2. Delete any associated saved-variable files: `WTF/Account/<name>/SavedVariables/Questie*.lua`.
+> 3. Then follow the fresh install steps below.
+
 ### Step 1 — Install Questie-X Core
 
 1. [Download](https://github.com/Xurkon/Questie-X/releases/latest) the latest `Questie-X` release `.zip`.
@@ -48,12 +56,12 @@ Download and install the plugin for your server from the table below:
 | Your Server | Plugin | Repository |
 |-------------|--------|------------|
 | WotLK 3.3.5 (most private servers) | **Questie-X-WotLKDB** | [Xurkon/Questie-X-WotLKDB](https://github.com/Xurkon/Questie-X-WotLKDB) |
-| Classic Era / Vanilla 1.14.x | **Questie-X-ClassicDB** | *(coming soon)* |
+| Classic Era / Vanilla 1.14.x | **Questie-X-ClassicDB** | [Xurkon/Questie-X-ClassicDB](https://github.com/Xurkon/Questie-X-ClassicDB) *(coming soon)* |
 | TBC 2.5.x | **Questie-X-TBCDB** | [Xurkon/Questie-X-TBCDB](https://github.com/Xurkon/Questie-X-TBCDB) |
 | Turtle WoW | **Questie-X-TurtleDB** | *(coming soon)* |
 | Project Ascension | **Questie-X-AscensionDB** | [Xurkon/Questie-X-AscensionDB](https://github.com/Xurkon/Questie-X-AscensionDB) |
 | Project Ebonhold | **Questie-X-EbonholdDB** | [Xurkon/Questie-X-EbonholdDB](https://github.com/Xurkon/Questie-X-EbonholdDB) |
-| Other / Unknown | Use WotLKDB as a baseline; use `/questie learner` to fill gaps | — |
+| Other / Unknown | Use WotLKDB as a baseline; use QuestieLearner to fill gaps | — |
 
 Extract the plugin zip and drop the folder into `Interface/AddOns/` **alongside** `Questie-X`:
 
@@ -78,7 +86,7 @@ Plugins are separate addons that extend Questie-X with custom quest, NPC, object
 | Plugin | Server | Repository |
 |--------|--------|------------|
 | **Questie-X-WotLKDB** | WotLK 3.3.5 / most private servers | [Xurkon/Questie-X-WotLKDB](https://github.com/Xurkon/Questie-X-WotLKDB) |
-| **Questie-X-ClassicDB** | Classic Era / Vanilla 1.14.x | *(coming soon)* |
+| **Questie-X-ClassicDB** | Classic Era / Vanilla 1.14.x | [Xurkon/Questie-X-ClassicDB](https://github.com/Xurkon/Questie-X-ClassicDB) *(coming soon)* |
 | **Questie-X-TBCDB** | TBC 2.5.x | [Xurkon/Questie-X-TBCDB](https://github.com/Xurkon/Questie-X-TBCDB) |
 | **Questie-X-TurtleDB** | Turtle WoW | *(coming soon)* |
 | **Questie-X-AscensionDB** | [Project Ascension](https://ascension.gg) | [Xurkon/Questie-X-AscensionDB](https://github.com/Xurkon/Questie-X-AscensionDB) |
@@ -191,6 +199,80 @@ If your server uses non-standard map data, enable **Options → Advanced → Use
 - Fixed `ZoneDB` crash when encountering maps with no AreaId mapping (e.g. continent-level maps on Kalimdor).
 - Fixed `GetObject` returning nil for Item Finishers misidentified as GameObject Finishers on custom servers.
 - Fixed `NPC 30514` (Thorim listen bunny) missing fallback spawn data for Sibling Rivalry turn-in.
+
+---
+
+## QuestieLearner
+
+QuestieLearner is Questie-X's built-in crowdsourced database system. When you interact with the world — accepting quests, killing objectives, looting items, interacting with objects — Questie-X silently records any data it doesn't already have (spawn locations, NPC IDs, item IDs, coordinates). That data is saved locally per-realm and can be shared with other players or submitted back to improve the database for everyone.
+
+This is the primary tool for filling in gaps on **custom or lightly-documented servers** where the base database plugin doesn't have complete coverage.
+
+### What It Learns Automatically
+
+QuestieLearner hooks into several in-game events and records data passively without any user action:
+
+| Event | What is learned |
+|-------|----------------|
+| Quest accept / turn-in | Quest ID → quest giver/finisher NPC position and ID |
+| Kill objective progress | NPC ID → spawn zone and coordinates at time of kill |
+| Object interaction | Object ID → spawn zone and coordinates |
+| Item loot | Item ID → which NPC/object it dropped from |
+| Mouseover | NPC/object name resolved from server for any entity you hover |
+
+Data for quest IDs that exist in the base database is merged into the existing entry. Data for unknown quest IDs (custom server content not yet in the plugin) is stored separately under a per-realm key so it doesn't contaminate the base data.
+
+### Sharing Data with Nearby Players
+
+If other players nearby are also running Questie-X, learned entries are broadcast automatically via the `QUESTIE_LEARNER` addon message channel. You receive their data and they receive yours — no configuration required. This means a group running the same zone will collectively fill in the map faster than any single player could alone.
+
+Received data is validated before merging: entries missing zone ID, coordinates, or NPC name are discarded.
+
+### Exporting Your Data
+
+Once you've accumulated learned data you want to share (e.g. to contribute back to the plugin repository or send to another player), export it from the **Options → Database** tab:
+
+1. Open Questie-X options: `/questie` or click the minimap button → **Options**.
+2. Go to the **Database** tab.
+3. Click **Export**. A compressed, base64-encoded string is generated and shown in the text box.
+4. Copy the entire string (Ctrl+A → Ctrl+C).
+
+The export string encodes your full `QuestieLearnerDB` for the current realm using LibDeflate. It is safe to paste into a Discord message, GitHub issue, or pastebin.
+
+### Importing Data
+
+To load data exported by another player or provided by the community:
+
+1. Open Questie-X options → **Database** tab.
+2. Paste the export string into the import text box.
+3. Click **Import**. Questie-X decodes and merges the data into your local database immediately — no reload required.
+
+Imported entries follow the same validation rules as received broadcast entries. Conflicts (same NPC ID with different coordinates) are resolved by keeping the entry with the most data fields populated.
+
+### Cleaning Up Stale Data
+
+Over time, the learned database can accumulate entries from old patches, removed NPCs, or incorrect data from unreliable sources. To prune it:
+
+1. Open Questie-X options → **Database** tab.
+2. Click **Cleanup**. This removes entries where the NPC/object/item no longer exists in the current loaded database or has coordinates that fall outside any known zone boundary.
+
+### Contributing Learned Data to a Plugin
+
+If you've accumulated significant data for a custom server that doesn't yet have a plugin (or has an incomplete one):
+
+1. Export your data as above.
+2. Open an issue or pull request on the relevant plugin repository (e.g. [Questie-X-AscensionDB](https://github.com/Xurkon/Questie-X-AscensionDB)) and paste your export string.
+3. The maintainer can decode it with the same Import function and integrate confirmed entries into the next release.
+
+### Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/questie` | Open the options panel (navigate to Database tab) |
+| `/ql export` | Print the export string directly to chat for quick copy |
+| `/ql import <string>` | Import a data string without opening the options panel |
+| `/ql clear` | Clear all learned data for the current realm |
+| `/ql status` | Print a summary of how many entries have been learned per data type |
 
 ---
 

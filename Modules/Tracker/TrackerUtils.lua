@@ -763,19 +763,36 @@ function TrackerUtils:GetSortedQuestIds()
         end
 
         -- Fallback for quests not in QuestieDB (e.g. custom server quests).
-        -- Build a minimal quest object from the quest log so the tracker can still display it.
-        -- Stored in TrackerUtils._fallbackQuests, NOT in currentQuestlog, so other modules
-        -- (Arrow, QuestieQuest) don't try to call DB-only methods on it.
-        if type(quest) ~= "table" or not quest.IsComplete or not quest.Objectives then
-            local fallback = TrackerUtils._fallbackQuests[qid]
-            if not fallback then
-                fallback = TrackerUtils:BuildFallbackQuest(qid)
-                if fallback then
-                    TrackerUtils._fallbackQuests[qid] = fallback
+        -- Two cases: QuestLogCache already put a partial object in currentQuestlog
+        -- (has _isLogFallback=true, isComplete=bool, but NO IsComplete method),
+        -- or the slot is missing entirely. Both need a working IsComplete method.
+        if type(quest) ~= "table" or type(quest.IsComplete) ~= "function" then
+            if type(quest) == "table" and quest._isLogFallback then
+                -- Patch IsComplete method onto the existing QuestLogCache object so
+                -- QuestieMap and other modules that read currentQuestlog also get it.
+                local capturedId = qid
+                quest.IsComplete = function(self)
+                    for i = 1, GetNumQuestLogEntries() do
+                        local _, _, _, _, isHeader, _, isCompleteFlag, _, logId = GetQuestLogTitle(i)
+                        if not isHeader and logId == capturedId then
+                            return (isCompleteFlag == 1 or isCompleteFlag == true) and 1 or 0
+                        end
+                    end
+                    return 0
                 end
-            end
-            if fallback then
-                quest = fallback
+                QuestiePlayer.currentQuestlog[qid] = quest
+            else
+                -- No object at all — build one from the log
+                local fallback = TrackerUtils._fallbackQuests[qid]
+                if not fallback then
+                    fallback = TrackerUtils:BuildFallbackQuest(qid)
+                    if fallback then
+                        TrackerUtils._fallbackQuests[qid] = fallback
+                    end
+                end
+                if fallback then
+                    quest = fallback
+                end
             end
         end
 

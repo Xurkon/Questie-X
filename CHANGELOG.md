@@ -1,5 +1,167 @@
 # Changelog
 
+## v1.2.5 — Ebonhold DB Plugin Load Fix
+
+> Fixed a fatal load-time crash in all four Ebonhold DB files caused by calling `GetRealmName()` and `QuestieLoader:CreateModule()` at file scope (before WoW's API is fully available). Switched to plain global table population; realm-gating and injection remain safely deferred to `EbonholdLoader.lua`'s `PLAYER_LOGIN` handler.
+
+### Questie-X-EbonholdDB — DB File Refactor
+
+- **[Root cause]** `EbonholdNpcDB.lua`, `EbonholdObjectDB.lua`, `EbonholdItemDB.lua`, and `EbonholdQuestDB.lua` each started with `if GetRealmName() ~= "Rogue-Lite (Live)" then return end` followed immediately by `QuestieLoader:CreateModule("EbonholdDB")`. Both calls execute at file-load time (during `LoadAddOn()`), before `PLAYER_LOGIN` has fired and before `QuestieLoader` is guaranteed to be populated. This produced `attempt to index global 'QuestieLoader' (a nil value)` on every load.
+- **[Ebonhold/EbonholdNpcDB.lua]** Removed file-level realm guard and `QuestieLoader:CreateModule` call. Replaced with `_G.EbonholdDB = _G.EbonholdDB or {}` and a local alias. Data is now populated unconditionally into the global at load time.
+- **[Ebonhold/EbonholdObjectDB.lua]** Same fix as NpcDB.
+- **[Ebonhold/EbonholdItemDB.lua]** Same fix as NpcDB.
+- **[Ebonhold/EbonholdQuestDB.lua]** Same fix as NpcDB.
+- **[EbonholdLoader.lua]** Replaced `QuestieLoader:ImportModule("EbonholdDB")` with `_G.EbonholdDB or {}`. The loader's existing `PLAYER_LOGIN` handler with realm check remains intact as the sole gate for injection into Questie-X.
+
+---
+
+## v1.2.2 — DB Plugin Pull Architecture & Compiler Hardening
+
+> Overhauled the DB plugin loading pipeline from a fragile push/bridge pattern to a direct pull at init time. Fixed a long-standing compiler bug that silently dropped `extraobjective` condition data. Removed all `DevTools_Dump` calls that were printing raw Lua table syntax to chat during validation.
+
+### DB Plugin Architecture — Pull Pattern
+
+- **[QuestieInit:LoadBaseDB]** Replaced the broken `QuestieX_CoreDB` bridge mechanism with a direct pull of DB plugin globals at init time. `LoadBaseDB()` now checks for `QuestieX_WotLKDB_quest`, `QuestieX_WotLKDB_npc`, `QuestieX_WotLKDB_object`, and `QuestieX_WotLKDB_item` globals and assigns them directly to `QuestieDB.*Data` before calling `LoadDatabase()` on each key. Globals are cleared (`= nil`) after transfer to free memory. This approach is unconditionally reliable — it runs inside Questie-X's own init coroutine at a known point in the load sequence, with no dependency on cross-addon module references.
+- **[QuestieInit:LoadBaseDB — diagnostics]** Replaced the old "WotLKDB addon loaded / SplitLoaded flag / quest global" diagnostic lines with new pull-result lines: `WotLKDB pull: quest=true/false npc=true/false obj=true/false item=true/false` and per-key type/length lines, making it immediately obvious whether the DB plugin data was absorbed.
+- **[QuestieDB.lua]** Removed `_G.QuestieX_CoreDB = QuestieDB` export. The CoreDB bridge global is no longer needed and was never reliably accessible from DB plugin Loader.lua files due to module-registry timing.
+
+### DB Plugin — Loader.lua Simplification
+
+- **[Questie-X-WotLKDB/Loader.lua]** Stripped the entire data-transfer block (the `if not QuestieX_CoreDB then return end` guard and subsequent `QuestieX_CoreDB.*Data = ...` assignments). The file is now purely a `PLAYER_LOGIN` handler that: registers the plugin with `QuestiePluginAPI`, counts and logs the absorbed quest/NPC/object/item table sizes via `QuestieDB` module reference, and emits a `DEBUG_CRITICAL` warning if `questData` is still empty after init (indicating a load-order or split-file failure). This makes Loader.lua a diagnostic and registration stub rather than a critical data pathway.
+
+### Compiler — extraobjectives Conditions Field
+
+- **[compiler.lua — writer `extraobjectives`]** Added serialization of `data[6]` (conditions table). After writing the 5 existing fields per entry (spawnlist, icon, description, objectiveIndex, reflist), the writer now writes a `WriteByte(n)` count followed by `WriteShortString(key)` + `WriteInt24(value)` for each condition entry. If `data[6]` is nil or not a table, writes `0` (no conditions).
+- **[compiler.lua — reader `extraobjectives`]** Added deserialization of the conditions field. After reading the 5 fields per entry, reads a `ReadByte()` condition count; if non-zero, reconstructs the conditions table as `{[key]=value}` and assigns it to `entry[6]`. If count is 0, `entry[6]` is left nil (no allocation).
+- **[compiler.lua — skipper `extraobjectives`]** Updated to skip condition bytes: reads the condition count byte, then for each condition skips a `ShortString` (`ReadShort() + _pointer`) and an `Int24` (`_pointer + 3`).
+- **[Root cause]** `QuestieDB.lua:1443` reads `HideCondition = o[6]` from each extraobjective at quest-object build time. Before this fix, compiled data always produced `o[6] = nil`, so `ShouldHideObjective()` never activated. The `hideIfQuestActive` / `hideIfQuestComplete` conditions defined in corrections (e.g. quest 12924 — "Pick up 'You Can't Miss Him'") were silently ignored post-compilation. Validation also flagged the mismatch on every load, which triggered `DevTools_Dump` to flood chat with raw Lua table syntax.
+
+### Compiler — DevTools_Dump Removal
+
+- **[compiler.lua — ValidateNPCs / ValidateObjects / ValidateItems / ValidateQuests]** Removed all four `DevTools_Dump({["Compiled Table:"]=a, ["Base Table:"]=b})` calls from the table-mismatch branches in each validator. These calls serialized full Lua tables to the chat frame as raw source code, which appeared to users as a syntax error or data corruption. The preceding `Questie:Warning(...)` line in each branch already captures the mismatch identity (key, field id, entry ID). `DevTools_Dump` is a retail WoW debugging API unavailable or unreliable on private/custom servers and should not be called in production validation paths.
+
+---
+
+## v1.2.4 — Retail/SoD Corrections Removed
+
+> Deleted all Season of Discovery, Season of Mastery, and Hardcore correction files. These were retail-specific and never referenced by the TOC. Cleaned up all dead imports, constants, and code branches they left behind in `QuestieCorrections.lua`.
+
+### Files Deleted
+
+- **`Database/Corrections/SeasonOfDiscovery.lua`** — SoD base quest/NPC/object/item overrides
+- **`Database/Corrections/sodQuestFixes.lua`** — SoD quest corrections
+- **`Database/Corrections/sodNPCFixes.lua`** — SoD NPC corrections
+- **`Database/Corrections/sodItemFixes.lua`** — SoD item corrections
+- **`Database/Corrections/sodObjectFixes.lua`** — SoD object corrections
+- **`Database/Corrections/Automatic/sodBaseQuests.lua`** — SoD auto-generated base quests
+- **`Database/Corrections/Automatic/sodBaseNPCs.lua`** — SoD auto-generated base NPCs
+- **`Database/Corrections/Automatic/sodBaseItems.lua`** — SoD auto-generated base items
+- **`Database/Corrections/Automatic/sodBaseObjects.lua`** — SoD auto-generated base objects
+- **`Database/Corrections/HardcoreBlacklist.lua`** — Hardcore mode quest blacklist
+- **`Database/Corrections/SoMPhases.lua`** — Season of Mastery phase data (was already commented out in TOC)
+
+### QuestieCorrections.lua Cleanup
+
+- **Imports removed**: `HardcoreBlacklist` and `SeasonOfDiscovery` `ImportModule` calls deleted.
+- **Constants removed**: `SOD_ONLY = 5` and `HIDE_SOD = 6` deleted from the expansion filter enum. Remaining constants (`TBC_ONLY`, `CLASSIC_ONLY`, `WOTLK_ONLY`, `TBC_AND_WOTLK`, `CLASSIC_AND_TBC`) are unchanged.
+- **`filterExpansion`**: removed the `isSoD` local and the two `SOD_ONLY` / `HIDE_SOD` branches.
+- **`MinimalInit`**: removed the `if Questie.IsSoD then addOverride(...SeasonOfDiscovery:LoadFactionQuestFixes()...) end` block.
+- **`MinimalInit`**: removed the `if Questie.IsHardcore then HardcoreBlacklist:Load() end` block.
+- **`Initialize`**: removed the 8-call `if Questie.IsSoD then SeasonOfDiscovery:LoadBase*/Load*() end` block covering quest/NPC/item/object base data and fixes.
+- **TOC**: removed the commented-out `#Database\Corrections\SoMPhases.lua` line.
+
+---
+
+## v1.2.3 — Diagnostics Refactor & Monolithic DB Removal
+
+> Moved all DB init diagnostics out of chat and into the Develop debug level. Replaced hardcoded quest-ID spot-checks with generic per-table stats. Removed the stale monolithic database folders that have been fully superseded by the DB plugin architecture.
+
+### DB Init Diagnostics — DEVELOP Level
+
+- **[QuestieInit — _dbStats helper]** Added a local `_dbStats(t)` function that returns `count=N minID=X maxID=Y` for any table. Used at every checkpoint so diagnostic output is meaningful for any server's dataset without hardcoding expansion-specific IDs.
+- **[QuestieInit — _dbDiag table removed]** Eliminated the `local _dbDiag = {}` accumulator table and the deferred `C_Timer.After(6, ...)` print block. Diagnostics are now emitted inline as `Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] ...")` calls at the exact point each stage completes, making them visible in real time when Develop logging is enabled rather than appearing as a delayed flood 6 seconds after load.
+- **[QuestieInit:LoadBaseDB]** Pull result line (`WotLKDB pull: quest=... npc=... obj=... item=...`) converted to `DEBUG_DEVELOP`.
+- **[QuestieInit:loadFullDatabase]** Four diagnostic checkpoints converted to `DEBUG_DEVELOP` with generic `_dbStats` output: After LoadBaseDB (quest + npc on one line, obj + item on the next), After Corrections (quest + npc), Before Compile (quest + npc), After Compile (type= of each key, confirming binary serialization completed).
+- **[QuestieInit:LoadDatabase — error paths]** Two `_dbDiag` push lines for `loadstring` parse errors and `pcall` execution errors converted to `DEBUG_DEVELOP`.
+- **[QuestieInit.Stages[1] — cached path]** `DB was CACHED (no recompile)` line converted to `DEBUG_DEVELOP`.
+
+### DB Plugin — Loader.lua Premature Count Check Removed
+
+- **[Questie-X-WotLKDB/Loader.lua]** Removed the `countTable` / quest+npc+obj+item count block and the `DEBUG_CRITICAL` "questData is empty" warning that fired at `PLAYER_LOGIN`. This check always reported zero counts because it ran before `QuestieInit`'s loading coroutine had started. The `[DBDiag]` lines (now at `DEBUG_DEVELOP`) are the correct place to verify data absorption. Loader.lua is now a minimal registration stub: registers the plugin with `QuestiePluginAPI`, prints the confirmed registration line, and calls `plugin:FinishLoading`.
+
+### Monolithic Database Folders Removed
+
+- **[Database/Classic/]** Deleted `classicQuestDB.lua` (1.0 MB), `classicNpcDB.lua` (2.0 MB), `classicObjectDB.lua` (1.0 MB), `classicItemDB.lua` (2.1 MB). These monolithic files were never listed in `Questie-X.toc` and would have been silently skipped by WoW 3.3.5 anyway due to the ~1 MB per-file parse limit. Classic data is now provided exclusively by the ClassicDB plugin.
+- **[Database/TBC/]** Deleted `tbcQuestDB.lua` (1.6 MB), `tbcNpcDB.lua` (3.5 MB), `tbcObjectDB.lua` (1.6 MB), `tbcItemDB.lua` (3.3 MB). TBC data is now provided exclusively by the TBCDB plugin.
+- **[Database/Wotlk/]** Deleted `wotlkQuestDB.lua` (2.3 MB), `wotlkNpcDB.lua` (5.2 MB), `wotlkObjectDB.lua` (2.0 MB), `wotlkItemDB.lua` (4.4 MB). WotLK data is now provided exclusively by the WotLKDB plugin via the split-file mechanism. Combined removal: ~30 MB of dead weight from the core repository.
+
+---
+
+## v1.1.7 - v1.2.1 — DB Loading Diagnostics & Fallback Tracker
+
+> Ongoing stability pass. Hardened the entire database loading pipeline, wired up the live quest-log fallback for quests missing from the DB, and fixed a chain of nil-guard crashes across corrections, map, and tracker modules.
+
+### Database Loading
+
+- **[LoadDatabase]** Replaced bare `loadstring()` / `fn()` calls with proper error capture (`local fn, err = loadstring(...)` + `pcall(fn)`). Errors now print to chat with the failing key and string length instead of silently falling back to `{}`.
+- **[Compiler]** Fixed `hasData` guard in `QuestieDBCompiler:Compile()` — now accepts `type == "table"` in addition to `"string"`, preventing the compiler from silently aborting when `LoadDatabase` has already decoded the string to a table before compilation.
+- **[DB Architecture]** Identified and documented that loading multiple DB plugins simultaneously (e.g. WotLKDB + ClassicDB) causes `questData` overwrites. On WotLK servers only `Questie-X-WotLKDB` should be enabled alongside the server-specific plugin.
+
+### Live Fallback for Missing Quests
+
+- **[QuestieDB.GetQuest]** When `rawdata` is nil, a minimal quest object is now built from `QuestLogCache` instead of returning nil. The fallback populates `name`, `level`, `isComplete`, and an empty `Objectives` table with `_isLogFallback = true`.
+- **[QuestieQuest.PopulateQuestLogInfo]** Fallback quests now seed their `Objectives` table from `QuestLogCache.GetQuestObjectives` on first call, then call `obj:Update()` on each to refresh progress from the live quest log.
+- **[QuestieQuest.UpdateObjectiveNotes]** Fallback quests now early-return to skip the static DB spawn-list path (`objectiveSpawnListCallTable`), preventing "Corrupted objective data" errors caused by nil NPC IDs.
+
+### Crash Fixes
+
+- **[QuestieLib.GetQuestString]** Guard against nil `name` — returns quest ID string as fallback (tracker error for quest 10482).
+- **[QuestieDB spawn loop]** Nil-guard on `objectData[id]` before clearing spawn keys in prune loop (attempt to index nil at QuestieDB:1715).
+- **[QuestieDB.GetSpawnList]** Wrapped `objectiveSpawnListCallTable` result in nil-guard before iterating — prevents `pairs(nil)` when a referenced NPC/object is missing from the loaded DB.
+- **[QuestieQuestPrivates killcredit]** `monster(killCreditNpcId)` result nil-guarded before indexing — prevents crash for kill-credit NPCs absent from npcData.
+- **[Townsfolk]** `flags` nil-guard added before `bitband(flags, VENDOR)` call (bad argument #1 to bitband).
+- **[QuestieQuest.UpdateObjectiveNotes]** `quest.SpecialObjectives` nil-guard before `next()` call.
+- **[QuestieQuest.PopulateQuestLogInfo]** `quest.SpecialObjectives` nil-guard before `next()` call.
+
+### Junctions & Dev Environment
+
+- Created `mklink /J` junctions for `Questie-X-TBCDB` and `Questie-X-ClassicDB` into Ebonhold AddOns folder for live in-game testing.
+
+---
+
+## v1.1.6 — Minimap Icon & P2 Stability
+
+> Minimap button overhaul and second pass of P2 bug fixes.
+
+### Minimap
+
+- **[MinimapIcon]** Replaced default minimap icon with custom `mmapIcon.tga`. Applied `SetMask` for circular clip on WotLK+ clients with `SetTexCoord` fallback for 1.12 vanilla clients.
+
+### Bug Fixes (P2)
+
+- **[QuestieServer]** Restored plugin status UI, `C_QuestLog`/`C_Map` shims, and `QuestieServer` init sequence.
+- **[QuestieLoader]** Corrected `select()` polyfill to not use `arg` table.
+- **[TOC]** Added XXH load to TBC toc and guarded `plugin.stats` nil access.
+
+---
+
+## v1.1.5 — QuestieLearner Expansion & Database Options
+
+> Major expansion of the data-learning system and a new Database options tab.
+
+### QuestieLearner
+
+- **[QuestieLearner]** Expanded hook coverage: quest accept, objective kill, object interaction, and item loot all feed learned data back to the appropriate DB table.
+- **[QuestieLearnerComms]** Broadcast/receive learned entries to nearby Questie-X users via addon messages.
+- **[Custom Server Detection]** Learned data for unrecognised quest IDs is stored under a per-realm key in `QuestieLearnerDB` to separate retail/private/custom content.
+- **[DEVELOP logging]** Debug messages emitted on every successful learn and every failed-to-learn event.
+
+### Options — Database Tab
+
+- **[QuestieOptionsDatabase]** New "Database" tab with Import / Export (LibDeflate base64 encoded strings) and Cleanup (prune stale learned entries) functionality.
+
+---
+
 ## v1.1.4 — Questie-X: Plugin Architecture & Maintenance Update
 
 > This release marks the official rebranding from **Questie-335** / **PE-Questie** to **Questie-X** and introduces the new plugin architecture. Additionally, this version includes significant UI enhancements, core compatibility refinements for legacy clients, and critical database corrections.

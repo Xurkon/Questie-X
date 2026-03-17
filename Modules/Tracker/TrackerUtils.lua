@@ -770,6 +770,7 @@ function TrackerUtils:GetSortedQuestIds()
             if type(quest) == "table" and quest._isLogFallback then
                 -- Patch IsComplete method onto the existing QuestLogCache object so
                 -- QuestieMap and other modules that read currentQuestlog also get it.
+                -- Also ensure fields QuestieMap iterates exist to avoid pairs(nil) crashes.
                 local capturedId = qid
                 quest.IsComplete = function(self)
                     for i = 1, GetNumQuestLogEntries() do
@@ -780,6 +781,9 @@ function TrackerUtils:GetSortedQuestIds()
                     end
                     return 0
                 end
+                if not quest.Objectives then quest.Objectives = {} end
+                if not quest.SpecialObjectives then quest.SpecialObjectives = {} end
+                if not quest.ExtraObjectives then quest.ExtraObjectives = {} end
                 QuestiePlayer.currentQuestlog[qid] = quest
             else
                 -- No object at all — build one from the log

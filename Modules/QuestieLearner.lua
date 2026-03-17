@@ -648,18 +648,17 @@ function QuestieLearner:OnQuestComplete()
     end
 end
 
--- Fires when a quest is accepted; in 3.3.5 the first (and only) arg IS the questID directly
-function QuestieLearner:OnQuestAccepted(questId)
-    -- Fallback: scan log for an unknown quest in case the server sends log index instead
-    if not questId or questId <= 0 then
-        for i = 1, GetNumQuestLogEntries() do
-            local _, _, _, _, isHeader, _, _, _, id = GetQuestLogTitle(i)
-            if not isHeader and id and id > 0 and not Questie.db.global.learnedData.quests[id] then
-                if not (QuestieDB and QuestieDB.questData and QuestieDB.questData[id]) then
-                    questId = id
-                    break
-                end
-            end
+-- Fires when a quest is accepted.
+-- Ascension 3.3.5 passes the quest log index as the first arg; some builds pass questID directly.
+-- We detect which by checking if the value could be a log index and resolving via GetQuestLogTitle.
+function QuestieLearner:OnQuestAccepted(firstArg)
+    local questId = firstArg
+    local maxLog = GetNumQuestLogEntries and GetNumQuestLogEntries() or 25
+    -- If arg looks like a log index (small int ≤ log size), resolve to quest ID via GetQuestLogTitle
+    if firstArg and firstArg > 0 and firstArg <= maxLog then
+        local resolvedId = select(8, GetQuestLogTitle(firstArg))
+        if resolvedId and resolvedId > 0 then
+            questId = resolvedId
         end
     end
     Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] OnQuestAccepted id=" .. tostring(questId))

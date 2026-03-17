@@ -2375,8 +2375,16 @@ function QuestieTracker:AQW_Insert(index, expire)
             if Questie.IsSoD then
                 QuestieDebugOffer.QuestTracking(questId)
             else
-                Questie:Error("Missing quest " ..
-                    tostring(questId) .. "," .. tostring(expire) .. " during tracker update")
+                -- Quest not in DB — try building a fallback object from the quest log
+                local fallback = TrackerUtils:BuildFallbackQuest(questId)
+                if fallback then
+                    QuestiePlayer.currentQuestlog[questId] = fallback
+                    QuestieCombatQueue:Queue(function()
+                        QuestieTracker:Update()
+                    end)
+                else
+                    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker] Quest " .. tostring(questId) .. " not in DB and not in quest log, skipping")
+                end
             end
         end
     end

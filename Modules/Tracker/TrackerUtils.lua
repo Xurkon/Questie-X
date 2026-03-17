@@ -694,6 +694,54 @@ end
 
 ---@return table sortedQuestIds Table with sorted Quest ID's by Sort Type
 ---@return table questDetails Table with raw quest table from QuestiePlayer.currentQuestLog, percentage completed value per quest, and a "translated" zoneName
+-- Builds a minimal quest-like object from the quest log for quests not in QuestieDB.
+-- Returns nil if the quest is not currently in the quest log.
+function TrackerUtils:BuildFallbackQuest(questId)
+    for i = 1, GetNumQuestLogEntries() do
+        local title, level, _, isHeader, _, isComplete, _, logQuestId = GetQuestLogTitle(i)
+        if not isHeader and logQuestId == questId then
+            -- Parse objectives from the leaderboard
+            local objectives = {}
+            local numObj = GetNumQuestLeaderBoards and GetNumQuestLeaderBoards(i) or 0
+            for j = 1, numObj do
+                local text, _, finished = GetQuestLogLeaderBoard(j, i)
+                if text then
+                    -- Parse "Description: X/Y" or just "Description"
+                    local collected, needed = string.match(text, ":.-(%d+)/(%d+)%s*$")
+                    collected = tonumber(collected) or (finished and 1 or 0)
+                    needed    = tonumber(needed)    or 1
+                    objectives[j] = {
+                        text      = text,
+                        Needed    = needed,
+                        Collected = collected,
+                        Finished  = finished or (collected >= needed),
+                        Type      = "fallback",
+                    }
+                end
+            end
+
+            local zoneId = GetCurrentMapAreaID and GetCurrentMapAreaID() or 0
+
+            local quest = {
+                Id               = questId,
+                name             = title or ("Quest " .. questId),
+                level            = level or 0,
+                zoneOrSort       = zoneId,
+                Objectives       = objectives,
+                SpecialObjectives = {},
+                isFallback       = true,
+            }
+            -- IsComplete must be a method (called as quest:IsComplete())
+            quest.IsComplete = function(self)
+                return (isComplete == 1 or IsQuestFlaggedCompleted(questId)) and 1 or 0
+            end
+
+            return quest
+        end
+    end
+    return nil
+end
+
 function TrackerUtils:GetSortedQuestIds()
     local sortedQuestIds = {}
     local questDetails = {}
@@ -708,6 +756,16 @@ function TrackerUtils:GetSortedQuestIds()
             quest = QuestieDB.GetQuest(qid)
             if quest then
                 QuestiePlayer.currentQuestlog[qid] = quest
+            end
+        end
+
+        -- Fallback for quests not in QuestieDB (e.g. custom server quests).
+        -- Build a minimal quest object from the quest log so the tracker can still display it.
+        if type(quest) ~= "table" or not quest.IsComplete or not quest.Objectives then
+            local fallback = TrackerUtils:BuildFallbackQuest(qid)
+            if fallback then
+                quest = fallback
+                QuestiePlayer.currentQuestlog[qid] = fallback
             end
         end
 

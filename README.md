@@ -56,7 +56,7 @@ Download and install the plugin for your server from the table below:
 | Your Server | Plugin | Repository |
 |-------------|--------|------------|
 | WotLK 3.3.5 (most private servers) | **Questie-X-WotLKDB** | [Xurkon/Questie-X-WotLKDB](https://github.com/Xurkon/Questie-X-WotLKDB) |
-| Classic Era / Vanilla 1.14.x | **Questie-X-ClassicDB** | [Xurkon/Questie-X-ClassicDB](https://github.com/Xurkon/Questie-X-ClassicDB) *(coming soon)* |
+| Classic Era / Vanilla 1.14.x | **Questie-X-ClassicDB** | [Xurkon/Questie-X-ClassicDB](https://github.com/Xurkon/Questie-X-ClassicDB) |
 | TBC 2.5.x | **Questie-X-TBCDB** | [Xurkon/Questie-X-TBCDB](https://github.com/Xurkon/Questie-X-TBCDB) |
 | Turtle WoW | **Questie-X-TurtleDB** | *(coming soon)* |
 | Project Ascension | **Questie-X-AscensionDB** | [Xurkon/Questie-X-AscensionDB](https://github.com/Xurkon/Questie-X-AscensionDB) |
@@ -86,7 +86,7 @@ Plugins are separate addons that extend Questie-X with custom quest, NPC, object
 | Plugin | Server | Repository |
 |--------|--------|------------|
 | **Questie-X-WotLKDB** | WotLK 3.3.5 / most private servers | [Xurkon/Questie-X-WotLKDB](https://github.com/Xurkon/Questie-X-WotLKDB) |
-| **Questie-X-ClassicDB** | Classic Era / Vanilla 1.14.x | [Xurkon/Questie-X-ClassicDB](https://github.com/Xurkon/Questie-X-ClassicDB) *(coming soon)* |
+| **Questie-X-ClassicDB** | Classic Era / Vanilla 1.14.x | [Xurkon/Questie-X-ClassicDB](https://github.com/Xurkon/Questie-X-ClassicDB) |
 | **Questie-X-TBCDB** | TBC 2.5.x | [Xurkon/Questie-X-TBCDB](https://github.com/Xurkon/Questie-X-TBCDB) |
 | **Questie-X-TurtleDB** | Turtle WoW | *(coming soon)* |
 | **Questie-X-AscensionDB** | [Project Ascension](https://ascension.gg) | [Xurkon/Questie-X-AscensionDB](https://github.com/Xurkon/Questie-X-AscensionDB) |

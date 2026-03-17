@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.2.7 — WotLKDB Plugin Stats Fix + Kill Tracking Refinement
+
+### QuestieInit.lua — LoadBaseDB Count Tracking
+
+- **[WotLKDB stats fix]** `LoadBaseDB()` now counts all four data tables (`questData`, `npcData`, `objectData`, `itemData`) **before** clearing the `QuestieX_WotLKDB_*` globals. Counts are stored in `_G.QuestieX_WotLKDB_Counts` for `Loader.lua` to read at `PLAYER_LOGIN`. This resolves WotLKDB showing `Quests:0 NPCs:0 Objects:0 Items:0` in the Advanced options plugin panel.
+
+### QuestieLearner.lua — Kill Coordinate Filtering
+
+- **[Kill tracking scoped to quest NPCs]** `OnCombatLogEvent(UNIT_DIED)` now only records kill coordinates when the killed NPC is either: (a) already present in `QuestieDB` (known quest objective mob), or (b) explicitly present in `_Learner.guidNpcCache` (was targeted or moused over as a known quest giver before the kill). Random mob kills that match neither condition are silently ignored. This prevents the learner from accumulating useless entries for every creature killed while questing.
+- **[Removed dead hex-prefix fallback branch]** The "hex prefix scan for untargeted creatures not in cache" comment block was removed — it was a no-op that could never produce an NPC ID.
+
+### Questie-X-WotLKDB Loader.lua — Plugin Stats Population
+
+- **[Read counts from QuestieX_WotLKDB_Counts]** After `RegisterPlugin("WotLKDB")`, Loader.lua reads the counts global set by `LoadBaseDB()` and assigns them to `plugin.stats.QUEST/NPC/OBJECT/ITEM`. Frees the global after reading. Plugin panel now displays correct totals (e.g., `Quests: 9086`).
+
+### Research Folder
+
+- Added `Research/QuestieLearner-Verification.md` — step-by-step in-game test guide covering all 12 QuestieLearner subsystems (mouseover filter, quest accept/turn-in, kill coords, item loot async retry, object detection, export/import round-trip, plugin panel stats, peer sharing).
+- Added `Research/SessionSummary-2026-03-16.md` — full developer session log covering all architectural decisions, errors, and fixes from the plugin architecture overhaul through the QuestieLearner rewrite.
+
+---
+
 ## v1.2.6 — QuestieLearner Comprehensive Overhaul
 
 > Rewrote QuestieLearner from scratch to fix all known data-capture deficiencies. Adds full quest field coverage, grid-based coordinate clustering, quest-giver-only mouseover filtering, async item-info retry, object loot detection, and live inject-on-import so imported data takes effect without a reload.

@@ -178,8 +178,14 @@ end
 --  [7]  requiredMoney  [8]  zoneOrSort  [12] requiredRaces   [13] requiredClasses
 --  [17] details text   [18] finishText  [19] completedText
 function QuestieLearner:LearnQuest(questId, data)
-    if not self:IsEnabled() then return end
-    if not Questie.db.global.learnedData.settings.learnQuests then return end
+    if not self:IsEnabled() then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] LearnQuest blocked: learner not enabled")
+        return
+    end
+    if not Questie.db.global.learnedData.settings.learnQuests then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] LearnQuest blocked: learnQuests=", tostring(Questie.db.global.learnedData.settings.learnQuests))
+        return
+    end
     if not questId or questId <= 0 then return end
 
     local existing = Questie.db.global.learnedData.quests[questId]
@@ -644,6 +650,7 @@ end
 
 -- Fires after the player clicks Accept; questLogIndex and questId are available here
 function QuestieLearner:OnQuestAccepted(questLogIndex, questId)
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] OnQuestAccepted: idx=" .. tostring(questLogIndex) .. " id=" .. tostring(questId))
     -- Resolve questId from log index if not provided
     if not questId or questId <= 0 then
         if questLogIndex then
@@ -686,6 +693,30 @@ function QuestieLearner:OnQuestAccepted(questLogIndex, questId)
     if zoneId and zoneId > 0 then data[8] = zoneId end
 
     self:LearnQuest(questId, data)
+
+    -- Associate the quest giver: prefer live UnitGUID("npc"), fall back to last gossip entity
+    -- (for Objectives Board quests, GOSSIP_CLOSED fires before QUEST_ACCEPTED so "npc" is nil)
+    local npcGuid = UnitGUID("npc")
+    local giverEntity = nil
+    if npcGuid then
+        local entityId, unitType = GetIdAndTypeFromGUID(npcGuid)
+        if entityId and entityId > 0 then
+            giverEntity = { id = entityId, name = UnitName("npc"), unitType = unitType }
+        end
+    end
+    if not giverEntity and _Learner._lastGossipEntity then
+        giverEntity = _Learner._lastGossipEntity
+    end
+    if giverEntity then
+        if giverEntity.unitType == "GameObject" then
+            self:LearnQuestGiver(questId, giverEntity.id, 2, true)
+            self:LearnObject(giverEntity.id, giverEntity.name)
+        elseif giverEntity.unitType == "Creature" or giverEntity.unitType == "Vehicle" then
+            self:LearnQuestGiver(questId, giverEntity.id, 1, true)
+            local npcFlags = (npcGuid and UnitNPCFlags and UnitNPCFlags("npc")) or 1
+            self:LearnNPC(giverEntity.id, giverEntity.name, nil, nil, npcFlags, nil)
+        end
+    end
 end
 
 -- Fires when any quest is turned in (covers auto-complete quests that skip the QUEST_COMPLETE dialog)
@@ -764,6 +795,9 @@ function QuestieLearner:OnGossipShow()
     if not id or id <= 0 then return end
 
     local name = UnitName("npc")
+    -- Cache the last gossip entity so OnQuestAccepted can associate it after GOSSIP_CLOSED
+    _Learner._lastGossipEntity = { id = id, name = name, unitType = unitType, guid = npcGuid }
+
     if unitType == "GameObject" then
         self:LearnObject(id, name)
     elseif unitType == "Creature" or unitType == "Vehicle" then

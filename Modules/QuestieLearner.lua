@@ -650,20 +650,33 @@ end
 
 -- Fires after the player clicks Accept; questLogIndex and questId are available here
 function QuestieLearner:OnQuestAccepted(questLogIndex, questId)
-    Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] OnQuestAccepted: idx=" .. tostring(questLogIndex) .. " id=" .. tostring(questId))
-    -- Resolve questId from log index if not provided
+    -- 3.3.5 API: GetQuestLogTitle(i) returns title,level,tag,suggestedGroup,isHeader,isCollapsed,isComplete,isDaily,questID
+    -- questID is at position 9; resolve it from the log if the event didn't pass it
     if not questId or questId <= 0 then
         if questLogIndex then
-            local _, _, _, _, _, _, _, id = GetQuestLogTitle(questLogIndex)
-            questId = id
+            questId = select(9, GetQuestLogTitle(questLogIndex))
         end
     end
+    -- Fallback: scan all log entries for the most recently added quest
+    if not questId or questId <= 0 then
+        for i = 1, GetNumQuestLogEntries() do
+            local title, _, _, _, isHeader, _, _, _, id = GetQuestLogTitle(i)
+            if not isHeader and id and id > 0 and not Questie.db.global.learnedData.quests[id] then
+                local dbQuest = QuestieDB and QuestieDB.npcData and QuestieDB.questData and QuestieDB.questData[id]
+                if not dbQuest then
+                    questId = id
+                    break
+                end
+            end
+        end
+    end
+    Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] OnQuestAccepted: idx=" .. tostring(questLogIndex) .. " id=" .. tostring(questId))
     if not questId or questId <= 0 then return end
 
     -- Build data table from quest log entry (richest source)
     local data = {}
     if questLogIndex then
-        local title, level, _, isHeader, _, isComplete, frequency, id = GetQuestLogTitle(questLogIndex)
+        local title, level, _, _, isHeader, _, isComplete, isDaily, id = GetQuestLogTitle(questLogIndex)
         if not isHeader then
             data[1]  = title
             data[5]  = level and level > 0 and level or nil  -- questLevel

@@ -246,6 +246,9 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
         l10n:Initialize()
         coYield()
         QuestieCorrections:MinimalInit()
+        -- DB is cached — LoadBaseDB never runs, so count the WotLKDB globals here
+        -- and push them onto plugin.stats so the Database panel shows correct numbers.
+        QuestieInit:UpdateWotLKDBStats()
     end
 
     local dbCompiledCount = Questie.IsSoD and Questie.db.global.sod.dbCompiledCount or Questie.db.global.dbCompiledCount
@@ -430,6 +433,32 @@ function QuestieInit:LoadDatabase(key)
     end
     if not QuestieDB[key] then
         QuestieDB[key] = {}
+    end
+end
+
+function QuestieInit:UpdateWotLKDBStats()
+    local function _countTable(t)
+        if type(t) ~= "table" then return 0 end
+        local n = 0
+        for _ in pairs(t) do n = n + 1 end
+        return n
+    end
+    local counts = {
+        QUEST  = _countTable(_G["QuestieX_WotLKDB_quest"]),
+        NPC    = _countTable(_G["QuestieX_WotLKDB_npc"]),
+        OBJECT = _countTable(_G["QuestieX_WotLKDB_object"]),
+        ITEM   = _countTable(_G["QuestieX_WotLKDB_item"]),
+    }
+    _G.QuestieX_WotLKDB_Counts = counts
+    local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
+    if QuestiePluginAPI then
+        local wotlkPlugin = QuestiePluginAPI:GetPlugin("WotLKDB")
+        if wotlkPlugin then
+            wotlkPlugin.stats.QUEST  = counts.QUEST
+            wotlkPlugin.stats.NPC    = counts.NPC
+            wotlkPlugin.stats.OBJECT = counts.OBJECT
+            wotlkPlugin.stats.ITEM   = counts.ITEM
+        end
     end
 end
 

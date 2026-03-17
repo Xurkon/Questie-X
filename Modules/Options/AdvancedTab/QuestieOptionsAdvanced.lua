@@ -391,6 +391,8 @@ function QuestieOptions.tabs.advanced:Initialize()
                     [2] = "DEBUG_INFO",
                     [3] = "DEBUG_DEVELOP",
                     [4] = "DEBUG_SPAM",
+                    [5] = "DEBUG_LEARNER",
+                    [6] = "DEBUG_COMMS",
                 },
                 order = 5.09,
                 name = function() return l10n('Debug level to print'); end,

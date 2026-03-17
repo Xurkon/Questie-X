@@ -139,6 +139,8 @@ Questie.DEBUG_ELEVATED = 2 ^ 1
 Questie.DEBUG_INFO = 2 ^ 2
 Questie.DEBUG_DEVELOP = 2 ^ 3
 Questie.DEBUG_SPAM = 2 ^ 4
+Questie.DEBUG_LEARNER = 2 ^ 5
+Questie.DEBUG_COMMS = 2 ^ 6
 
 function Questie:Debug(msgDebugLevel, ...)
     if (Questie.db.profile.debugEnabled) then
@@ -154,6 +156,8 @@ function Questie:Debug(msgDebugLevel, ...)
         if (band(msgDebugLevel, Questie.DEBUG_INFO) ~= 0) then prefix = prefix .. "|cff00bc32[INFO]|r " end
         if (band(msgDebugLevel, Questie.DEBUG_DEVELOP) ~= 0) then prefix = prefix .. "|cff7c83ff[DEVELOP]|r " end
         if (band(msgDebugLevel, Questie.DEBUG_SPAM) ~= 0) then prefix = prefix .. "|cffff8484[SPAM]|r " end
+        if (band(msgDebugLevel, Questie.DEBUG_LEARNER) ~= 0) then prefix = prefix .. "|cff00e5ff[LEARNER]|r " end
+        if (band(msgDebugLevel, Questie.DEBUG_COMMS) ~= 0) then prefix = prefix .. "|cffff9f00[COMMS]|r " end
 
         if orig_Print then
             orig_Print(Questie, prefix, ...)

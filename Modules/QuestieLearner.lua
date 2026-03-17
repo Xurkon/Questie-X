@@ -162,7 +162,7 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
     existing.mc = (existing.mc or 0) + 1
 
     if isNew then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] New NPC learned:", npcId, name or "?")
+        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] New NPC learned:", npcId, name or "?")
     end
     _Learner:BroadcastIfCommsAvailable("NPC", npcId, existing)
 end
@@ -179,11 +179,11 @@ end
 --  [17] details text   [18] finishText  [19] completedText
 function QuestieLearner:LearnQuest(questId, data)
     if not self:IsEnabled() then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] LearnQuest blocked: learner not enabled")
+        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] LearnQuest blocked: learner not enabled")
         return
     end
     if not Questie.db.global.learnedData.settings.learnQuests then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] LearnQuest blocked: learnQuests=", tostring(Questie.db.global.learnedData.settings.learnQuests))
+        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] LearnQuest blocked: learnQuests=", tostring(Questie.db.global.learnedData.settings.learnQuests))
         return
     end
     if not questId or questId <= 0 then return end
@@ -204,7 +204,7 @@ function QuestieLearner:LearnQuest(questId, data)
     existing.mc = (existing.mc or 0) + 1
 
     if isNew then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] New quest learned:", questId, existing[1] or "?")
+        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] New quest learned:", questId, existing[1] or "?")
     end
     _Learner:BroadcastIfCommsAvailable("QUEST", questId, existing)
 end
@@ -259,7 +259,7 @@ function QuestieLearner:LearnItem(itemId, name, itemLevel, requiredLevel, itemCl
     existing.mc = (existing.mc or 0) + 1
 
     if isNew then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] New item learned:", itemId, name or "?")
+        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] New item learned:", itemId, name or "?")
     end
     _Learner:BroadcastIfCommsAvailable("ITEM", itemId, existing)
 end
@@ -313,7 +313,7 @@ function QuestieLearner:LearnObject(objectId, name)
     existing.mc = (existing.mc or 0) + 1
 
     if isNew then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] New object learned:", objectId, name or "?")
+        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] New object learned:", objectId, name or "?")
     end
     _Learner:BroadcastIfCommsAvailable("OBJECT", objectId, existing)
 end
@@ -650,7 +650,7 @@ end
 
 -- Fires after the player clicks Accept; questLogIndex and questId are available here
 function QuestieLearner:OnQuestAccepted(questLogIndex, questId)
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] OnQuestAccepted: idx=" .. tostring(questLogIndex) .. " id=" .. tostring(questId))
+    Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] OnQuestAccepted: idx=" .. tostring(questLogIndex) .. " id=" .. tostring(questId))
     -- Resolve questId from log index if not provided
     if not questId or questId <= 0 then
         if questLogIndex then
@@ -881,7 +881,7 @@ function QuestieLearner:OnCombatLogEvent(...)
         end
     end
 
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Kill recorded: NPC", npcId, destName)
+    Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Kill recorded: NPC", npcId, destName)
     self:LearnNPC(npcId, destName, nil, nil, nil, nil)
 end
 

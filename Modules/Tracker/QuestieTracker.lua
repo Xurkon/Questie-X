@@ -2240,6 +2240,10 @@ end
 
 function QuestieTracker:RemoveQuest(questId)
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker:RemoveQuest] - ", questId)
+    -- Clean up any fallback quest object we built for this quest
+    if TrackerUtils._fallbackQuests then
+        TrackerUtils._fallbackQuests[questId] = nil
+    end
     if Questie.db.char.collapsedQuests then
         Questie.db.char.collapsedQuests[questId] = nil
     end
@@ -2375,10 +2379,12 @@ function QuestieTracker:AQW_Insert(index, expire)
             if Questie.IsSoD then
                 QuestieDebugOffer.QuestTracking(questId)
             else
-                -- Quest not in DB — try building a fallback object from the quest log
+                -- Quest not in DB — try building a fallback object from the quest log.
+                -- Store in TrackerUtils._fallbackQuests only, NOT currentQuestlog,
+                -- so QuestieArrow/QuestieQuest don't call DB-only methods on it.
                 local fallback = TrackerUtils:BuildFallbackQuest(questId)
                 if fallback then
-                    QuestiePlayer.currentQuestlog[questId] = fallback
+                    TrackerUtils._fallbackQuests[questId] = fallback
                     QuestieCombatQueue:Queue(function()
                         QuestieTracker:Update()
                     end)

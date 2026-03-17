@@ -694,7 +694,10 @@ end
 
 ---@return table sortedQuestIds Table with sorted Quest ID's by Sort Type
 ---@return table questDetails Table with raw quest table from QuestiePlayer.currentQuestLog, percentage completed value per quest, and a "translated" zoneName
--- Builds a minimal quest-like object from the quest log for quests not in QuestieDB.
+-- Private cache of fallback quest objects for quests not in QuestieDB.
+-- Intentionally NOT stored in QuestiePlayer.currentQuestlog so arrow/map/other modules
+-- don't try to call DB-only methods on them.
+TrackerUtils._fallbackQuests = TrackerUtils._fallbackQuests or {}
 -- Returns nil if the quest is not currently in the quest log.
 function TrackerUtils:BuildFallbackQuest(questId)
     for i = 1, GetNumQuestLogEntries() do
@@ -761,11 +764,18 @@ function TrackerUtils:GetSortedQuestIds()
 
         -- Fallback for quests not in QuestieDB (e.g. custom server quests).
         -- Build a minimal quest object from the quest log so the tracker can still display it.
+        -- Stored in TrackerUtils._fallbackQuests, NOT in currentQuestlog, so other modules
+        -- (Arrow, QuestieQuest) don't try to call DB-only methods on it.
         if type(quest) ~= "table" or not quest.IsComplete or not quest.Objectives then
-            local fallback = TrackerUtils:BuildFallbackQuest(qid)
+            local fallback = TrackerUtils._fallbackQuests[qid]
+            if not fallback then
+                fallback = TrackerUtils:BuildFallbackQuest(qid)
+                if fallback then
+                    TrackerUtils._fallbackQuests[qid] = fallback
+                end
+            end
             if fallback then
                 quest = fallback
-                QuestiePlayer.currentQuestlog[qid] = fallback
             end
         end
 

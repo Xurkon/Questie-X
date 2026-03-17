@@ -733,7 +733,7 @@ function TrackerUtils:BuildFallbackQuest(questId)
             }
             -- IsComplete must be a method (called as quest:IsComplete())
             quest.IsComplete = function(self)
-                return (isComplete == 1 or IsQuestFlaggedCompleted(questId)) and 1 or 0
+                return (isComplete == 1 or (IsQuestFlaggedCompleted and IsQuestFlaggedCompleted(questId))) and 1 or 0
             end
 
             return quest

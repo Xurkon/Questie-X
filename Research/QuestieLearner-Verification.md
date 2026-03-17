@@ -51,12 +51,23 @@ If you also had previously learned data, you should see:
 
 ### 2a — Find the NPC ID
 
-Target the quest giver NPC and run:
+**For normal NPCs you can target** (dash-format GUID, e.g. `Creature-0-...`):
 ```
-/script local guid = UnitGUID("target"); local id = tonumber(select(6, strsplit("-", guid))); print("NPC ID:", id)
+/script local g=UnitGUID("target"); print(g)
+```
+Then parse the 6th dash-separated field — that is the NPC ID.
+
+**For GameObjects / objects you interact with** (must have gossip window open):
+```
+/script print(UnitGUID("npc"))
 ```
 
-> **Note:** This only works for dash-format GUIDs (e.g. `Creature-0-...`). If the GUID is in hex format (`0xF110...`), use the hex decode method in the GUID Reference section below.
+> `UnitGUID("target")` returns `nil` for GameObjects — they cannot be traditionally targeted. Always use `UnitGUID("npc")` during an active gossip/click interaction. If you are not in a gossip window, `UnitGUID("npc")` also returns nil.
+
+**Hex GUID decode** (if the GUID starts with `0x`, not dash-separated):
+```
+/script local g=UnitGUID("npc") or UnitGUID("target"); if g then local p=string.upper(string.sub(g,3,6)); local id=math.mod(tonumber(string.sub(g,11,18),16),8388608); print(p,id) end
+```
 
 ### 2b — Clear it from learned data, then hover
 
@@ -211,11 +222,17 @@ With the gossip/interaction window open, run:
 
 ### 7b — Decode a hex GUID to get the ID
 
+With the gossip window open (hex format `0xF110...`):
 ```
-/script local g=UnitGUID("npc"); if g then local p=string.upper(string.sub(g,3,6)); local id=math.mod(tonumber(string.sub(g,11,18),16),8388608); print("Prefix:", p, "ID:", tostring(id)) end
+/script local g=UnitGUID("npc"); if g then local p=string.upper(string.sub(g,3,6)); local id=math.mod(tonumber(string.sub(g,11,18),16),8388608); print(p,id) end
 ```
 
-> `strsplit("-", guid)` does **not** work on hex-format GUIDs — it returns the full string as the first value and nil for everything else. Always use the hex decode method above for `0x...` GUIDs.
+> `strsplit("-", guid)` does **not** work on hex-format GUIDs. Always use substring extraction for `0x...` GUIDs.
+
+Standalone decode for any known hex GUID string (replace the value):
+```
+/script local g="0xF110092A18000718"; local p=string.upper(string.sub(g,3,6)); print(p, math.mod(tonumber(string.sub(g,11,18),16),8388608))
+```
 
 ### 7c — Print all learned objects
 
@@ -319,7 +336,7 @@ Parse with position extraction:
 
 Quick decode command for any hex GUID:
 ```
-/script local g="0xF110092A18000718"; local p=string.upper(string.sub(g,3,6)); local id=math.mod(tonumber(string.sub(g,11,18),16),8388608); print("Prefix:",p,"ID:",id)
+/script local g="0xF110092A18000718"; local p=string.upper(string.sub(g,3,6)); print(p, math.mod(tonumber(string.sub(g,11,18),16),8388608))
 ```
 
 ---

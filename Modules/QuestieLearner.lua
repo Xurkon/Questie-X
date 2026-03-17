@@ -121,6 +121,7 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
     local x, y   = GetPlayerCoords()
 
     local existing = Questie.db.global.learnedData.npcs[npcId]
+    local isNew = existing == nil
     if not existing then
         existing = {}
         Questie.db.global.learnedData.npcs[npcId] = existing
@@ -144,7 +145,9 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
 
     existing.mc = (existing.mc or 0) + 1
 
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Learned NPC:", npcId, name or "?")
+    if isNew then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] New NPC learned:", npcId, name or "?")
+    end
     _Learner:BroadcastIfCommsAvailable("NPC", npcId, existing)
 end
 
@@ -164,6 +167,7 @@ function QuestieLearner:LearnQuest(questId, data)
     if not questId or questId <= 0 then return end
 
     local existing = Questie.db.global.learnedData.quests[questId]
+    local isNew = existing == nil
     if not existing then
         existing = {}
         Questie.db.global.learnedData.quests[questId] = existing
@@ -177,7 +181,9 @@ function QuestieLearner:LearnQuest(questId, data)
 
     existing.mc = (existing.mc or 0) + 1
 
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Learned Quest:", questId, existing[1] or "?")
+    if isNew then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] New quest learned:", questId, existing[1] or "?")
+    end
     _Learner:BroadcastIfCommsAvailable("QUEST", questId, existing)
 end
 
@@ -216,6 +222,7 @@ function QuestieLearner:LearnItem(itemId, name, itemLevel, requiredLevel, itemCl
     if not itemId or itemId <= 0 then return end
 
     local existing = Questie.db.global.learnedData.items[itemId]
+    local isNew = existing == nil
     if not existing then
         existing = {}
         Questie.db.global.learnedData.items[itemId] = existing
@@ -229,7 +236,9 @@ function QuestieLearner:LearnItem(itemId, name, itemLevel, requiredLevel, itemCl
 
     existing.mc = (existing.mc or 0) + 1
 
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Learned Item:", itemId, name or "?")
+    if isNew then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] New item learned:", itemId, name or "?")
+    end
     _Learner:BroadcastIfCommsAvailable("ITEM", itemId, existing)
 end
 
@@ -264,6 +273,7 @@ function QuestieLearner:LearnObject(objectId, name)
     local x, y   = GetPlayerCoords()
 
     local existing = Questie.db.global.learnedData.objects[objectId]
+    local isNew = existing == nil
     if not existing then
         existing = {}
         Questie.db.global.learnedData.objects[objectId] = existing
@@ -280,7 +290,9 @@ function QuestieLearner:LearnObject(objectId, name)
 
     existing.mc = (existing.mc or 0) + 1
 
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Learned Object:", objectId, name or "?")
+    if isNew then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] New object learned:", objectId, name or "?")
+    end
     _Learner:BroadcastIfCommsAvailable("OBJECT", objectId, existing)
 end
 
@@ -522,7 +534,6 @@ function QuestieLearner:OnMouseoverUnit()
     _Learner.guidNpcCache = _Learner.guidNpcCache or {}
     _Learner.guidNpcCache[guid] = { npcId = npcId, name = name, ts = time() }
 
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Cached mouseover NPC:", npcId, name, "guid:", guid)
     self:LearnNPC(npcId, name, level, subName, npcFlags, factionString)
 end
 
@@ -543,9 +554,6 @@ function QuestieLearner:OnTargetChanged()
 
     _Learner.guidNpcCache = _Learner.guidNpcCache or {}
     _Learner.guidNpcCache[guid] = { npcId = npcId, name = name, ts = time() }
-
-    -- Target changes don't guarantee a quest giver, but we still cache GUID for kill tracking
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Cached target NPC:", npcId, name, "guid:", guid)
 end
 
 -- Collects all available quest data from the quest detail/offer screen (before accepting)
@@ -791,7 +799,7 @@ function QuestieLearner:OnCombatLogEvent(...)
         end
     end
 
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] UNIT_DIED: recording kill NPC", npcId, destName)
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Kill recorded: NPC", npcId, destName)
     self:LearnNPC(npcId, destName, nil, nil, nil, nil)
 end
 
@@ -889,8 +897,6 @@ function QuestieLearner:HandleNetworkData(typ, id, d)
     if not existing then
         store[id] = d
         store[id].mc = 1
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Network NEW", typ, id)
-        -- Immediately inject into QuestieDB overrides
         self:InjectLearnedData()
         QuestieLearner.data = Questie.db.global.learnedData
         return
@@ -928,7 +934,6 @@ function QuestieLearner:HandleNetworkData(typ, id, d)
     end
 
     existing.mc = (existing.mc or 0) + 1
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Network MERGE", typ, id, "mc:", existing.mc)
 
     QuestieLearner.data = Questie.db.global.learnedData
 end

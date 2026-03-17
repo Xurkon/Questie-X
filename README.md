@@ -2,7 +2,7 @@
 
 <img src="docs/QuestieXlogo.png" alt="Questie-X Logo" width="320" />
 
-![Version](https://img.shields.io/badge/Questie--X-v1.1.4-blue.svg?style=for-the-badge)
+![Version](https://img.shields.io/badge/Questie--X-v1.1.6-blue.svg?style=for-the-badge)
 ![Downloads](https://img.shields.io/github/downloads/Xurkon/Questie-X/total?style=for-the-badge&color=e67e22)
 [![Documentation](https://img.shields.io/badge/Documentation-View%20Docs-58a6ff?style=for-the-badge)](https://xurkon.github.io/Questie-X/)
 [![Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/Xurkon)
@@ -27,24 +27,72 @@ Questie-X is a fork of the original [Questie](https://github.com/Questie/Questie
 
 ## Installation
 
-1. [Download](https://github.com/Xurkon/Questie-X/releases) the latest release.
-2. Extract the archive into your `Interface/AddOns/` directory.
-3. Rename the folder to match the dataset you want to load:
-   - `Questie-X` — WotLK 3.3.5a (default)
-   - `Questie-X-Classic` — Vanilla / Classic era content
-   - `Questie-X-TBC` — The Burning Crusade content
-4. Log in. If your server does not use standard map data, enable `Options -> Advanced -> Use WotLK map data`.
+Questie-X uses a **two-part install**: the core engine plus one database plugin matching your server.
+
+### Step 1 — Install Questie-X Core
+
+1. [Download](https://github.com/Xurkon/Questie-X/releases/latest) the latest `Questie-X` release `.zip`.
+2. Extract the archive — you will get a folder named `Questie-X`.
+3. Move that folder into your `Interface/AddOns/` directory:
+   ```
+   World of Warcraft/
+   └── Interface/
+       └── AddOns/
+           └── Questie-X/          ← place it here
+   ```
+
+### Step 2 — Install a Database Plugin
+
+Download and install the plugin for your server from the table below:
+
+| Your Server | Plugin | Repository |
+|-------------|--------|------------|
+| WotLK 3.3.5 (most private servers) | **Questie-X-WotLKDB** | [Xurkon/Questie-X-WotLKDB](https://github.com/Xurkon/Questie-X-WotLKDB) |
+| Classic Era / Vanilla 1.14.x | **Questie-X-ClassicDB** | *(coming soon)* |
+| TBC 2.5.x | **Questie-X-TBCDB** | [Xurkon/Questie-X-TBCDB](https://github.com/Xurkon/Questie-X-TBCDB) |
+| Turtle WoW | **Questie-X-TurtleDB** | *(coming soon)* |
+| Project Ascension | **Questie-X-AscensionDB** | [Xurkon/Questie-X-AscensionDB](https://github.com/Xurkon/Questie-X-AscensionDB) |
+| Project Ebonhold | **Questie-X-EbonholdDB** | [Xurkon/Questie-X-EbonholdDB](https://github.com/Xurkon/Questie-X-EbonholdDB) |
+| Other / Unknown | Use WotLKDB as a baseline; use `/questie learner` to fill gaps | — |
+
+Extract the plugin zip and drop the folder into `Interface/AddOns/` **alongside** `Questie-X`:
+
+```
+Interface/AddOns/
+├── Questie-X/                  ← core addon (required)
+└── Questie-X-WotLKDB/          ← database plugin (pick one)
+```
+
+Log in. If no plugin is detected, Questie-X will print an actionable message in chat telling you exactly which plugin to install.
+
+> **Turtle WoW note:** Enable **"Load out of date AddOns"** on the character select screen if prompted — this is standard practice for all addons on Turtle. Both `Questie-X` and `Questie-X-TurtleDB` target Interface `11200` and will not show this warning once that setting is on.
+
+---
+
+## Plugins
+
+Plugins are separate addons that extend Questie-X with custom quest, NPC, object, and item data for a specific private server. They are distributed as independent downloads and maintained on their own release schedule.
+
+### Available Plugins
+
+| Plugin | Server | Repository |
+|--------|--------|------------|
+| **Questie-X-WotLKDB** | WotLK 3.3.5 / most private servers | [Xurkon/Questie-X-WotLKDB](https://github.com/Xurkon/Questie-X-WotLKDB) |
+| **Questie-X-ClassicDB** | Classic Era / Vanilla 1.14.x | *(coming soon)* |
+| **Questie-X-TBCDB** | TBC 2.5.x | [Xurkon/Questie-X-TBCDB](https://github.com/Xurkon/Questie-X-TBCDB) |
+| **Questie-X-TurtleDB** | Turtle WoW | *(coming soon)* |
+| **Questie-X-AscensionDB** | [Project Ascension](https://ascension.gg) | [Xurkon/Questie-X-AscensionDB](https://github.com/Xurkon/Questie-X-AscensionDB) |
+| **Questie-X-EbonholdDB** | [Project Ebonhold](https://ebonhold.com) | [Xurkon/Questie-X-EbonholdDB](https://github.com/Xurkon/Questie-X-EbonholdDB) |
+
+> Don't see your server? See [Writing a Plugin](#writing-a-plugin) to create one, or open an issue to request it.
 
 ### Installing a Plugin
 
-Plugins are standalone addons that inject custom quest, NPC, object, and item data into Questie-X at runtime. They are installed identically to the core addon.
+See **[Step 2 — Install a Database Plugin](#step-2--install-a-database-plugin)** in the Installation section above.
 
-1. Download the plugin archive from its repository's Releases page.
-2. Extract it into `Interface/AddOns/` alongside `Questie-X`.
-3. The folder name must match the plugin's `.toc` title exactly.
-4. Log in — Questie-X detects and loads all present plugins automatically on startup.
+### Updating a Plugin
 
-> A plugin will not load unless `Questie-X` is also installed. The dependency is declared in the plugin's `.toc` file and enforced by the WoW client.
+Plugins update independently of the core addon. Check the plugin's repository for new releases whenever the server pushes new content patches. The install steps are identical to a fresh install — just overwrite the existing folder.
 
 ---
 
@@ -58,19 +106,47 @@ A plugin calls `QuestiePluginAPI:RegisterPlugin` during addon load and passes it
 
 ### Writing a Plugin
 
-A minimal plugin needs only a `.toc` file declaring `Questie-X` as a dependency and a loader script:
+A minimal plugin needs a `.toc` file declaring `Questie-X` as a dependency and a loader script. The `.toc` must list `Questie-X` under `## Dependencies` so the WoW client loads it in the correct order.
 
-```lua
--- MyServerLoader.lua
-local plugin = QuestiePluginAPI:RegisterPlugin("MyServer")
-plugin:RegisterQuestDB(MyServerQuestDB)
-plugin:RegisterNpcDB(MyServerNpcDB)
-plugin:RegisterObjectDB(MyServerObjectDB)
-plugin:RegisterItemDB(MyServerItemDB)
-plugin:RegisterZoneData(MyServerUiMapData, MyServerZoneTables)
+**`MyServer-QuestieDB.toc`**
+```
+## Interface: 30300
+## Title: MyServer QuestieDB
+## Notes: Quest database plugin for MyServer
+## Dependencies: Questie-X
+## Version: 1.0.0
+
+MyServerLoader.lua
+MyServerQuestDB.lua
+MyServerNpcDB.lua
+MyServerObjectDB.lua
+MyServerItemDB.lua
 ```
 
-The database tables follow the same schema as Questie's built-in databases. See `Modules/Libs/QuestiePluginAPI.lua` for the full API reference and `Database/Wotlk/wotlkQuestDB.lua` for table format examples.
+**`MyServerLoader.lua`**
+```lua
+local plugin = QuestiePluginAPI:RegisterPlugin("MyServer")
+
+-- Inject each database type (tables follow the same schema as Questie's built-in DBs)
+plugin:InjectDatabase("QUEST",  MyServerQuestDB)
+plugin:InjectDatabase("NPC",    MyServerNpcDB)
+plugin:InjectDatabase("OBJECT", MyServerObjectDB)
+plugin:InjectDatabase("ITEM",   MyServerItemDB)
+
+-- Optional: inject custom zone/map routing tables
+plugin:InjectZoneTables(MyServerZoneTables)
+
+-- Optional: inject fallback UiMapData for non-standard boundary maps
+plugin:InjectUiMapData(MyServerUiMapData)
+
+-- Always call this last — clears Questie's internal zone/quest caches
+-- so freshly injected data is picked up on the next scan
+plugin:FinishLoading()
+```
+
+The database tables follow the same schema as Questie's built-in databases. See [`Modules/Libs/QuestiePluginAPI.lua`](Modules/Libs/QuestiePluginAPI.lua) for the full API reference.
+
+If your server uses non-standard map data, enable **Options → Advanced → Use WotLK map data** after logging in.
 
 ---
 

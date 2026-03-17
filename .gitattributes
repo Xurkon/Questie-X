@@ -1,9 +1,9 @@
-.gitignore export-ignore
+# Ensure consistent line endings
+* text=auto
+
+# Exclude dev/meta files from release archives
 .gitattributes export-ignore
-workflow export-ignore
-docs export-ignore
-.github export-ignore
-*.md export-ignore
-.agent export-ignore
-.gemini export-ignore
-.claude export-ignore
+.gitignore export-ignore
+.git_disabled/ export-ignore
+Tools/ export-ignore
+docs/ export-ignore

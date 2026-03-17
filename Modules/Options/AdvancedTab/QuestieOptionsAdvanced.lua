@@ -429,28 +429,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                 order = 7.01,
                 fontSize = "medium",
                 name = function()
-                    if not QuestiePluginAPI or not QuestiePluginAPI.registeredPlugins then
-                        return "|cFF888888Plugin API not loaded.|r"
-                    end
-
-                    local output = ""
-                    local hasPlugins = false
-
-                    for pluginName, plugin in pairs(QuestiePluginAPI.registeredPlugins) do
-                        hasPlugins = true
-                        local stats = plugin.stats or {}
-                        output = output .. "|cFF5EBAF3[Questie-" .. pluginName .. "]|r"
-                        output = output .. "  Quests: |cFFFFD700" .. tostring(stats.QUEST or 0) .. "|r"
-                        output = output .. "  NPCs: |cFFFFD700" .. tostring(stats.NPC or 0) .. "|r"
-                        output = output .. "  Objects: |cFFFFD700" .. tostring(stats.OBJECT or 0) .. "|r"
-                        output = output .. "  Items: |cFFFFD700" .. tostring(stats.ITEM or 0) .. "|r\n"
-                    end
-
-                    if not hasPlugins then
-                        output = "|cFF888888No plugins loaded.|r"
-                    end
-
-                    return output
+                    return "|cFF888888Plugin stats have moved to the |r|cFFFFFFFFDatabase|r|cFF888888 tab.|r"
                 end,
             },
         },

@@ -436,6 +436,74 @@ function QuestieOptions.tabs.database:Initialize()
                            "Submissions are reviewed and merged into the official database. Thank you for contributing!|r"
                 end,
             },
+
+            ---- Loaded Plugins ----------------------------------------
+            plugins_header = {
+                type  = "header",
+                order = 7,
+                name  = "|cFF5EBAF3Loaded Questie-X Plugins|r",
+            },
+
+            plugins_desc = {
+                type     = "description",
+                order    = 7.1,
+                fontSize = "medium",
+                name     = function()
+                    local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
+                    if not QuestiePluginAPI or not QuestiePluginAPI.registeredPlugins then
+                        return "|cFF888888No plugins loaded.|r"
+                    end
+
+                    -- Helper: count a table's entries
+                    local function CountTable(t)
+                        if type(t) ~= "table" then return 0 end
+                        local n = 0
+                        for _ in pairs(t) do n = n + 1 end
+                        return n
+                    end
+
+                    -- For pull-type plugins (e.g. WotLKDB) that never call InjectDatabase,
+                    -- stats stay at 0. Fall back to counting QuestieDB.*Data directly since
+                    -- this function is called after init has completed.
+                    local function GetPluginCounts(pluginName, stats)
+                        local q = stats.QUEST  or 0
+                        local n = stats.NPC    or 0
+                        local o = stats.OBJECT or 0
+                        local i = stats.ITEM   or 0
+
+                        if q == 0 and n == 0 and o == 0 and i == 0 then
+                            local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
+                            if QuestieDB then
+                                q = CountTable(QuestieDB.questData)
+                                n = CountTable(QuestieDB.npcData)
+                                o = CountTable(QuestieDB.objectData)
+                                i = CountTable(QuestieDB.itemData)
+                            end
+                        end
+
+                        return q, n, o, i
+                    end
+
+                    local output = ""
+                    local hasPlugins = false
+
+                    for pluginName, plugin in pairs(QuestiePluginAPI.registeredPlugins) do
+                        hasPlugins = true
+                        local q, n, o, i = GetPluginCounts(pluginName, plugin.stats or {})
+                        output = output .. "|cFF5EBAF3[Questie-" .. pluginName .. "]|r"
+                        output = output .. "  Quests: |cFFFFD700" .. tostring(q) .. "|r"
+                        output = output .. "  NPCs: |cFFFFD700"   .. tostring(n) .. "|r"
+                        output = output .. "  Objects: |cFFFFD700" .. tostring(o) .. "|r"
+                        output = output .. "  Items: |cFFFFD700"  .. tostring(i) .. "|r\n"
+                    end
+
+                    if not hasPlugins then
+                        output = "|cFF888888No plugins loaded.|r"
+                    end
+
+                    return output
+                end,
+            },
         },
     }
 end

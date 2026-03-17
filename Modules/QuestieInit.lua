@@ -466,8 +466,20 @@ function QuestieInit:LoadBaseDB()
     }
     Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] WotLKDB pull: quest=" .. tostring(_pulled.quest) .. " npc=" .. tostring(_pulled.npc) .. " obj=" .. tostring(_pulled.object) .. " item=" .. tostring(_pulled.item))
 
-    -- Persist counts so WotLKDB Loader.lua can populate plugin.stats after PLAYER_LOGIN
+    -- Push counts directly onto the plugin object so the Database panel always shows them,
+    -- regardless of when the panel is opened relative to the async coroutine.
+    -- Also persist in _G as a fallback for anything that reads it directly.
     _G.QuestieX_WotLKDB_Counts = _counts
+    local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
+    if QuestiePluginAPI then
+        local wotlkPlugin = QuestiePluginAPI:GetPlugin("WotLKDB")
+        if wotlkPlugin then
+            wotlkPlugin.stats.QUEST  = _counts.QUEST
+            wotlkPlugin.stats.NPC    = _counts.NPC
+            wotlkPlugin.stats.OBJECT = _counts.OBJECT
+            wotlkPlugin.stats.ITEM   = _counts.ITEM
+        end
+    end
 
     QuestieInit:LoadDatabase("npcData")
     QuestieInit:LoadDatabase("objectData")

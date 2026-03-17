@@ -78,19 +78,35 @@ end
 
 local function EnsureLearnedData()
     if not Questie.db then return false end
-    Questie.db.global.learnedData = Questie.db.global.learnedData or {
-        npcs    = {},
-        quests  = {},
-        items   = {},
-        objects = {},
-        settings = {
-            enabled      = true,
-            learnNpcs    = true,
-            learnQuests  = true,
-            learnItems   = true,
-            learnObjects = true,
-        },
-    }
+    local ld = Questie.db.global.learnedData
+    if not ld then
+        Questie.db.global.learnedData = {
+            npcs    = {},
+            quests  = {},
+            items   = {},
+            objects = {},
+            settings = {
+                enabled      = true,
+                learnNpcs    = true,
+                learnQuests  = true,
+                learnItems   = true,
+                learnObjects = true,
+            },
+        }
+    else
+        -- Backfill sub-tables that may be missing from older SavedVariables
+        ld.npcs    = ld.npcs    or {}
+        ld.quests  = ld.quests  or {}
+        ld.items   = ld.items   or {}
+        ld.objects = ld.objects or {}
+        ld.settings = ld.settings or {}
+        local s = ld.settings
+        if s.enabled      == nil then s.enabled      = true end
+        if s.learnNpcs    == nil then s.learnNpcs    = true end
+        if s.learnQuests  == nil then s.learnQuests  = true end
+        if s.learnItems   == nil then s.learnItems   = true end
+        if s.learnObjects == nil then s.learnObjects = true end
+    end
     return true
 end
 

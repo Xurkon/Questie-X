@@ -176,6 +176,30 @@
     </div>
 
     <div class="container">
+        <h2 id="v134">v1.3.4 — Taint Analysis &amp; Error Fixes</h2>
+        <p><em>Resolves the <code>l10n</code> initialization error in <code>GameVersionError.lua</code> and confirms the integrity of the WotLKDB module after a deep taint analysis.</em></p>
+
+        <h3>Core &amp; Stability</h3>
+        <ul>
+            <li><strong>[Fix]</strong> Resolved <code>attempt to call local 'l10n' (a table value)</code> in <code>GameVersionError.lua</code> by using hardcoded English strings for early-load error messages.</li>
+            <li><strong>[Taint Analysis]</strong> Completed a full audit of <code>Questie-X-WotLKDB</code>. No direct taint vectors or secure function overrides were found.</li>
+            <li><strong>[Version Sync]</strong> Synchronized versions to v1.3.4 across all components.</li>
+        </ul>
+
+        <hr>
+
+        <h2 id="v133">v1.3.3 — Critical Taint Fix &amp; Module Loading</h2>
+        <p><em>Addresses the missing <code>WorldMapTaintWorkaround</code> module that was excluded from previous releases, finally enabling the intended seat-of-pants taint mitigation strategy.</em></p>
+
+        <h3>Core &amp; Stability</h3>
+        <ul>
+            <li><strong>[Taint Fix]</strong> Officially included <code>Modules\WorldMapTaintWorkaround.lua</code> in all TOC files to ensure it's loaded and executed.</li>
+            <li><strong>[Error Handling]</strong> Included <code>Modules\GameVersionError.lua</code> in all TOC files for better unsupported client detection.</li>
+            <li><strong>[Version Sync]</strong> Synchronized version numbers across all 4 TOC flavors.</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v132">v1.3.2 — Taint Resolution &amp; Stability</h2>
         <p><em>Finalizes the Taint Resolution project, eliminating <code>ADDON_ACTION_BLOCKED: UseAction()</code> errors by refactoring internal hooks to use secure alternatives and hardening the global namespace against collisions.</em></p>
 

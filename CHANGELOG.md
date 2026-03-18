@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.3.4 — Taint Analysis & Error Fixes
+
+*Resolves the `l10n` initialization error in `GameVersionError.lua` and confirms the integrity of the WotLKDB module after a deep taint analysis.*
+
+### Core & Stability
+
+- **[Fix]** Resolved `attempt to call local 'l10n' (a table value)` in `GameVersionError.lua` by using hardcoded English strings for early-load error messages.
+- **[Taint Analysis]** Completed a full audit of `Questie-X-WotLKDB`. No direct taint vectors or secure function overrides were found.
+- **[Version Sync]** Synchronized versions to v1.3.4 across all components.
+
+
+## v1.3.3 — Critical Taint Fix & Module Loading
+
+*Addresses the missing `WorldMapTaintWorkaround` module that was excluded from previous releases, finally enabling the intended seat-of-pants taint mitigation strategy.*
+
+### Core & Stability
+
+- **[Taint Fix]** Officially included `Modules\WorldMapTaintWorkaround.lua` in all TOC files to ensure it's loaded and executed.
+- **[Error Handling]** Included `Modules\GameVersionError.lua` in all TOC files for better unsupported client detection.
+- **[Version Sync]** Synchronized version numbers across all 4 TOC flavors.
+
+---
+
 ## v1.3.2 — Taint Resolution & Stability
 
 *Finalizes the Taint Resolution project, eliminating `ADDON_ACTION_BLOCKED: UseAction()` errors by refactoring internal hooks to use secure alternatives and hardening the global namespace against collisions.*
@@ -14,11 +37,11 @@
 ---
 
 ## v1.3.1
+
 - Refined data-sharing mechanism to use exclusively hidden global channels, removing guild-channel broadcasts to minimize chat traffic.
 
- 
 ## v1.3.0 — QuestieLearner Confidence, Global Sharing & Stale Data Cleanup
- 
+
 ### QuestieLearner.lua — Precision & Confidence
 - **[Coordinate Scaling Fix]** Fixed player coordinates being recorded on a 0-1 scale; now correctly scales to 0-100 for compatibility with Questie map pins.
 - **[Confidence Rating System]** Introduced a confidence system based on "Match Count" (`mc`). Data is now categorized as "Unconfirmed" (low confidence) or "Verified" (high confidence).

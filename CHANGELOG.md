@@ -2,11 +2,12 @@
 
 ## v1.3.4 — Taint Analysis & Error Fixes
 
-*Resolves the `l10n` initialization error in `GameVersionError.lua` and confirms the integrity of the WotLKDB module after a deep taint analysis.*
+*Resolves the initialization error in `GameVersionError.lua` and implements a version guard to support Classic-era private servers. Also confirms the integrity of the WotLKDB module after a deep taint analysis.*
 
 ### Core & Stability
 
-- **[Fix]** Resolved `attempt to call local 'l10n' (a table value)` in `GameVersionError.lua` by using hardcoded English strings for early-load error messages.
+- **[Fix]** Resolved `attempt to call local 'l10n' (a table value)` in `GameVersionError.lua` and implemented a `tocVersion` guard to prevent the "unsupported client" error on Classic-era private servers (e.g., Turtle WoW).
+- **[Fix]** Updated `GameVersionError.lua` strings to correctly identify Questie-X as supporting Classic and private servers.
 - **[Taint Analysis]** Completed a full audit of `Questie-X-WotLKDB`. No direct taint vectors or secure function overrides were found.
 - **[Version Sync]** Synchronized versions to v1.3.4 across all components.
 

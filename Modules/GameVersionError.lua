@@ -1,22 +1,28 @@
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
 
+local _, _, _, tocVersion = GetBuildInfo()
+if tocVersion and tocVersion < 50000 then
+    -- This is a Classic-era client (Turtle, Era, WotLK, etc.)
+    return
+end
+
 -- No timeres or other fancy stuff as 1.12 client is very limited.
 
 -- StaticPopup has very limited width, so text is split to many lines.
 local msg = {
-    "You're trying to use Questie addon",
+    "You're trying to use Questie-X",
     "on an unsupported WoW game client!",
 
-    "WoW \"retail\" and private servers",
-    "are not supported.",
+    "WoW \"retail\" is NOT supported.",
+    "Please use a Classic-era client.",
 
-    "Questie only supports",
-    "WoW Classic (Era/Wrath)!",
+    "Questie-X only supports",
+    "WoW Classic (Vanilla/TBC/Wrath)!",
 }
 
 StaticPopupDialogs["QUESTIE_VERSION_ERROR"] = {
-    text = "|cffff0000ERROR|r\n" .. msg[1] .. "\n" .. msg[2] .. "\n\n" .. msg[3] .. "\n" .. msg[4] .. "\n\n" .. msg[5] .. "\n" .. msg[6],
+    text = "|cffff0000ERROR|r\n" .. msg[1] .. "\n" .. msg[2] .. "\n\n" .. msg[3] .. "\n" .. msg[4] .. "\n\n" .. msg[5] .. " " .. msg[6],
     button2 = "OK",
     hasEditBox = false,
     whileDead = true

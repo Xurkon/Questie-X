@@ -203,11 +203,6 @@ function _QuestieLearnerComms:ProcessQueues()
         currentTokens = currentTokens - 1
         lastChatMessageTime = now
         
-        -- Send via AceComm to Guild (Fast/Reliable)
-        if IsInGuild() then
-            AceComm:SendCommMessage(addonPrefix, msg, "GUILD")
-        end
-        
         -- Send via Hidden Channel (Global reach)
         local channelId = GetChannelName(hiddenChannelName)
         if channelId > 0 then

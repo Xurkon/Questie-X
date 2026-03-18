@@ -128,7 +128,7 @@ function QuestieLearnerComms:Initialize()
     if channelId == 0 then
         JoinPermanentChannel(hiddenChannelName, nil, DEFAULT_CHAT_FRAME:GetID(), 1)
         ChatFrame_RemoveChannel(DEFAULT_CHAT_FRAME, hiddenChannelName)
-        DebugLog("DEVELOP", "Joined hidden channel: " .. hiddenChannelName)
+        DebugLog("CRITICAL", "Joined hidden data-sharing channel: " .. hiddenChannelName)
     end
 
     -- Process incoming/outgoing queues 

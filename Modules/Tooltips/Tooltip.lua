@@ -219,6 +219,64 @@ function QuestieTooltips:GetTooltip(key)
     local tooltipData = {}
     local tooltipLines = {}
 
+    if (not QuestieTooltips.lookupByKey[key]) then
+        local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+        local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
+        if QuestieLearner and QuestieLearner.data then
+             -- Try to find in learned NPCs or objects
+             local id = tonumber(key:sub(3))
+             if id then
+                 if key:sub(1,2) == "m_" then
+                     local learnedNpc = QuestieLearner.data.npcs[id]
+                     if learnedNpc and learnedNpc[10] then -- check questObjectives
+                         for questId, objList in pairs(learnedNpc[10]) do
+                             for _, objText in ipairs(objList) do
+                                 local needed, collected
+                                 local objectives = QuestLogCache.GetQuestObjectives(questId)
+                                 if objectives then
+                                     for _, obj in pairs(objectives) do
+                                         if obj.text and objText and (obj.text == objText or string.find(obj.text, objText, 1, true) or string.find(objText, obj.text, 1, true)) then
+                                             needed = obj.numRequired
+                                             collected = obj.numFulfilled
+                                             break
+                                         end
+                                     end
+                                 end
+                                 QuestieTooltips:RegisterObjectiveTooltip(questId, key, { Index = 0, Description = objText, Needed = needed, Collected = collected, Update = function() end })
+                             end
+                         end
+                         if learnedNpc.mc then
+                             tinsert(tooltipLines, "|cFF5EBAF3(Learned - Confidence: " .. tostring(learnedNpc.mc) .. ")|r")
+                         end
+                     end
+                 elseif key:sub(1,2) == "o_" then
+                     local learnedObj = QuestieLearner.data.objects[id]
+                     if learnedObj and learnedObj[10] then
+                         for questId, objList in pairs(learnedObj[10]) do
+                             for _, objText in ipairs(objList) do
+                                 local needed, collected
+                                 local objectives = QuestLogCache.GetQuestObjectives(questId)
+                                 if objectives then
+                                     for _, obj in pairs(objectives) do
+                                         if obj.text and objText and (obj.text == objText or string.find(obj.text, objText, 1, true) or string.find(objText, obj.text, 1, true)) then
+                                             needed = obj.numRequired
+                                             collected = obj.numFulfilled
+                                             break
+                                         end
+                                     end
+                                 end
+                                 QuestieTooltips:RegisterObjectiveTooltip(questId, key, { Index = 0, Description = objText, Needed = needed, Collected = collected, Update = function() end })
+                             end
+                         end
+                         if learnedObj.mc then
+                             tinsert(tooltipLines, "|cFF5EBAF3(Learned - Confidence: " .. tostring(learnedObj.mc) .. ")|r")
+                         end
+                     end
+                 end
+             end
+        end
+    end
+
     if QuestieTooltips.lookupByKey[key] then
         local playerName = UnitName("player")
         for k, tooltip in pairs(QuestieTooltips.lookupByKey[key]) do
@@ -229,7 +287,7 @@ function QuestieTooltips:GetTooltip(key)
                 end
             else
                 local objective = tooltip.objective
-                if not (objective.IsSourceItem or objective.IsRequiredSourceItem) then
+                if objective and not (objective.IsSourceItem or objective.IsRequiredSourceItem) and objective.Update then
                     -- Tooltip was registered for a sourceItem or requiredSourceItem and not a real "objective"
                     objective:Update()
                 end

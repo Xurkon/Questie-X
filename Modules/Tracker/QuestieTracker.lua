@@ -914,7 +914,17 @@ function QuestieTracker:Update()
                         -- Set Quest Title - This handles the "Auto Minimize Completed Quests" option but we don't auto-minimize timed quests.
                         local coloredQuestName
 
-                        if timedQuest then
+                        if quest.isFallback or quest._isLogFallback then
+                            -- Quest not in DB: use the name stored on the fallback object
+                            local questName = quest.name or tostring(quest.Id)
+                            if Questie.db.profile.trackerShowQuestLevel and quest.level and quest.level > 0 then
+                                questName = "[" .. quest.level .. "] " .. questName
+                            end
+                            if Questie.db.profile.enableTooltipsQuestID then
+                                questName = questName .. " (" .. quest.Id .. ")"
+                            end
+                            coloredQuestName = "|cFFFFFF00" .. questName .. "|r"
+                        elseif timedQuest then
                             coloredQuestName = QuestieLib:GetColoredQuestName(quest.Id,
                                 Questie.db.profile.trackerShowQuestLevel, false, false)
                         else
@@ -2290,10 +2300,15 @@ end
 
 function QuestieTracker:UntrackQuestId(questId)
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker:UntrackQuestId] - ", questId)
-    -- Always remove from tracked quests when manually untracking
-    Questie.db.char.TrackedQuests[questId] = nil
-    -- Also remove from auto-untracked so it doesn't get re-tracked
-    Questie.db.char.AutoUntrackedQuests[questId] = nil
+    if Questie.db.profile.autoTrackQuests then
+        -- In auto-track mode, mark the quest as explicitly hidden
+        Questie.db.char.AutoUntrackedQuests[questId] = true
+        Questie.db.char.TrackedQuests[questId] = nil
+    else
+        -- In manual-track mode, remove from tracked list
+        Questie.db.char.TrackedQuests[questId] = nil
+        Questie.db.char.AutoUntrackedQuests[questId] = nil
+    end
 
     if Questie.db.profile.hideUntrackedQuestsMapIcons then
         -- Hides objective icons for untracked quests.
@@ -2346,11 +2361,8 @@ function QuestieTracker:AQW_Insert(index, expire)
             end
         else
             if Questie.db.char.AutoUntrackedQuests[questId] then
+                -- Quest was manually hidden — shift-click re-tracks it
                 Questie.db.char.AutoUntrackedQuests[questId] = nil
-
-                -- Add quest to the tracker
-            elseif IsShiftKeyDown() and QuestLogFrame:IsShown() then
-                Questie.db.char.AutoUntrackedQuests[questId] = true
             end
         end
 

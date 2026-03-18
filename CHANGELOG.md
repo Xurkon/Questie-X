@@ -1,4 +1,29 @@
 # Changelog
+ 
+## v1.3.0 — QuestieLearner Confidence, Global Sharing & Stale Data Cleanup
+ 
+### QuestieLearner.lua — Precision & Confidence
+- **[Coordinate Scaling Fix]** Fixed player coordinates being recorded on a 0-1 scale; now correctly scales to 0-100 for compatibility with Questie map pins.
+- **[Confidence Rating System]** Introduced a confidence system based on "Match Count" (`mc`). Data is now categorized as "Unconfirmed" (low confidence) or "Verified" (high confidence).
+- **[Map Pin Gating]** Learned map pins (sword icons) now only appear after reaching a configurable confidence threshold (default: 2).
+- **[Confidence in Tooltips]** NPC and Object tooltips now display their confidence level (e.g., `(Learned - Confidence: 2)`).
+- **[Timestamp Tracking]** Added `lastSeen` (`ls`) timestamps to all learned entries to track data freshness.
+ 
+### QuestieLearnerComms.lua — Global Data Sharing
+- **[Community Reinforcement]** Expanded data sharing from Party/Guild to a global hidden channel. Confidence values (`mc`) now increment when identical data is received from other Questie users, allowing the community to verify spawns collectively.
+- **[Network Freshness]** Receiving data over the network now refreshes the `lastSeen` timestamp, keeping active community spawns from being pruned.
+ 
+### QuestieLearnerExport.lua — Tiered Stale Data Cleanup
+- **[Tiered Pruning]** Implemented a robust cleanup system that protects "Verified" (high-confidence) data from age-based deletion.
+- **[Age-Based Pruning]** "Unconfirmed" data is now automatically pruned if it hasn't been seen within a configurable timeframe (default: 90 days).
+- **[Redundancy Pruning]** Logic to remove data already present in the official Questie database now respects the `pruneVerified` toggle, allowing users to keep verified personal data even if it overlaps with the core DB.
+ 
+### QuestieOptionsDatabase.lua — Advanced Cleanup Controls
+- **[Stale Data Threshold]** Added a slider to control the age-pruning threshold (1-180 days) for unconfirmed data.
+- **[Verified Data Protection]** Added a toggle to include or exclude verified data from redundancy pruning.
+- **[UI Reorganization]** Refactored the Database tab's cleanup section for better logical flow and clarity.
+ 
+---
 
 ## v1.2.9 — QuestieLearner Cross-Link Engine + Tracker Zone Fix + Untrack Fix
 

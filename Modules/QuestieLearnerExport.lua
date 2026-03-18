@@ -319,42 +319,73 @@ local QuestieDB  -- lazily imported to avoid circular dep
 
 function _Export:RunPrune(dryRun)
     if not QuestieDB then QuestieDB = QuestieLoader:ImportModule("QuestieDB") end
-
+ 
     local serverKey = GetServerKey()
     local bucket    = GetServerBucket(serverKey)
-
+ 
     local result = { npcs = 0, quests = 0, items = 0, objects = 0, total = 0, reasons = {} }
     if not bucket then return result end
-
+ 
+    local settings = (Questie.db.global.learnedData and Questie.db.global.learnedData.settings) or {}
+    local thresholdDays = settings.staleThreshold or 90
+    local thresholdSeconds = thresholdDays * 86400
+    local minConfidence = settings.minConfidencePins or 2
+    local pruneVerified = settings.pruneVerified
+    local now = time()
+ 
     local function ShouldPruneNPC(id, entry)
         if CountTable(entry) == 0 then return "empty entry" end
-        if (entry.mc or 0) < 2 and not entry[7] then return "unverified with no coords" end
+        local isVerified = (entry.mc or 0) >= minConfidence
+        if (not isVerified) and (now - (entry.ls or 0)) > thresholdSeconds then
+            return "unconfirmed and stale (> " .. thresholdDays .. " days)"
+        end
+        if pruneVerified or not isVerified then
+            if (entry.mc or 0) < 2 and not entry[7] then return "unverified with no coords" end
+        end
         return nil
     end
-
+ 
     local function ShouldPruneQuest(id, entry)
         if CountTable(entry) == 0 then return "empty entry" end
-        if QuestieDB and QuestieDB.GetQuest then
-            local dbEntry = QuestieDB:GetQuest(id)
-            if dbEntry and (entry.mc or 0) < 2 then
-                return "fully covered by official DB, mc < 2"
+        local isVerified = (entry.mc or 0) >= minConfidence
+        if (not isVerified) and (now - (entry.ls or 0)) > thresholdSeconds then
+            return "unconfirmed and stale (> " .. thresholdDays .. " days)"
+        end
+        if pruneVerified or not isVerified then
+            if QuestieDB and QuestieDB.GetQuest then
+                local dbEntry = QuestieDB.GetQuest(id)
+                if dbEntry and (entry.mc or 0) < 2 then
+                    return "fully covered by official DB, mc < 2"
+                end
             end
         end
         return nil
     end
-
+ 
     local function ShouldPruneItem(id, entry)
         if CountTable(entry) == 0 then return "empty entry" end
-        if (entry.mc or 0) < 1 then return "zero match count" end
+        local isVerified = (entry.mc or 0) >= minConfidence
+        if (not isVerified) and (now - (entry.ls or 0)) > thresholdSeconds then
+            return "unconfirmed and stale (> " .. thresholdDays .. " days)"
+        end
+        if pruneVerified or not isVerified then
+            if (entry.mc or 0) < 1 then return "zero match count" end
+        end
         return nil
     end
-
+ 
     local function ShouldPruneObject(id, entry)
         if CountTable(entry) == 0 then return "empty entry" end
-        if (entry.mc or 0) < 2 and not entry[4] then return "unverified with no coords" end
+        local isVerified = (entry.mc or 0) >= minConfidence
+        if (not isVerified) and (now - (entry.ls or 0)) > thresholdSeconds then
+            return "unconfirmed and stale (> " .. thresholdDays .. " days)"
+        end
+        if pruneVerified or not isVerified then
+            if (entry.mc or 0) < 2 and not entry[4] then return "unverified with no coords" end
+        end
         return nil
     end
-
+ 
     local function PruneStore(store, checkFn, typeName)
         if not store then return end
         for id, entry in pairs(store) do
@@ -371,11 +402,11 @@ function _Export:RunPrune(dryRun)
             end
         end
     end
-
+ 
     PruneStore(bucket.npcs,    ShouldPruneNPC,    "npcs")
     PruneStore(bucket.quests,  ShouldPruneQuest,  "quests")
     PruneStore(bucket.items,   ShouldPruneItem,   "items")
     PruneStore(bucket.objects, ShouldPruneObject, "objects")
-
+ 
     return result
 end

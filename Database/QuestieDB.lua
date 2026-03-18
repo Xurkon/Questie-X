@@ -586,6 +586,42 @@ function QuestieDB.IsParentQuestActive(parentID)
     return false
 end
 
+--- Returns a table of [npcId] = true for NPCs that have verified learned data (Confidence >= 2)
+--- in a specific zone. Used to hide static database spawns in favor of verified ones.
+---@param zoneId number
+---@return table<number, boolean>
+function QuestieDB.GetSuppressedNPCs(zoneId)
+    local suppressed = {}
+    local ld = Questie.db.global.learnedData
+    if ld and ld.settings and ld.settings.prioritizeMyData and ld.npcs then
+        local threshold = ld.settings.minConfidencePins or 2
+        for npcId, entry in pairs(ld.npcs) do
+            if entry.mc and entry.mc >= threshold and entry[7] and entry[7][zoneId] then
+                suppressed[npcId] = true
+            end
+        end
+    end
+    return suppressed
+end
+
+--- Returns a table of [objectId] = true for Objects that have verified learned data (Confidence >= 2)
+--- in a specific zone. Used to hide static database spawns in favor of verified ones.
+---@param zoneId number
+---@return table<number, boolean>
+function QuestieDB.GetSuppressedObjects(zoneId)
+    local suppressed = {}
+    local ld = Questie.db.global.learnedData
+    if ld and ld.settings and ld.settings.prioritizeMyData and ld.objects then
+        local threshold = ld.settings.minConfidencePins or 2
+        for objId, entry in pairs(ld.objects) do
+            if entry.mc and entry.mc >= threshold and entry[4] and entry[4][zoneId] then
+                suppressed[objId] = true
+            end
+        end
+    end
+    return suppressed
+end
+
 ---@param preQuestGroup table<number, number>
 ---@return boolean
 function QuestieDB:IsPreQuestGroupFulfilled(preQuestGroup)

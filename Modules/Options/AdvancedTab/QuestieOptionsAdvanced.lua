@@ -421,19 +421,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                 order = 6,
                 name = l10n('3.3.5 Compatibility Settings'),
             },
-            plugin_header = {
-                type = "header",
-                order = 7,
-                name = "|cFF5EBAF3Loaded Questie-X Plugins|r",
-            },
-            plugin_status_desc = {
-                type = "description",
-                order = 7.01,
-                fontSize = "medium",
-                name = function()
-                    return "|cFF888888Plugin stats have moved to the |r|cFFFFFFFFDatabase|r|cFF888888 tab.|r"
-                end,
-            },
+
         },
     }
 end

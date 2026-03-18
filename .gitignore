@@ -13,3 +13,7 @@ __pycache__/
 coords.lua
 debug.lua
 debug_tooltip.lua
+tmp_*.py
+.history/
+Research/
+Tools/

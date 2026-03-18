@@ -176,6 +176,32 @@
     </div>
 
     <div class="container">
+        <h2 id="v130">v1.3.0 — QuestieLearner Confidence &amp; Tiered Pruning Engine</h2>
+        <p><em>Implements a robust verification model for learned data, introducing a tiered confidence system (Verified vs Unconfirmed), automated stale data cleanup with protection for high-confidence entries, and a critical correction to coordinate scaling logic for 3.3.5a combat log events. Refactors global data sharing to utilize hidden chat channels for community-wide confidence calculation.</em></p>
+
+        <h3>QuestieLearner.lua — Confidence &amp; Coordinate Scaling</h3>
+        <ul>
+            <li><strong>[Coordinate Scaling Fix — 0-100 normalization]</strong> <code>OnCombatLogEvent</code> now explicitly scales player position coordinates by 100 before recording. Previously, <code>C_Map.GetPlayerMapPosition</code> returned values on a 0-1 range, while Questie's internal modules and map pins expect 0-100. This fix resolves the "pins in the top-left corner" bug for all learned data.</li>
+            <li><strong>[Tiered Data Model — Verified vs Unconfirmed]</strong> Introduced the <code>mc</code> (Match Count) field as a primary confidence metric. Data is promoted to "Verified" status once <code>mc >= minConfidencePins</code> (default: 2). Verified data is exempt from automatic time-based pruning.</li>
+            <li><strong>[Last Seen (ls) Timestamping]</strong> Added a <code>ls</code> key to the learned data schema for NPCs, Objects, Quests, and Items. Updated on every kill, interaction, or network confirmation. This provides the temporal baseline for the new stale data cleanup engine.</li>
+            <li><strong>[Confidence-based Map Pin Gating]</strong> Modified the map pin generation logic to honor the <code>minConfidencePins</code> setting. Pins only appear on the map/minimap if the learned data has been confirmed by multiple kills (either local or received via network).</li>
+            <li><strong>[Global Data Sharing — QuestieComms Refactor]</strong> Switched from <code>PARTY</code>/<code>RAID</code> channels to a hidden global channel for learned data broadcast. This allows kills by any Questie-X user in the vicinity to contribute to local data confidence, effectively crowd-sourcing verification in real-time.</li>
+            <li><strong>[Tooltip Confidence Display]</strong> The tooltip handler now pulls the <code>mc</code> count for learned entries and displays it alongside the "Learned" label (e.g., <code>(Learned - Confidence: 3)</code>), providing immediate visual feedback on data reliability.</li>
+        </ul>
+
+        <h3>QuestieLearnerExport.lua — Tiered Pruning Engine</h3>
+        <ul>
+            <li><strong>[RunPrune — Stale threshold logic]</strong> Implemented automated time-based pruning in the <code>Cleanup</code> function. Only entries marked as "Unconfirmed" (low confidence) are subject to expiration. The expiration logic uses <code>(time() - entry.ls) > staleThreshold</code> (default: 90 days).</li>
+            <li><strong>[Verified Protection]</strong> Verified entries are explicitly protected from the time-based cleanup loop unless the <code>pruneVerified</code> setting is manually enabled by the user.</li>
+        </ul>
+
+        <h3>QuestieOptionsDatabase.lua — Verification Controls</h3>
+        <ul>
+            <li><strong>[Stale Threshold Slider]</strong> Added a configuration slider in the Database tab allowing users to set the cleanup window (1 to 180 days).</li>
+            <li><strong>[Prune Verified Toggle]</strong> Added a checkbox to allow manual purging of verified data if desired.</li>
+            <li><strong>[Prioritize My Data]</strong> Implemented a "Prioritize My Data" toggle that dynamically hides static database pins when high-confidence learned data exists for the same NPC in a zone.</li>
+        </ul>
+
         <h2 id="v129">v1.2.9 — QuestieLearner Cross-Link Engine + Tracker Zone Fix + Untrack Fix</h2>
         <p><em>Introduces a universal bidirectional cross-link engine in QuestieLearner that automatically stitches relationships between all four entity types (NPCs, Quests, Objects, Items) as data is learned — no manual wiring needed. Fixes the tracker's persistent "Unknown Zone" header for custom/unknown quests by replacing unreliable map API calls with the canonical 3.3.5a quest log header walk. Fixes a logic inversion in UntrackQuestId that prevented shift-click untacking from working.</em></p>
 

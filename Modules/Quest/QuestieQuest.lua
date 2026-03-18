@@ -985,22 +985,27 @@ function QuestieQuest:UpdateObjectiveNotes(quest)
 
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest] UpdateObjectiveNotes:", quest.Id)
     for objectiveIndex, objective in pairs(quest.Objectives) do
-        local result, err = xpcall(QuestieQuest.PopulateObjective, ERR_FUNCTION, QuestieQuest, quest, objectiveIndex,
-            objective, false)
-        if (not result) then
-            Questie:Debug(Questie.DEBUG_ELEVATED, "[QuestieQuest] There was an error populating objectives for",
-                quest.name, quest.Id, objectiveIndex, err)
+        -- Skip tracker-only fallback objectives — they have no DB Id and can't be populated
+        if objective.Type ~= "fallback" then
+            local result, err = xpcall(QuestieQuest.PopulateObjective, ERR_FUNCTION, QuestieQuest, quest, objectiveIndex,
+                objective, false)
+            if (not result) then
+                Questie:Debug(Questie.DEBUG_ELEVATED, "[QuestieQuest] There was an error populating objectives for",
+                    quest.name, quest.Id, objectiveIndex, err)
+            end
         end
     end
 
     if quest.SpecialObjectives and next(quest.SpecialObjectives) then
         for _, objective in pairs(quest.SpecialObjectives) do
-            local result, err = xpcall(QuestieQuest.PopulateObjective, ERR_FUNCTION, QuestieQuest, quest, 0, objective,
-                true)
-            if not result then
-                Questie:Error("[QuestieQuest]: [SpecialObjectives] " ..
-                l10n("There was an error populating objectives for %s %s %s %s", quest.name or "No quest name",
-                    quest.Id or "No quest id", 0 or "No objective", err or "No error"));
+            if objective.Type ~= "fallback" then
+                local result, err = xpcall(QuestieQuest.PopulateObjective, ERR_FUNCTION, QuestieQuest, quest, 0, objective,
+                    true)
+                if not result then
+                    Questie:Error("[QuestieQuest]: [SpecialObjectives] " ..
+                    l10n("There was an error populating objectives for %s %s %s %s", quest.name or "No quest name",
+                        quest.Id or "No quest id", 0 or "No objective", err or "No error"));
+                end
             end
         end
     end
@@ -1318,6 +1323,26 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
             objectiveCenter = { x = x, y = y }
         end
 
+        -- Filter static spawns if prioritizeMyData is enabled and we have high-confidence learned data
+        if Questie.db.global.learnedData and Questie.db.global.learnedData.settings and Questie.db.global.learnedData.settings.prioritizeMyData then
+            for zone in pairs(zones) do
+                local suppressed = (objectiveData.Type == "monster" and QuestieDB.GetSuppressedNPCs(zone)) or (objectiveData.Type == "object" and QuestieDB.GetSuppressedObjects(zone))
+                if suppressed then
+                    for id, spawnData in pairs(objective.spawnList) do
+                        if suppressed[id] and spawnData.Spawns and spawnData.Spawns[zone] then
+                            -- Only suppress if this isn't a learned spawn (learned spawns have .isLearned)
+                            if not spawnData.isLearned then
+                                spawnData.Spawns[zone] = nil
+                                if not next(spawnData.Spawns) then
+                                    objective.spawnList[id] = nil
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
         local iconsToDraw, _ = _DetermineIconsToDraw(quest, objective, objectiveIndex, objectiveCenter)
         local icon, iconPerZone = _DrawObjectiveIcons(quest.Id, iconsToDraw, objective, maxPerType)
         _DrawObjectiveWaypoints(objective, icon, iconPerZone)
@@ -1341,7 +1366,7 @@ _RegisterObjectiveTooltips = function(objective, questId, blockItemTooltips)
         -- No spawnList and no Id means there is nothing Questie can draw for this objective.
         -- This covers server-tracked trigger objectives (e.g. "complete N quests in zone" for
         -- quest 50150) which may have any objectiveType from the server, not just "event".
-        if not objective.Id then
+        if not objective.Id or objective.Id == 0 then
             objective.hasRegisteredTooltips = true
             return
         end

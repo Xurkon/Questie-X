@@ -11,7 +11,16 @@ local AceComm = LibStub("AceComm-3.0")
 
 local addonPrefix = "QuestieLearner"
 local hiddenChannelName = "questiecomm"
-local ProtocolVersion = 1
+local ProtocolVersion = 2 -- Increment protocol version for enhanced/sanitized data
+
+local time = time
+local GetTime = GetTime
+local math_min = math.min
+local math_floor = math.floor
+local math_random = math.random
+local table_insert = table.insert
+local table_remove = table.remove
+local table_getn = table.getn
 
 -- Dev Logging Flags — defined first so all functions below can call DebugLog
 local LOG_CRITICAL = true
@@ -123,10 +132,10 @@ function QuestieLearnerComms:Initialize()
     end
 
     -- Process incoming/outgoing queues 
-    C_Timer.NewTicker(0.2, function() _QuestieLearnerComms:ProcessQueues() end)
+    QuestieCompat.C_Timer.NewTicker(0.2, function() _QuestieLearnerComms:ProcessQueues() end)
 
     -- Start Reinforcement Loop (every 60 seconds)
-    C_Timer.NewTicker(60, function() _QuestieLearnerComms:ProcessReinforcement() end)
+    QuestieCompat.C_Timer.NewTicker(60, function() _QuestieLearnerComms:ProcessReinforcement() end)
 end
 
 function _QuestieLearnerComms:ProcessReinforcement()
@@ -270,5 +279,5 @@ function _QuestieLearnerComms:ProcessRawMessage(encodedMsg, sender)
 
     DebugLog("DEVELOP", "Received " .. tostring(op) .. " " .. tostring(typ) .. " " .. tostring(id) .. " from " .. tostring(sender))
 
-    QuestieLearner:HandleNetworkData(typ, id, d)
+    QuestieLearner:HandleNetworkData(typ, id, d, op)
 end

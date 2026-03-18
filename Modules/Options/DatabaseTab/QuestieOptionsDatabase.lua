@@ -366,9 +366,34 @@ function QuestieOptions.tabs.database:Initialize()
                 end,
             },
 
+            stale_threshold = {
+                type  = "range",
+                order = 5.2,
+                name  = function() return l10n("Stale Data Threshold (Days)") end,
+                desc  = function() return l10n("Unconfirmed learned data (seen only once) will be pruned if it hasn't been seen in this many days. Verified data is permanent.") end,
+                min   = 1,
+                max   = 180,
+                step  = 1,
+                get   = function() return (Questie.db.global.learnedData.settings and Questie.db.global.learnedData.settings.staleThreshold) or 90 end,
+                set   = function(_, val)
+                    Questie.db.global.learnedData.settings.staleThreshold = val
+                end,
+            },
+ 
+            prune_verified = {
+                type  = "toggle",
+                order = 5.3,
+                name  = function() return l10n("Include Verified Data in Pruning") end,
+                desc  = function() return l10n("If enabled, even high-confidence (Verified) data will be subject to redundancy pruning (e.g., if it's already in the official DB). Time-based pruning still only affects unconfirmed data.") end,
+                get   = function() return (Questie.db.global.learnedData.settings and Questie.db.global.learnedData.settings.pruneVerified) or false end,
+                set   = function(_, val)
+                    Questie.db.global.learnedData.settings.pruneVerified = val
+                end,
+            },
+ 
             prune_dry_btn = {
                 type  = "execute",
-                order = 5.2,
+                order = 5.4,
                 name  = function() return l10n("Dry Run (Preview)") end,
                 desc  = function() return "Print a summary of entries that would be removed, without deleting anything." end,
                 func  = function()
@@ -384,10 +409,10 @@ function QuestieOptions.tabs.database:Initialize()
                     end
                 end,
             },
-
+ 
             prune_btn = {
                 type  = "execute",
-                order = 5.3,
+                order = 5.5,
                 name  = function() return l10n("Prune Now") end,
                 desc  = function() return "|cFFFF8800Removes stale entries. Cannot be undone. Export first if you want a backup.|r" end,
                 func  = function()
@@ -400,10 +425,10 @@ function QuestieOptions.tabs.database:Initialize()
                     ))
                 end,
             },
-
+ 
             prune_all_btn = {
                 type  = "execute",
-                order = 5.4,
+                order = 5.6,
                 name  = function() return "|cFFFF4444" .. l10n("Reset All Learned Data") .. "|r" end,
                 desc  = function() return "|cFFFF0000DANGER: Wipes ALL learned data for ALL servers. Export first.|r" end,
                 confirm = true,

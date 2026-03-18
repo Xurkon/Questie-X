@@ -698,6 +698,41 @@ end
 -- Intentionally NOT stored in QuestiePlayer.currentQuestlog so arrow/map/other modules
 -- don't try to call DB-only methods on them.
 TrackerUtils._fallbackQuests = TrackerUtils._fallbackQuests or {}
+
+-- Reverse-lookup: given a localized zone name string, find the area ID from l10n.zoneLookup.
+local function GetAreaIdByZoneName(zoneName)
+    if not zoneName or zoneName == "" then return 0 end
+    for _, zoneTable in pairs(l10n.zoneLookup) do
+        for areaId, name in pairs(zoneTable) do
+            if name == zoneName then return areaId end
+        end
+    end
+    return 0
+end
+
+-- Walk the quest log to find the zone header for a given questId.
+-- In 3.3.5, zone names appear as isHeader=true entries above their quests.
+-- Returns the header title string, or nil if not found.
+local function GetQuestLogZoneName(questId)
+    local targetIndex = nil
+    local total = GetNumQuestLogEntries and GetNumQuestLogEntries() or 0
+    for i = 1, total do
+        local _, _, _, isHeader, _, _, _, logId = GetQuestLogTitle(i)
+        if not isHeader and logId == questId then
+            targetIndex = i
+            break
+        end
+    end
+    if not targetIndex then return nil end
+    for i = targetIndex, 1, -1 do
+        local title, _, _, isHeader = GetQuestLogTitle(i)
+        if isHeader and title and title ~= "" then
+            return title
+        end
+    end
+    return nil
+end
+
 -- Returns nil if the quest is not currently in the quest log.
 function TrackerUtils:BuildFallbackQuest(questId)
     for i = 1, GetNumQuestLogEntries() do
@@ -723,13 +758,24 @@ function TrackerUtils:BuildFallbackQuest(questId)
                 end
             end
 
-            local zoneId = GetCurrentMapAreaID and GetCurrentMapAreaID() or 0
+            -- Walk backwards from i in the quest log to find the zone header.
+            -- This is the canonical 3.3.5 method: zone headers sit above their quests.
+            local zoneText = nil
+            for h = i, 1, -1 do
+                local hTitle, _, _, hIsHeader = GetQuestLogTitle(h)
+                if hIsHeader and hTitle and hTitle ~= "" then
+                    zoneText = hTitle
+                    break
+                end
+            end
+            local zoneId = (zoneText and GetAreaIdByZoneName(zoneText)) or 0
 
             local quest = {
                 Id               = questId,
                 name             = title or ("Quest " .. questId),
                 level            = level or 0,
                 zoneOrSort       = zoneId,
+                zoneName         = zoneText,
                 Objectives       = objectives,
                 SpecialObjectives = {},
                 isFallback       = true,
@@ -774,7 +820,7 @@ function TrackerUtils:GetSortedQuestIds()
                 local capturedId = qid
                 quest.IsComplete = function(self)
                     for i = 1, GetNumQuestLogEntries() do
-                        local _, _, _, _, isHeader, _, isCompleteFlag, _, logId = GetQuestLogTitle(i)
+                        local _, _, _, isHeader, _, isCompleteFlag, _, logId = GetQuestLogTitle(i)
                         if not isHeader and logId == capturedId then
                             return (isCompleteFlag == 1 or isCompleteFlag == true) and 1 or 0
                         end
@@ -784,10 +830,23 @@ function TrackerUtils:GetSortedQuestIds()
                 if not quest.Objectives then quest.Objectives = {} end
                 if not quest.SpecialObjectives then quest.SpecialObjectives = {} end
                 if not quest.ExtraObjectives then quest.ExtraObjectives = {} end
+                -- Use the quest log header walk (canonical 3.3.5 zone resolution)
+                if not quest.zoneName or quest.zoneName == "" then
+                    local logZone = GetQuestLogZoneName(capturedId)
+                    if logZone then
+                        quest.zoneName = logZone
+                        quest.zoneOrSort = GetAreaIdByZoneName(logZone) or 0
+                    end
+                end
                 QuestiePlayer.currentQuestlog[qid] = quest
             else
                 -- No object at all — build one from the log
                 local fallback = TrackerUtils._fallbackQuests[qid]
+                -- Re-build if cached without zone info (e.g. was built before log was ready)
+                if fallback and not fallback.zoneName then
+                    TrackerUtils._fallbackQuests[qid] = nil
+                    fallback = nil
+                end
                 if not fallback then
                     fallback = TrackerUtils:BuildFallbackQuest(qid)
                     if fallback then
@@ -807,7 +866,7 @@ function TrackerUtils:GetSortedQuestIds()
             -- Create questDetails table keys and insert values
             questDetails[qid] = {}
             questDetails[qid].quest = quest
-            questDetails[qid].zoneName = _GetZoneName(quest.zoneOrSort, qid)
+            questDetails[qid].zoneName = quest.zoneName or _GetZoneName(quest.zoneOrSort, qid)
 
             if quest:IsComplete() == 1 or (not next(quest.Objectives)) then
                 questDetails[qid].questCompletePercent = 1

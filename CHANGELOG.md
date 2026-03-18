@@ -269,7 +269,7 @@
 
 ---
 
-## v1.1.4 — Questie-X: Plugin Architecture & Maintenance Update
+## v1.0 - v1.1.4 — Questie-X: Plugin Architecture & Maintenance Update
 
 > This release marks the official rebranding from **Questie-335** / **PE-Questie** to **Questie-X** and introduces the new plugin architecture. Additionally, this version includes significant UI enhancements, core compatibility refinements for legacy clients, and critical database corrections.
 

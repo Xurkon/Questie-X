@@ -473,7 +473,6 @@ function QuestieInit:LoadBaseDB()
     local function _pullGlobal(dbKey, globalName)
         if type(_G[globalName]) == "table" then
             QuestieDB[dbKey] = _G[globalName]
-            _G[globalName] = nil
             return true
         end
         return false

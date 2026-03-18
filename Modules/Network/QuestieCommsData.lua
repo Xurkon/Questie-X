@@ -93,29 +93,17 @@ function QuestieComms.data:RegisterTooltip(questId, playerName, objectives)
         --Questie:Debug(Questie.DEBUG_DEVELOP, "Adding tooltip lookup", lookupKey, questId, playerName);
         if(objective.type == "i") then
           local item = QuestieDB:GetItem(objective.id);
-          if not item or item.Hidden then
-            return
+          if item and not item.Hidden then
+            for index, source in pairs(item.Sources or {}) do
+              local sourceType = string.sub(source.Type, 1, 1);
+              local sourceId = source.Id;
+              local sourceLookupKey = sourceType.."_"..sourceId;
+              QuestieComms.data:AddTooltip(playerName, questId, sourceLookupKey, objectiveIndex, objective);
+            end
           end
-          for index, source in pairs(item.Sources or {}) do
-            local sourceType = string.sub(source.Type, 1, 1);
-            local sourceId = source.Id;
-            local sourceLookupKey = sourceType.."_"..sourceId;
-            QuestieComms.data:AddTooltip(playerName, questId, sourceLookupKey, objectiveIndex, objective);
-          end
+        else
+          QuestieComms.data:AddTooltip(playerName, questId, lookupKey, objectiveIndex, objective);
         end
-        --[[if(not commsTooltipLookup[lookupKey]) then
-            commsTooltipLookup[lookupKey] = {}
-        end
-        if(not commsTooltipLookup[lookupKey][playerName]) then
-            commsTooltipLookup[lookupKey][playerName] = {};
-        end
-        if(not commsTooltipLookup[lookupKey][playerName][questId]) then
-            commsTooltipLookup[lookupKey][playerName][questId] = {};
-        end
-        commsTooltipLookup[lookupKey][playerName][questId][objectiveIndex] = objective;
-
-        playerRegisteredTooltips[playerName][questId][lookupKey] = true;]]--
-        QuestieComms.data:AddTooltip(playerName, questId, lookupKey, objectiveIndex, objective);
       end
     end
 end

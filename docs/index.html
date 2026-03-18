@@ -177,6 +177,58 @@
     </div>
 
     <div class="container">
+        <!-- QuestieLearner Engine -->
+        <section id="questielearner">
+            <h2>QuestieLearner: Autonomous Data Engine</h2>
+            <p>Questie-X introduces <strong>QuestieLearner</strong>, a zero-configuration autonomous engine that learns the world as you play. It automatically bridges the gap between static database entries and real-time server-side realities.</p>
+
+            <div class="grid">
+                <div class="card">
+                    <h4>Autonomous Acquisition</h4>
+                    <p>Learns NPC spawns, Quest relationships, Object locations, and Item drops directly from combat logs and interaction events. No manual wiring or database entry required.</p>
+                </div>
+                <div class="card">
+                    <h4>3.3.5a Coordinate Scaling</h4>
+                    <p>Implements a precision-first scaling logic that normalizes 3.3.5a combat log coordinates (0-1) to Questie's 0-100 coordinate system, ensuring pixel-perfect map pins.</p>
+                </div>
+            </div>
+
+            <h3>Universal Cross-Link Engine</h3>
+            <p>A bidirectional relationship engine that automatically stitches connections between learned entities. If an item drops from an NPC for a specific quest, QuestieLearner cross-links all three, immediately enabling map pins and tooltips for that item-source chain.</p>
+        </section>
+
+        <!-- Data Integrity -->
+        <section id="integrity">
+            <h2>Data Integrity & Confidence</h2>
+            <p>To ensure database quality in crowd-sourced environments, Questie-X implements a multi-tier verification model.</p>
+
+            <div class="grid">
+                <div class="card">
+                    <h4>Match Count (mc) System</h4>
+                    <p>Every learned entry tracks its "Match Count". Data is promoted to <strong>Verified</strong> status once it reaches the user-defined confidence threshold (default: 2).</p>
+                </div>
+                <div class="card">
+                    <h4>Stale Data Cleanup</h4>
+                    <p>A tiered pruning engine tracks "Last Seen" (ls) timestamps. <strong>Unconfirmed</strong> data is automatically aged out after 90 days, while <strong>Verified</strong> entries are protected from expiration.</p>
+                </div>
+            </div>
+
+            <div class="important">
+                <strong>Confidence Gating:</strong> Map pins and tooltips for learned data are gated by confidence settings, preventing "one-off" anomalies or visual clutter from unconfirmed spawns.
+            </div>
+        </section>
+
+        <!-- Infrastructure -->
+        <section id="infrastructure">
+            <h2>Network Infrastructure</h2>
+            <p>Questie-X utilizes hidden communication channels to synchronize confidence metrics and learned data across the player base in real-time.</p>
+
+            <ul>
+                <li><strong>Global Data Sync</strong>: Learned kills and interactions are broadcasted via hidden global channels, allowing the community to effectively crowd-source the verification of spawn data.</li>
+                <li><strong>Zero-Noise Heartbeat</strong>: Communication is optimized to utilize hidden channels exclusively (removing GUILD channel noise), ensuring zero impact on player guild chat logs while maintaining real-time confidence updates for learned NPCs.</li>
+            </ul>
+        </section>
+
         <!-- Database Architecture -->
         <section id="database">
             <h2>Ebonhold Database Architecture</h2>
@@ -204,36 +256,6 @@ local function InjectOverrides()
         QuestieDB.questDataOverrides[id] = data
     end
 end</code></pre>
-        </section>
-
-        <!-- Logic Refinements -->
-        <section id="logic-refinements">
-            <h2>Core Logic Refinements</h2>
-
-            <div class="grid">
-                <div class="card">
-                    <h4>Quest Arrow: Auto-Mode</h4>
-                    <p>Restored "Auto Nearby" logic which points to the closest available quest when the player has no
-                        active tracking list. Features <strong>Zone Filtering</strong> to prevent the arrow from
-                        pointing to distant continents when in auto-mode.</p>
-                </div>
-                <div class="card">
-                    <h4>Tracker Robustness</h4>
-                    <p>The tracker update loop is now protected with <code>pcall</code>. This prevents malformed quest
-                        data (like the "Fel Orc Scavengers" bug) from crashing the entire UI and hiding unrelated
-                        quests.</p>
-                </div>
-            </div>
-
-            <h3>Quest Icon Persistence Fix</h3>
-            <p>Custom server quests often use auto-complete triggers which can bypass Questie's standard cleanup events.
-                I implemented a two-tier cleanup strategy:</p>
-            <ul>
-                <li><strong>Delayed Verification</strong>: A 500ms check after <code>QuestComplete</code> to catch
-                    lingering frames.</li>
-                <li><strong>Periodic Cleanup</strong>: A 5-second background timer in <code>AvailableQuests.lua</code>
-                    that audits the map for icons belonging to finished quests.</li>
-            </ul>
         </section>
 
         <!-- Custom Quest Implementation -->

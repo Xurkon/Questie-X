@@ -471,11 +471,8 @@ QuestieComms._yellWaitingQuests = {}
 QuestieComms._yellQueue = {}
 QuestieComms._isYelling = false
 
-local _loadupTime_removeme = GetTime() -- this will be removed in 6.0.1 or 6.1, when we can figure out a proper way to prevent
--- yelling quests on login. Not enough time to make and test a proper fix
-
 function QuestieComms:YellProgress(questId)
-    if Questie.db.profile.disableYellComms or badYellLocations[C_Map.GetBestMapForUnit("player")] or QuestiePlayer.numberOfGroupMembers > 4 or GetTime() - _loadupTime_removeme < 8 then
+    if Questie.db.profile.disableYellComms or badYellLocations[C_Map.GetBestMapForUnit("player")] or QuestiePlayer.numberOfGroupMembers > 4 then
         return
     end
     if not QuestieComms._yellWaitingQuests[questId] then
@@ -484,33 +481,9 @@ function QuestieComms:YellProgress(questId)
             tinsert(QuestieComms._yellQueue, questId)
         else
             QuestieComms._isYelling = true
-            C_Timer.After(2, function()
-                _DoYell(questId)
-            end)
+            -- Yell progress feature is currently disabled
         end
     end
-end
-
-_DoYell = function(questId)
-    --[[local data = {}
-    local _, count = QuestieComms:PopulateQuestDataPacketV2(questId, data, 1)
-    if count > 0 then -- dont send quests with no objectives
-        local packet = _QuestieComms:CreatePacket(_QuestieComms.QC_ID_YELL_PROGRESS);
-        packet.data[1] = data;
-        packet.data.priority = "BULK"
-        packet.data.writeMode = _QuestieComms.QC_WRITE_YELL
-
-        packet:write();
-        QuestieComms._yellWaitingQuests[questId] = nil
-    end
-    local nextQuest = tremove(QuestieComms._yellQueue, 1)
-    if nextQuest then
-        C_Timer.After(2, function()
-            _DoYell(nextQuest)
-        end)
-    else
-        QuestieComms._isYelling = false
-    end]]
 end
 
 _QuestieComms._isBroadcasting = false

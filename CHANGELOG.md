@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.3.2 — Taint Resolution & Stability
+
+*Finalizes the Taint Resolution project, eliminating `ADDON_ACTION_BLOCKED: UseAction()` errors by refactoring internal hooks to use secure alternatives and hardening the global namespace against collisions.*
+
+### Core & Stability
+
+- **[Taint Resolution]** Refactored `Hooks.lua` to use `hooksecurefunc` instead of raw hooks for all secure functions.
+- **[Global Safety]** Enhanced `QuestieLoader.lua` with a new collision-aware `PopulateGlobals` engine that prevents overwriting existing global variables and provides diagnostic warnings.
+- **[Security]** Eliminated global namespace modifications in `QuestieInit.lua`.
+- **[Workaround Hardening]** Refactored `WorldMapTaintWorkaround.lua` to remove legacy global function reassignments that were causing secondary taint.
+
+---
+
 ## v1.3.1
 - Refined data-sharing mechanism to use exclusively hidden global channels, removing guild-channel broadcasts to minimize chat traffic.
 

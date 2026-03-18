@@ -176,6 +176,17 @@
     </div>
 
     <div class="container">
+        <h2 id="v132">v1.3.2 — Taint Resolution &amp; Stability</h2>
+        <p><em>Finalizes the Taint Resolution project, eliminating <code>ADDON_ACTION_BLOCKED: UseAction()</code> errors by refactoring internal hooks to use secure alternatives and hardening the global namespace against collisions.</em></p>
+
+        <h3>Core &amp; Stability</h3>
+        <ul>
+            <li><strong>[Taint Resolution]</strong> Refactored <code>Hooks.lua</code> to use <code>hooksecurefunc</code> instead of raw hooks for all secure functions.</li>
+            <li><strong>[Global Safety]</strong> Enhanced <code>QuestieLoader.lua</code> with a new collision-aware <code>PopulateGlobals</code> engine that prevents overwriting existing global variables and provides diagnostic warnings.</li>
+            <li><strong>[Security]</strong> Eliminated global namespace modifications in <code>QuestieInit.lua</code>.</li>
+            <li><strong>[Workaround Hardening]</strong> Refactored <code>WorldMapTaintWorkaround.lua</code> to remove legacy global function reassignments that were causing secondary taint.</li>
+        </ul>
+
         <h2 id="v131">v1.3.1 — QuestieComms Streamlining</h2>
         <p><em>Refines the data-sharing mechanism to use exclusively hidden global channels, removing guild-channel broadcasts to minimize chat traffic while maintaining real-time data synchronization.</em></p>
 

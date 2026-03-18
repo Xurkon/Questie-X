@@ -7,15 +7,15 @@ local function doWorkaround()
     -- HDB (and Questie fork of it) uses WorldMapFrame:AddDataProvider(  ).
     -- print("|cff30fc96Questie|r: |cff00bc32Hiding drop-down menus on the World Map.|r This is currently necessary as a workaround for a bug in the default Blizzard UI related to drop-down menus.")
     if WorldMapZoneMinimapDropDown then
-        WorldMapZoneMinimapDropDown_Update = function() end
         WorldMapZoneMinimapDropDown:Hide()
     end
     if WorldMapContinentDropDown then
-        --WorldMapContinentDropDown_Update = function() end
+        -- We only Hide() these frames. 
+        -- Reassigning the _Update functions (e.g. WorldMapContinentDropDown_Update = function() end) 
+        -- would cause Taint, which results in ADDON_ACTION_BLOCKED: UseAction().
         WorldMapContinentDropDown:Hide()
     end
     if WorldMapZoneDropDown then
-        --WorldMapZoneDropDown_Update = function() end
         WorldMapZoneDropDown:Hide()
     end
     --WorldMapMagnifyingGlassButton:Hide()

@@ -139,7 +139,11 @@ end
 
 function QuestieLoader:PopulateGlobals() -- called when debugging is enabled
     for name, module in pairs(modules) do
-        _G[name] = module
+        if _G[name] == nil then
+            _G[name] = module
+        elseif _G[name] ~= module then
+            Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieLoader] GLOBAL COLLISION: '" .. tostring(name) .. "' already exists in _G! Skipping population to avoid Taint.")
+        end
     end
 end
 

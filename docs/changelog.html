@@ -176,20 +176,14 @@
     </div>
 
     <div class="container">
-        <!-- v1.3.1 -->
-        <div class="version-item">
-            <div class="version-header">
-                <span class="version-number">v1.3.1</span>
-                <span class="version-date">March 17, 2026</span>
-            </div>
-            <div class="change-category">
-                <div class="category-title">Network & Comms</div>
-                <ul class="change-list">
-                    <li>Removed <code>AceComm:SendCommMessage</code> targeting the <code>GUILD</code> channel in <code>QuestieLearnerComms.lua</code>. All background data synchronization now travels exclusively via the <code>questiecomm</code> hidden global channel.</li>
-                    <li>Refined the communication "heartbeat" to ensure zero impact on player guild chat logs while maintaining real-time confidence updates for learned NPCs.</li>
-                </ul>
-            </div>
-        </div>
+        <h2 id="v131">v1.3.1 — QuestieComms Streamlining</h2>
+        <p><em>Refines the data-sharing mechanism to use exclusively hidden global channels, removing guild-channel broadcasts to minimize chat traffic while maintaining real-time data synchronization.</em></p>
+
+        <h3>Network &amp; Comms</h3>
+        <ul>
+            <li>Removed <code>AceComm:SendCommMessage</code> targeting the <code>GUILD</code> channel in <code>QuestieLearnerComms.lua</code>. All background data synchronization now travels exclusively via the <code>questiecomm</code> hidden global channel.</li>
+            <li>Refined the communication "heartbeat" to ensure zero impact on player guild chat logs while maintaining real-time confidence updates for learned NPCs.</li>
+        </ul>
 
         <h2 id="v130">v1.3.0 — QuestieLearner Confidence &amp; Tiered Pruning Engine</h2>
         <p><em>Implements a robust verification model for learned data, introducing a tiered confidence system (Verified vs Unconfirmed), automated stale data cleanup with protection for high-confidence entries, and a critical correction to coordinate scaling logic for 3.3.5a combat log events. Refactors global data sharing to utilize hidden chat channels for community-wide confidence calculation.</em></p>

@@ -1,4 +1,8 @@
 # Changelog
+
+## v1.3.1
+- Refined data-sharing mechanism to use exclusively hidden global channels, removing guild-channel broadcasts to minimize chat traffic.
+
  
 ## v1.3.0 — QuestieLearner Confidence, Global Sharing & Stale Data Cleanup
  

@@ -1845,6 +1845,11 @@ function QuestieLearner:Initialize()
     self:RegisterEvents()
     self:InjectLearnedData()
 
+    local QuestieLearnerComms = QuestieLoader:ImportModule("QuestieLearnerComms")
+    if QuestieLearnerComms and QuestieLearnerComms.Initialize then
+        QuestieLearnerComms:Initialize()
+    end
+
     -- Start periodic cleanup ticker (every 30 mins)
     QuestieCompat.C_Timer.NewTicker(1800, function()
         self:PruneGuidNpcCache()

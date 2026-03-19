@@ -4,34 +4,34 @@
 local function doWorkaround()
     -- Blizzard's bugs
     -- https://github.com/Stanzilla/WoWUIBugs/issues/114 and https://github.com/Stanzilla/WoWUIBugs/issues/165
-    -- HDB (and Questie fork of it) uses WorldMapFrame:AddDataProvider(  ).
-    -- print("|cff30fc96Questie|r: |cff00bc32Hiding drop-down menus on the World Map.|r This is currently necessary as a workaround for a bug in the default Blizzard UI related to drop-down menus.")
+    -- HDB (and Questie fork of it) uses WorldMapFrame:AddDataProvider().
+    -- Reassigning the _Update functions (e.g. WorldMapContinentDropDown_Update = function() end) 
+    -- BEFORE any calls are made is often more reliable than only Hiding the frame.
+    
     if WorldMapZoneMinimapDropDown then
         WorldMapZoneMinimapDropDown:Hide()
+        WorldMapZoneMinimapDropDown.Update = function() end
     end
     if WorldMapContinentDropDown then
-        -- We only Hide() these frames. 
-        -- Reassigning the _Update functions (e.g. WorldMapContinentDropDown_Update = function() end) 
-        -- would cause Taint, which results in ADDON_ACTION_BLOCKED: UseAction().
         WorldMapContinentDropDown:Hide()
+        WorldMapContinentDropDown.Update = function() end
     end
     if WorldMapZoneDropDown then
         WorldMapZoneDropDown:Hide()
+        WorldMapZoneDropDown.Update = function() end
     end
-    --WorldMapMagnifyingGlassButton:Hide()
 end
 
-local _, finished = IsAddOnLoaded("Blizzard_WorldMap")
-
-if finished then
+-- IsAddOnLoaded on 3.3.5 returns 1 or nil, not two values.
+-- If loaded, run immediately, else wait for ADDON_LOADED.
+if IsAddOnLoaded("Blizzard_WorldMap") then
     doWorkaround()
 else
     local f = CreateFrame("Frame")
-    local function addonLoaded(_, _, addOnName)
+    f:SetScript("OnEvent", function(_, _, addOnName)
         if addOnName == "Blizzard_WorldMap" then
             doWorkaround()
         end
-    end
-    f:SetScript("OnEvent", addonLoaded)
+    end)
     f:RegisterEvent("ADDON_LOADED")
 end

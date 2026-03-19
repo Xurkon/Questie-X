@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.3.6 — Tooltip Fixes & Enhanced Taint Workaround
+
+- **[Quest Progress]** Resolved an issue where quest tooltips would not reliably update their progress counts when dynamically learning AI spawns or during rapid kill credit updates.
+- **[Taint Workaround]** Reinforced the `WorldMapTaintWorkaround` for older WoW clients (3.3.5) by correcting the `IsAddOnLoaded` detection timing and adding explicit empty-function stubs to blocked dropdowns.
+- **[Diagnostics]** Improved error reporting for global variable collisions during module initialization.
+
 ## v1.3.5 — Comprehensive Taint & Architecture Fixes
 
 *A comprehensive update resolving 13 distinct issues related to global environment taint, unsafe polyfills, and module stability across all supported Lua environments (5.0, 5.1, 5.2).*

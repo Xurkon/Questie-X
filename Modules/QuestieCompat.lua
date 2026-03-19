@@ -12,6 +12,52 @@ if not math.mod and math.fmod then
     math.mod = math.fmod
 end
 
+-- Polyfill for xpcall variadic arguments (missing in standard Lua 5.0/5.1 WoW clients).
+-- Modern Ace3 uses xpcall(func, err, ...) which drops arguments on legacy clients,
+-- leading to 'self' being nil in addon callbacks.
+local _xpcall = xpcall
+local _pcall = pcall
+local _unpack = unpack
+local xpcall_supported = _pcall(function()
+    -- This will error on 1.12/3.3.5 where xpcall only takes 2 arguments.
+    _xpcall(function(a) return a end, function() end, 1)
+end)
+
+if not xpcall_supported then
+    _G.xpcall = function(func, err, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23, arg24, arg25)
+        -- To avoid the GC overhead of building {...} on every event fire, we pre-check argument counts.
+        -- We support up to 25 arguments just like our select() polyfill.
+        if arg25 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23, arg24, arg25) end, err) end
+        if arg24 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23, arg24) end, err) end
+        if arg23 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23) end, err) end
+        if arg22 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22) end, err) end
+        if arg21 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21) end, err) end
+        if arg20 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20) end, err) end
+        if arg19 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19) end, err) end
+        if arg18 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18) end, err) end
+        if arg17 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17) end, err) end
+        if arg16 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16) end, err) end
+        if arg15 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15) end, err) end
+        if arg14 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14) end, err) end
+        if arg13 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13) end, err) end
+        if arg12 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12) end, err) end
+        if arg11 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11) end, err) end
+        if arg10 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) end, err) end
+        if arg9  ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9) end, err) end
+        if arg8  ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) end, err) end
+        if arg7  ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7) end, err) end
+        if arg6  ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6) end, err) end
+        if arg5  ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5) end, err) end
+        if arg4  ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4) end, err) end
+        if arg3  ~= nil then return _xpcall(function() return func(arg1, arg2, arg3) end, err) end
+        if arg2  ~= nil then return _xpcall(function() return func(arg1, arg2) end, err) end
+        if arg1  ~= nil then return _xpcall(function() return func(arg1) end, err) end
+        
+        -- No extra args provided
+        return _xpcall(func, err)
+    end
+end
+
 -- addon is running on 3.3.5 WotLK client
 do
     local _, _, _, build = GetBuildInfo()

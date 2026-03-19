@@ -242,7 +242,24 @@ function QuestieTooltips:GetTooltip(key)
                                          end
                                      end
                                  end
-                                 QuestieTooltips:RegisterObjectiveTooltip(questId, key, { Index = 0, Description = objText, Needed = needed, Collected = collected, Update = function() end })
+                                 QuestieTooltips:RegisterObjectiveTooltip(questId, key, { 
+                                     Index = 0, 
+                                     Description = objText, 
+                                     Needed = needed, 
+                                     Collected = collected, 
+                                     Update = function(self)
+                                         local objs = QuestLogCache.GetQuestObjectives(questId)
+                                         if objs then
+                                             for _, o in pairs(objs) do
+                                                 if o.text and self.Description and (o.text == self.Description or string.find(o.text, self.Description, 1, true) or string.find(self.Description, o.text, 1, true)) then
+                                                     self.Needed = o.numRequired
+                                                     self.Collected = o.numFulfilled
+                                                     break
+                                                 end
+                                             end
+                                         end
+                                     end 
+                                 })
                              end
                          end
                          if learnedNpc.mc then
@@ -265,7 +282,24 @@ function QuestieTooltips:GetTooltip(key)
                                          end
                                      end
                                  end
-                                 QuestieTooltips:RegisterObjectiveTooltip(questId, key, { Index = 0, Description = objText, Needed = needed, Collected = collected, Update = function() end })
+                                 QuestieTooltips:RegisterObjectiveTooltip(questId, key, { 
+                                     Index = 0, 
+                                     Description = objText, 
+                                     Needed = needed, 
+                                     Collected = collected, 
+                                     Update = function(self)
+                                         local objs = QuestLogCache.GetQuestObjectives(questId)
+                                         if objs then
+                                             for _, o in pairs(objs) do
+                                                 if o.text and self.Description and (o.text == self.Description or string.find(o.text, self.Description, 1, true) or string.find(self.Description, o.text, 1, true)) then
+                                                     self.Needed = o.numRequired
+                                                     self.Collected = o.numFulfilled
+                                                     break
+                                                 end
+                                             end
+                                         end
+                                     end 
+                                 })
                              end
                          end
                          if learnedObj.mc then

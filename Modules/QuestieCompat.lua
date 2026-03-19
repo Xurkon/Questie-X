@@ -16,11 +16,9 @@ end
 -- Modern Ace3 uses xpcall(func, err, ...) which drops arguments on legacy clients,
 -- leading to 'self' being nil in addon callbacks.
 local _xpcall = xpcall
-local _pcall = pcall
-local _unpack = unpack
-local xpcall_supported = _pcall(function()
-    -- This will error on 1.12/3.3.5 where xpcall only takes 2 arguments.
-    _xpcall(function(a) return a end, function() end, 1)
+local xpcall_supported = false
+pcall(function()
+    _xpcall(function(a) if a == 1 then xpcall_supported = true end end, function() end, 1)
 end)
 
 if not xpcall_supported then

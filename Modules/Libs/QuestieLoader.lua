@@ -46,64 +46,14 @@ end
 -- making the loop body run exactly once before returning.  Use a plain
 -- sequential block instead so the intent is obvious.
 if not select then
-    select = function(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25)
-        if index == "#" then
-            -- Count trailing non-nil values (up to 25 args).
-            do
-                if a25 ~= nil then return 25 end
-                if a24 ~= nil then return 24 end
-                if a23 ~= nil then return 23 end
-                if a22 ~= nil then return 22 end
-                if a21 ~= nil then return 21 end
-                if a20 ~= nil then return 20 end
-                if a19 ~= nil then return 19 end
-                if a18 ~= nil then return 18 end
-                if a17 ~= nil then return 17 end
-                if a16 ~= nil then return 16 end
-                if a15 ~= nil then return 15 end
-                if a14 ~= nil then return 14 end
-                if a13 ~= nil then return 13 end
-                if a12 ~= nil then return 12 end
-                if a11 ~= nil then return 11 end
-                if a10 ~= nil then return 10 end
-                if a9  ~= nil then return 9  end
-                if a8  ~= nil then return 8  end
-                if a7  ~= nil then return 7  end
-                if a6  ~= nil then return 6  end
-                if a5  ~= nil then return 5  end
-                if a4  ~= nil then return 4  end
-                if a3  ~= nil then return 3  end
-                if a2  ~= nil then return 2  end
-                if a1  ~= nil then return 1  end
-                return 0
+    select = function(index, ...)
+        if arg then -- Lua 5.0 Native Variadic Table
+            if index == "#" then
+                return arg.n
             end
+            index = tonumber(index) or 1
+            return unpack(arg, index, arg.n)
         end
-        if index == 1  then return a1,  a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 2  then return a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 3  then return a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 4  then return a4,  a5,  a6,  a7,  a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 5  then return a5,  a6,  a7,  a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 6  then return a6,  a7,  a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 7  then return a7,  a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 8  then return a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 9  then return a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 10 then return a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 11 then return a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 12 then return a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 13 then return a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 14 then return a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 15 then return a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 16 then return a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 17 then return a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 18 then return a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 19 then return a19, a20, a21, a22, a23, a24, a25 end
-        if index == 20 then return a20, a21, a22, a23, a24, a25 end
-        if index == 21 then return a21, a22, a23, a24, a25 end
-        if index == 22 then return a22, a23, a24, a25 end
-        if index == 23 then return a23, a24, a25 end
-        if index == 24 then return a24, a25 end
-        if index == 25 then return a25 end
-        return nil
     end
 end
 

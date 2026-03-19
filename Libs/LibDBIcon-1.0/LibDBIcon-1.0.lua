@@ -260,14 +260,24 @@ local function createButton(name, object, db)
 	button:SetScript("OnMouseDown", onMouseDown)
 	button:SetScript("OnMouseUp", onMouseUp)
 
-	button.fadeOut = button:CreateAnimationGroup()
-	local animOut = button.fadeOut:CreateAnimation("Alpha")
-	animOut:SetOrder(1)
-	animOut:SetDuration(0.2)
-	animOut:SetFromAlpha(1)
-	animOut:SetToAlpha(0)
-	animOut:SetStartDelay(1)
-	button.fadeOut:SetToFinalAlpha(true)
+	if button.CreateAnimationGroup then
+		button.fadeOut = button:CreateAnimationGroup()
+		local animOut = button.fadeOut:CreateAnimation("Alpha")
+		animOut:SetOrder(1)
+		animOut:SetDuration(0.2)
+		if animOut.SetFromAlpha then
+			animOut:SetFromAlpha(1)
+			animOut:SetToAlpha(0)
+		elseif animOut.SetChange then
+			animOut:SetChange(-1)
+		end
+		animOut:SetStartDelay(1)
+		if button.fadeOut.SetToFinalAlpha then
+			button.fadeOut:SetToFinalAlpha(true)
+		end
+	else
+		button.fadeOut = { Play = function() end, Stop = function() end }
+	end
 
 	lib.objects[name] = button
 
@@ -463,14 +473,24 @@ for name, button in next, lib.objects do
 	button:SetScript("OnMouseUp", onMouseUp)
 
 	if not button.fadeOut then -- Upgrade to 39
-		button.fadeOut = button:CreateAnimationGroup()
-		local animOut = button.fadeOut:CreateAnimation("Alpha")
-		animOut:SetOrder(1)
-		animOut:SetDuration(0.2)
-		animOut:SetFromAlpha(1)
-		animOut:SetToAlpha(0)
-		animOut:SetStartDelay(1)
-		button.fadeOut:SetToFinalAlpha(true)
+		if button.CreateAnimationGroup then
+			button.fadeOut = button:CreateAnimationGroup()
+			local animOut = button.fadeOut:CreateAnimation("Alpha")
+			animOut:SetOrder(1)
+			animOut:SetDuration(0.2)
+			if animOut.SetFromAlpha then
+				animOut:SetFromAlpha(1)
+				animOut:SetToAlpha(0)
+			elseif animOut.SetChange then
+				animOut:SetChange(-1)
+			end
+			animOut:SetStartDelay(1)
+			if button.fadeOut.SetToFinalAlpha then
+				button.fadeOut:SetToFinalAlpha(true)
+			end
+		else
+			button.fadeOut = { Play = function() end, Stop = function() end }
+		end
 	end
 end
 lib:SetButtonRadius(lib.radius) -- Upgrade to 40

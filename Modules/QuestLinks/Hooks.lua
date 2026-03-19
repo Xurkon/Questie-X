@@ -42,8 +42,17 @@ function Hooks:HookQuestLogTitle()
 
         -- For all other clicks (including tracking/untracking), use the original function
         -- only call Questie's tracker if we actually want to fix this quest (normal quests already call AQW_insert)
-        if Questie.db.profile.trackerEnabled and GetNumQuestLeaderBoards(questLogLineIndex) == 0 and (not IsQuestWatched(questLogLineIndex)) then
-            QuestieTracker:AQW_Insert(questLogLineIndex, QUEST_WATCH_NO_EXPIRE)
+        if Questie.db.profile.trackerEnabled and GetNumQuestLeaderBoards(questLogLineIndex) == 0 then
+            local _, _, _, _, _, _, _, questId = GetQuestLogTitle(questLogLineIndex)
+            if questId and questId > 0 then
+                if Questie.db.char.TrackedQuests[questId] or (Questie.db.profile.autoTrackQuests and (not Questie.db.char.AutoUntrackedQuests[questId])) then
+                    -- Quest is currently tracked — hidden it
+                    QuestieTracker:UntrackQuestId(questId)
+                else
+                    -- Quest is currently hidden — show it
+                    QuestieTracker:AQW_Insert(questLogLineIndex, QUEST_WATCH_NO_EXPIRE)
+                end
+            end
             if WatchFrame_Update then
                 WatchFrame_Update()
             end

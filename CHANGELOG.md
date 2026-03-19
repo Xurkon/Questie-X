@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.3.9 — BackdropTemplate & Tracking Reliability
+
+- **[Quest Tracking]** Significantly improved the reliability of shift-clicking to track or untrack quests. Added more robust user action detection to identify clicks directly in the tracker or the Quest Log.
+- **[Quest Re-tracking]** Resolved an issue where hidden quests would refuse to re-track after being manually untracked. Toggling quests back on is now consistently recognized as a manual user action across all WoW versions.
+- **[AceGUI Fix]** Fixed a critical crash: `Couldn't find inherited node "BackdropTemplate"`. Implemented a cross-version safe method for frame inheritance in AceGUI-3.0, ensuring stability on WotLK and Classic clients.
+- **[Verification]** Performed a comprehensive syntax audit using `luaparse` for all modified core files and AceGUI widgets.
+
+## v1.3.8 — UseAction Taint Fixes
+
+- **[Taint Resolution]** Successfully resolved the `ADDON_ACTION_BLOCKED: UseAction()` error by updating internal libraries and eliminating global namespace pollution.
+- **[Library Update]** Updated `Compat/embeds.xml` to use modern, taint-free versions of core libraries.
+- **[Addon Stability]** Audited `QuestieInit.lua` and `QuestieLoader.lua` for safe global population.
+
 ## v1.3.7 — Quest Tracking & Robustness 
 
 - **[Quest Tracking]** Resolved inconsistent quest tracking/untracking by making the tracking state idempotent. This eliminates "doing nothing" results while toggling quests in the Quest Log and prevents tracking loops caused by Blizzard's auto-track feature.
@@ -66,6 +79,12 @@
 
 ---
 
+## v1.3.8
+- **[QuestieTracker]** Resolved persistent "stuck" quest tracking/untracking by ensuring `AQW_Insert` and `RemoveQuestWatch` hooks respect manual untracking state.
+- **[QuestieTracker]** Refined watch hooks to distinguish between manual user actions (e.g. shift-clicking in Quest Log) and internal Blizzard/server objective updates.
+- **[QuestieTracker]** Added robustness for Quest IDs passed directly to Blizzard watch APIs (common on custom WoW private servers).
+- **[Global Safety]** Added lint suppressions for external frames (`VoiceOverFrame`, etc.) in `QuestieTracker.lua`.
+
 ## v1.3.1
 
 - Refined data-sharing mechanism to use exclusively hidden global channels, removing guild-channel broadcasts to minimize chat traffic.
@@ -101,7 +120,7 @@
 
 - **[Cross-link engine — full rewrite]** Replaced the narrow NPC↔Quest cross-link stubs with a comprehensive bidirectional relationship engine covering all four entity types. Three shared primitives underpin the whole system: `_AddToArray(tbl, key, value, ovrTable, ovrId)` adds a value to an array field and mirrors it to the live `*DataOverrides` table in the same call; `_AddToNestedArray` does the same for two-level nested arrays (used for quest starters/finishers sub-slots); `_AddToQuestObjective` inserts `{entityId, text}` pairs into `quest[10][slot]` (the objectives array) with the same dual-write pattern. Every write is idempotent (no-op if value already present).
 - **[CrossLinkAfterNPC]** Called whenever a new NPC ID is first committed to `learnedData.npcs`. Iterates all learned quests: (a) if quest`[2][1]` contains this npcId → adds questId to `npc[10]` (questStarts); (b) if quest`[3][1]` contains this npcId → adds questId to `npc[11]` (questEnds); (c) walks quest`[10][3]` (item objectives) — for each item whose `item[2]` (npcDrops) already references this NPC, the NPC is injected into `quest[10][1]` as a creature objective so it can receive map pins and tooltip text.
-- **[CrossLinkAfterQuest]** Called when a new quest is first committed to `learnedData.quests`. Links all referenced entities: starter NPCs (quest`[2][1]`) → each known NPC's `npc[10]`; starter objects (quest`[2][2]`) → each known object's `obj[2]`; finisher NPCs (quest`[3][1]`) → `npc[11]`; finisher objects (quest`[3][2]`) → `obj[3]`; source item (quest`[11]`) → `item[5]` (startQuest key per itemDB schema); item drop chain (quest`[10][3]` items whose `item[2]` lists known NPCs) → those NPCs are injected into `quest[10][1]` as creature objectives.
+- **[CrossLinkAfterQuest]** Called when a new quest is first committed to `learnedData.quests`. Links all referenced entities: starter NPCs (quest`[2][1]`) → each known NPC's `npc[10]`; starter objects (quest`[2][2]`) → each known object's `obj[2]`; finisher NPCs (quest`[3][1]`) → `npc[11]`; finisher objects (quest`[3][2]`) → `obj[3]`; source item (quest`[11]`) → `item[5]` (startQuest key per itemDB schema); item drop chain (quest`[10][3]` items whose `item[2]` lists known NPCs) → those NPCs are injected into `quest[10][1]` as a creature objective. This means: learn a quest that needs Wolf Fur → later kill a wolf that drops it → the wolf NPC immediately becomes a tracked creature objective for that quest.
 - **[CrossLinkAfterObject]** Called when a new object is first committed to `learnedData.objects`. Scans all learned quests: if quest`[2][2]` references this objectId → adds questId to `obj[2]` (questStarts); if quest`[3][2]` references it → adds questId to `obj[3]` (questEnds).
 - **[CrossLinkAfterItem]** Called when a new item is first committed to `learnedData.items` AND whenever a new drop-NPC relationship is added via `LearnItemDrop`. Two passes: (1) scan all learned quests for `quest[11] == itemId` → set `item[5] = questId` (item starts this quest); (2) scan all learned quests for `quest[10][3]` entries matching itemId — for each such quest, every NPC in `item[2]` (drop sources) is injected into `quest[10][1]` as a creature objective. This means: learn a quest that needs Wolf Fur → later kill a wolf that drops it → the wolf NPC immediately becomes a tracked creature objective for that quest.
 - **[CrossLinkAfterQuestGiver]** Now handles all three entity type slots (1=NPC, 2=Object, 3=Item) instead of only NPCs. For typeSlot=1: stitches `npc[10/11]` ↔ `quest[2/3][1]` bidirectionally. For typeSlot=2: stitches `obj[2/3]` ↔ `quest[2/3][2]`. For typeSlot=3: adds itemId to `quest[2][3]` (item starters slot). All writes go to both `learnedData` (SavedVariables) and live `*DataOverrides` tables simultaneously.
@@ -381,7 +400,7 @@
 
 ### TOC / Addon Identity
 
-- **[TOC]** Core addon `.toc` files updated to `Questie-X` title and `v1.1.4` version.
+- **[TOC]** Core addon `.toc` files updated to `Questie-X` title and `v1.3.8`
 - **[Libs]** Added `LibDeflate`, `XXH_Lua_Lib`, `LibDBIcon-1.0`, and `LibDataBroker-1.1` to the Libs directory.
 
 ### Bug Fixes

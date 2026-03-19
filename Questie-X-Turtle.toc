@@ -1,11 +1,11 @@
 ## Interface: 11200
-## Title: |cFF5EBAF3Questie|r|cFFDAFAFD-X|r-Turtle|cFF00FF00 v1.3.7|r
+## Title: |cFF5EBAF3Questie|r|cFFDAFAFD-X|r-Turtle|cFF00FF00 v1.3.9|r
 ## Notes: A standalone Classic QuestHelper
 ## Notes-esMX: Ayundante de misiones
 ## Notes-esES: Ayundante de misiones
 ## Notes-ptBR: Ajudante de misiones
 ## Notes-frFR: Assistant de quêtes
-## Version: 1.3.7
+## Version: 1.3.9
 ## RequiredDeps:
 ## OptionalDeps: Ace3, CallbackHandler-1.0, HereBeDragons, LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0, LibStub, LibUIDropDownMenu, Questie-X-TurtleDB
 ## SavedVariables: QuestieConfig

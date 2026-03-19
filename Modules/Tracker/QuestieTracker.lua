@@ -2287,19 +2287,36 @@ function QuestieTracker.RemoveQuestWatch(index, isQuestie)
 
     if not isQuestie then
         if index then
-            local questId = select(8, GetQuestLogTitle(index))
-            if (not questId) or questId == 0 then
-                -- When an objective progresses in TBC "index" is the questId, but when a quest is manually removed from
-                -- the quest watch (e.g. shift clicking it in the quest log) "index" is the questLogIndex.
-                -- We should NOT untrack when Blizzard calls this with a questId internally during objective updates.
-                if questId == 0 then
-                    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker.RemoveQuestWatch] - Internal Blizzard update, skipping untrack for ID:", index)
-                end
+            local _, _, _, isHeader, _, _, _, questId = GetQuestLogTitle(index)
+
+            if isHeader then
                 return
             end
 
-            if questId then
-                QuestieTracker:UntrackQuestId(questId)
+            if (not questId) or questId == 0 then
+                -- Maybe index was already a questId (Ascension/Ebonhold extension)
+                if index > 0 and (GetQuestLogIndexByID and GetQuestLogIndexByID(index) > 0) then
+                    questId = index
+                else
+                    return
+                end
+            end
+
+            if questId and questId > 0 then
+                local stack = debugstack(2, 5, 0)
+                local isUserAction = stack:find("QuestLog") or stack:find("OnClick") or stack:find("QuestWatch") or stack:find("TrackerLinePool") or stack:find("TrackerMenu") or IsShiftKeyDown()
+
+                if not isUserAction then
+                    -- Internal update: Only untrack if we are NOT in auto-track mode
+                    if not Questie.db.profile.autoTrackQuests then
+                        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker.RemoveQuestWatch] - Internal update (untrack):", questId)
+                        QuestieTracker:UntrackQuestId(questId)
+                    end
+                else
+                    -- User triggered untrack: Explicitly follow it.
+                    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker.RemoveQuestWatch] - User action (untrack):", questId)
+                    QuestieTracker:UntrackQuestId(questId)
+                end
                 Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker.RemoveQuestWatch] - by Blizzard", questId)
             end
         end
@@ -2341,7 +2358,7 @@ function QuestieTracker:AQW_Insert(index, expire)
 
     -- This prevents double calling this function
     local now = GetTime()
-    if index and index == QuestieTracker.last_aqw and (now - lastAQW) < 0.1 then
+    if index and index == QuestieTracker.last_aqw and (now - lastAQW) < 0.05 then
         return
     end
 
@@ -2352,24 +2369,50 @@ function QuestieTracker:AQW_Insert(index, expire)
     -- that is all the player will see. This also prevents hitting the Blizzard Quest Watch Limit.
     RemoveQuestWatch(index, true)
 
-    local questId = select(8, GetQuestLogTitle(index))
+    local _, _, _, isHeader, _, _, _, questId = GetQuestLogTitle(index)
+    if isHeader then return end
+
     if (not questId) or questId == 0 then
         -- When an objective progresses in TBC "index" is the questId, but when a quest is manually added to the quest watch
         -- (e.g. shift clicking it in the quest log) "index" is the questLogIndex.
-        questId = index
+        if index and index > 50 and GetQuestLogIndexByID and GetQuestLogIndexByID(index) > 0 then
+            questId = index
+        else
+            return
+        end
     end
 
     if questId and questId > 0 then
+        -- Check if this was a manual user action (Shift-Click in Quest Log or similar)
+        local stack = debugstack(2, 8, 0)
+        local isUserAction = stack:find("QuestLog") or stack:find("OnClick") or stack:find("QuestWatch") or stack:find("Toggle") or stack:find("TrackerLinePool") or stack:find("TrackerMenu") or IsShiftKeyDown()
+
         -- These checks makes sure the only way to track a quest is through the Blizzard Quest Log
         -- or another Addon hooked into the Blizzard Quest Log that replaces the default Quest Log.
         if not Questie.db.profile.autoTrackQuests then
-            -- Manual track mode: force track when AddQuestWatch is called
-            Questie.db.char.TrackedQuests[questId] = true
-            Questie.db.char.AutoUntrackedQuests[questId] = nil
-        else
-            if Questie.db.char.AutoUntrackedQuests[questId] then
-                -- Quest was manually hidden — shift-click re-tracks it
+            if isUserAction then
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker:AQW_Insert] - Manual mode, user re-track:", questId)
+                Questie.db.char.TrackedQuests[questId] = true
                 Questie.db.char.AutoUntrackedQuests[questId] = nil
+            else
+                -- In manual mode, we normally only track on user action, but if Blizzard calls it,
+                -- it might be a re-sync of something the user HAD tracked.
+                if Questie.db.char.TrackedQuests[questId] then
+                    -- Keep it tracked
+                else
+                    -- Blizzard auto-tracked something we didn't ask for? Ignore it in Manual mode.
+                    return
+                end
+            end
+        else
+            if isUserAction then
+                -- Auto track mode: User manually tracked it (un-hiding)
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker:AQW_Insert] - Auto mode, user un-hide:", questId)
+                Questie.db.char.AutoUntrackedQuests[questId] = nil
+            elseif Questie.db.char.AutoUntrackedQuests[questId] then
+                -- Auto track mode: Internal update for a HIDDEN quest — respect the hidden state!
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker:AQW_Insert] - Auto mode, skipping hidden quest:", questId)
+                return
             end
         end
 

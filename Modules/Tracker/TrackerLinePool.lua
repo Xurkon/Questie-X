@@ -1017,6 +1017,10 @@ TrackerLinePool.OnClickQuest = function(self, button)
                 end
             end
         else
+            local questLogIndex = GetQuestLogIndexByID(self.Quest.Id)
+            if questLogIndex and questLogIndex > 0 then
+                RemoveQuestWatch(questLogIndex)
+            end
             QuestieTracker:UntrackQuestId(self.Quest.Id)
             local questLogFrame = QuestLogExFrame or ClassicQuestLog or QuestLogFrame
             if questLogFrame:IsShown() then

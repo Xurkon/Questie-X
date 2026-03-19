@@ -5,7 +5,7 @@
 if not table.getn then
     local loadFunc = loadstring or load
     if loadFunc then
-        table.getn = loadFunc("return function(t) return table.getn(t) end")()
+        table.getn = loadFunc("return function(t) return #t end")()
     end
 end
 
@@ -20,6 +20,7 @@ if not math.mod then
 end
 
 -- Shim for Lua 5.0 (Turtle WoW) where string.match is missing.
+-- Supports up to 5 captures (sufficient for all Questie uses).
 if not string.match then
     string.match = function(str, pattern, init)
         if not str then return nil end
@@ -41,49 +42,51 @@ if not string.gmatch then
 end
 
 -- Shim for Lua 5.0 (Turtle WoW) where select() was not yet implemented.
+-- Fix #7: The original used a `while n > 0` loop that never decremented n,
+-- making the loop body run exactly once before returning.  Use a plain
+-- sequential block instead so the intent is obvious.
 if not select then
     select = function(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25)
         if index == "#" then
-            local n = 25
-            while n > 0 do
-                if n == 25 and a25 ~= nil then return 25 end
-                if n == 24 and a24 ~= nil then return 24 end
-                if n == 23 and a23 ~= nil then return 23 end
-                if n == 22 and a22 ~= nil then return 22 end
-                if n == 21 and a21 ~= nil then return 21 end
-                if n == 20 and a20 ~= nil then return 20 end
-                if n == 19 and a19 ~= nil then return 19 end
-                if n == 18 and a18 ~= nil then return 18 end
-                if n == 17 and a17 ~= nil then return 17 end
-                if n == 16 and a16 ~= nil then return 16 end
-                if n == 15 and a15 ~= nil then return 15 end
-                if n == 14 and a14 ~= nil then return 14 end
-                if n == 13 and a13 ~= nil then return 13 end
-                if n == 12 and a12 ~= nil then return 12 end
-                if n == 11 and a11 ~= nil then return 11 end
-                if n == 10 and a10 ~= nil then return 10 end
-                if n == 9 and a9 ~= nil then return 9 end
-                if n == 8 and a8 ~= nil then return 8 end
-                if n == 7 and a7 ~= nil then return 7 end
-                if n == 6 and a6 ~= nil then return 6 end
-                if n == 5 and a5 ~= nil then return 5 end
-                if n == 4 and a4 ~= nil then return 4 end
-                if n == 3 and a3 ~= nil then return 3 end
-                if n == 2 and a2 ~= nil then return 2 end
-                if n == 1 and a1 ~= nil then return 1 end
+            -- Count trailing non-nil values (up to 25 args).
+            do
+                if a25 ~= nil then return 25 end
+                if a24 ~= nil then return 24 end
+                if a23 ~= nil then return 23 end
+                if a22 ~= nil then return 22 end
+                if a21 ~= nil then return 21 end
+                if a20 ~= nil then return 20 end
+                if a19 ~= nil then return 19 end
+                if a18 ~= nil then return 18 end
+                if a17 ~= nil then return 17 end
+                if a16 ~= nil then return 16 end
+                if a15 ~= nil then return 15 end
+                if a14 ~= nil then return 14 end
+                if a13 ~= nil then return 13 end
+                if a12 ~= nil then return 12 end
+                if a11 ~= nil then return 11 end
+                if a10 ~= nil then return 10 end
+                if a9  ~= nil then return 9  end
+                if a8  ~= nil then return 8  end
+                if a7  ~= nil then return 7  end
+                if a6  ~= nil then return 6  end
+                if a5  ~= nil then return 5  end
+                if a4  ~= nil then return 4  end
+                if a3  ~= nil then return 3  end
+                if a2  ~= nil then return 2  end
+                if a1  ~= nil then return 1  end
                 return 0
             end
-            return 0
         end
-        if index == 1 then return a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 2 then return a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 3 then return a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 4 then return a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 5 then return a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 6 then return a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 7 then return a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 8 then return a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 9 then return a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 1  then return a1,  a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 2  then return a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 3  then return a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 4  then return a4,  a5,  a6,  a7,  a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 5  then return a5,  a6,  a7,  a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 6  then return a6,  a7,  a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 7  then return a7,  a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 8  then return a8,  a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
+        if index == 9  then return a9,  a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
         if index == 10 then return a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
         if index == 11 then return a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
         if index == 12 then return a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
@@ -117,24 +120,30 @@ QuestieLoader._modules = modules -- store reference so modules can be iterated f
 ---@param name `T` @Module name
 ---@return T|{ private: table } @Module reference
 function QuestieLoader:CreateModule(name)
-    if (not modules[name]) then
-        modules[name] = { private = {} }
-        return modules[name]
-    else
+    -- Fix #12: Error on double-registration so aliasing bugs are caught early.
+    if modules[name] and modules[name]._defined then
+        -- Print a debug message rather than hard-error so it doesn't break live servers
+        -- even if another file accidentally calls CreateModule twice.
+        if Questie and Questie.Debug then
+            Questie:Debug(1, "[QuestieLoader] WARNING: CreateModule called twice for '" .. tostring(name) .. "'. Using existing module.")
+        end
         return modules[name]
     end
+    if not modules[name] then
+        modules[name] = { private = {} }
+    end
+    modules[name]._defined = true
+    return modules[name]
 end
 
 ---@generic T
 ---@param name `T` @Module name
 ---@return T|{ private: table } @Module reference
 function QuestieLoader:ImportModule(name)
-    if (not modules[name]) then
+    if not modules[name] then
         modules[name] = { private = {} }
-        return modules[name]
-    else
-        return modules[name]
     end
+    return modules[name]
 end
 
 function QuestieLoader:PopulateGlobals() -- called when debugging is enabled

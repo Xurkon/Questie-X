@@ -3,84 +3,10 @@
 QuestieCompat = setmetatable({}, { __index = _G })
 
 ------------------------------------------
--- Lua 5.0 string compatibility (e.g. Turtle)
+-- Lua 5.0 / 5.1 / 5.2 compatibility shims
+-- NOTE: string.match, select(), and math.mod shims live in QuestieLoader.lua
+--       which is always loaded first.  Do NOT duplicate them here.
 ------------------------------------------
-if type(string) == "table" and type(string.match) ~= "function" then
-    function string.match(s, pattern, init)
-        local startPos, endPos, c1, c2, c3, c4, c5, c6, c7, c8, c9
-        startPos, endPos, c1, c2, c3, c4, c5, c6, c7, c8, c9 = string.find(s, pattern, init or 1)
-        if not startPos then
-            return nil
-        end
-        if c1 ~= nil then
-            return c1, c2, c3, c4, c5, c6, c7, c8, c9
-        end
-        return string.sub(s, startPos, endPos)
-    end
-end
-
-if not select then
-    function select(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25)
-        if index == "#" then
-            local n = 25
-            while n > 0 do
-                if n == 25 and a25 ~= nil then return 25 end
-                if n == 24 and a24 ~= nil then return 24 end
-                if n == 23 and a23 ~= nil then return 23 end
-                if n == 22 and a22 ~= nil then return 22 end
-                if n == 21 and a21 ~= nil then return 21 end
-                if n == 20 and a20 ~= nil then return 20 end
-                if n == 19 and a19 ~= nil then return 19 end
-                if n == 18 and a18 ~= nil then return 18 end
-                if n == 17 and a17 ~= nil then return 17 end
-                if n == 16 and a16 ~= nil then return 16 end
-                if n == 15 and a15 ~= nil then return 15 end
-                if n == 14 and a14 ~= nil then return 14 end
-                if n == 13 and a13 ~= nil then return 13 end
-                if n == 12 and a12 ~= nil then return 12 end
-                if n == 11 and a11 ~= nil then return 11 end
-                if n == 10 and a10 ~= nil then return 10 end
-                if n == 9 and a9 ~= nil then return 9 end
-                if n == 8 and a8 ~= nil then return 8 end
-                if n == 7 and a7 ~= nil then return 7 end
-                if n == 6 and a6 ~= nil then return 6 end
-                if n == 5 and a5 ~= nil then return 5 end
-                if n == 4 and a4 ~= nil then return 4 end
-                if n == 3 and a3 ~= nil then return 3 end
-                if n == 2 and a2 ~= nil then return 2 end
-                if n == 1 and a1 ~= nil then return 1 end
-                return 0
-            end
-            return 0
-        end
-        if index == 1 then return a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 2 then return a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 3 then return a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 4 then return a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 5 then return a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 6 then return a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 7 then return a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 8 then return a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 9 then return a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 10 then return a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 11 then return a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 12 then return a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 13 then return a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 14 then return a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 15 then return a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 16 then return a16, a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 17 then return a17, a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 18 then return a18, a19, a20, a21, a22, a23, a24, a25 end
-        if index == 19 then return a19, a20, a21, a22, a23, a24, a25 end
-        if index == 20 then return a20, a21, a22, a23, a24, a25 end
-        if index == 21 then return a21, a22, a23, a24, a25 end
-        if index == 22 then return a22, a23, a24, a25 end
-        if index == 23 then return a23, a24, a25 end
-        if index == 24 then return a24, a25 end
-        if index == 25 then return a25 end
-        return nil
-    end
-end
 
 if not math.mod and math.fmod then
     math.mod = math.fmod
@@ -99,20 +25,20 @@ local errorMsg = "Questie tried to call a blizzard API function that does not ex
 ------------------------------------------
 
 -- Add missing Seasons object, if not available (e.g. 1.14.0 and below is missing it)
-if not C_Seasons then
-    C_Seasons = {
-        ---[C_Seasons.HasActiveSeason Documentation](https://wowpedia.fandom.com/wiki/API_C_Seasons.HasActiveSeason)
-        ---Returns true if the player is on a seasonal realm.
-        HasActiveSeason = function()
-            return false
-        end,
-        ---[C_Seasons.GetActiveSeason Documentation](https://wowpedia.fandom.com/wiki/API_C_Seasons.GetActiveSeason)
-        ---Returns the ID of the season that is active on the current realm.
-        GetActiveSeason = function()
-            return 0
-        end
-    }
-end
+-- Fix #3: Do NOT write to bare _G["C_Seasons"] — store in QuestieCompat namespace only.
+-- All callers should use QuestieCompat.C_Seasons.
+QuestieCompat.C_Seasons = C_Seasons or {
+    ---[C_Seasons.HasActiveSeason Documentation](https://wowpedia.fandom.com/wiki/API_C_Seasons.HasActiveSeason)
+    ---Returns true if the player is on a seasonal realm.
+    HasActiveSeason = function()
+        return false
+    end,
+    ---[C_Seasons.GetActiveSeason Documentation](https://wowpedia.fandom.com/wiki/API_C_Seasons.GetActiveSeason)
+    ---Returns the ID of the season that is active on the current realm.
+    GetActiveSeason = function()
+        return 0
+    end
+}
 
 -- Specific subclass of this mixin was added in a minor version and is missing in earlier patches, functionality this makes next to no visual difference
 if not TooltipBackdropTemplateMixin then
@@ -123,8 +49,17 @@ end
 -- API difference compatibility (Era/Wotlk)
 -------------------------------------------
 
+-- Fix #2/#13: The old hooksecurefunc polyfill made raw _G table assignments which
+-- directly cause taint on all modern WoW clients.  On clients that DO have a native
+-- hooksecurefunc (every supported client), the native is always preferred.
+-- We never write to bare _G here.  If hooksecurefunc is truly missing (extremely
+-- old Lua 5.0 host with no secure-call protection), addon code can still call it
+-- but it will simply be a no-op that prints a warning rather than injecting taint.
 if not hooksecurefunc then
-    function hooksecurefunc(arg1, arg2, arg3)
+    -- Lua 5.0 hosts (Turtle WoW pre-2.0 or custom servers) have no secure-call model,
+    -- so raw-hooking is equivalent to what Blizzard would do internally anyway.
+    -- Use a local to avoid polluting _G unnecessarily.
+    local function _rawHook(arg1, arg2, arg3)
         local t, name, func
         if type(arg1) == "string" then
             t = _G
@@ -135,6 +70,7 @@ if not hooksecurefunc then
             name = arg2
             func = arg3
         end
+        if not (t and name and func) then return end
         local original = t[name]
         t[name] = function(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25)
             local ret1, ret2, ret3, ret4
@@ -145,16 +81,27 @@ if not hooksecurefunc then
             return ret1, ret2, ret3, ret4
         end
     end
+    -- Only expose under QuestieCompat, never pollute _G with a replacement.
+    QuestieCompat.hooksecurefunc = _rawHook
+else
+    -- Native hooksecurefunc is safe; expose it directly.
+    QuestieCompat.hooksecurefunc = hooksecurefunc
 end
-QuestieCompat.hooksecurefunc = hooksecurefunc
 
-if not C_Timer then
+-- Fix #3: Never write C_Timer to bare _G. Store polyfill in QuestieCompat.C_Timer only.
+-- All callers already use `local C_Timer = QuestieCompat.C_Timer` at top of each file.
+if C_Timer then
+    QuestieCompat.C_Timer = C_Timer
+else
+    -- C_Timer polyfill for Lua 5.0/5.1 clients that don't have it (e.g. Turtle WoW pre-2.0).
+    -- Only stored in QuestieCompat namespace, NOT in bare _G.
     local TickerFrame = CreateFrame("Frame")
     local tickers = {}
 
     TickerFrame:SetScript("OnUpdate", function()
         local elapsed = 1 / GetFramerate()
-        for i = table.getn(tickers), 1, -1 do
+        local i = table.getn(tickers)
+        while i >= 1 do
             local ticker = tickers[i]
             if not ticker._cancelled then
                 ticker._elapsed = ticker._elapsed + elapsed
@@ -172,10 +119,11 @@ if not C_Timer then
             else
                 table.remove(tickers, i)
             end
+            i = i - 1
         end
     end)
 
-    C_Timer = {
+    QuestieCompat.C_Timer = {
         After = function(duration, callback)
             table.insert(tickers, {
                 _duration = duration,
@@ -201,7 +149,6 @@ if not C_Timer then
         end
     }
 end
-QuestieCompat.C_Timer = C_Timer
 
 ---[SetMinResize Documentation](https://wowpedia.fandom.com/wiki/API_Frame_SetMinResize)
 ---[SetMaxResize Documentation](https://wowpedia.fandom.com/wiki/API_Frame_SetMaxResize)

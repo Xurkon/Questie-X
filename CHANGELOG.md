@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.3.5 — Comprehensive Taint & Architecture Fixes
+
+*A comprehensive update resolving 13 distinct issues related to global environment taint, unsafe polyfills, and module stability across all supported Lua environments (5.0, 5.1, 5.2).*
+
+### Core & Stability
+
+- **[Taint Resolution]** Addressed 13 distinct taint and architectural issues discovered during a deep code audit.
+- **[Taint Fix]** Removed unsafe `function Questie:Warning(...)` global monkey-patching in `QuestieTracker.lua` (`_InstallMissingQuestLogWarningFilter` deleted). Ghost quest iterations now use a safe, two-phase collection and deletion pattern to prevent warning generation upfront.
+- **[Global Safety]** `hooksecurefunc` polyfill in `QuestieCompat.lua` no longer pollutes the global `_G` namespace. It runs strictly as a local fallback when the native function is absent.
+- **[Global Safety]** Removed bare `_G` writes for `C_Seasons` and `C_Timer`.
+- **[Global Safety]** Prevented `_G.QuestieX_WotLKDB_Counts` from writing to the global namespace in `QuestieInit.lua`. Counts are now cleanly stored directly on the plugin object (`plugin.stats`).
+- **[Module Safety]** The `CreateModule` function in `QuestieLoader.lua` now guards against double-registration of modules, preventing accidental aliasing and overwriting.
+- **[Code Cleanup]** Eliminated duplicate shims (`string.match`, `select`) from `QuestieCompat.lua` that were already provided canonically by `QuestieLoader.lua`.
+- **[Code Cleanup]** Replaced misleading, non-looping `while n > 0` structures in `select` polyfills with standard `do...end` blocks.
+- **[Diagnostics]** Gated `loadstring` execution in `QuestieInit:LoadDatabase`. On modern clients, it now safely blocks and logs an error instead of executing potentially tainted legacy string DBs at runtime.
+
 ## v1.3.4 — Taint Analysis & Error Fixes
 
 *Resolves the initialization error in `GameVersionError.lua` and implements a version guard to support Classic-era private servers. Also confirms the integrity of the WotLKDB module after a deep taint analysis.*

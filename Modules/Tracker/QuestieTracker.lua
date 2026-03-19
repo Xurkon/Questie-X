@@ -115,6 +115,9 @@ function QuestieTracker:PruneGhostQuests()
     end
 
     local removedAny = false
+    -- Fix #8: Collect stale keys first, then delete AFTER the pairs() loop to
+    -- avoid iterator invalidation (undefined behaviour in all WoW Lua runtimes).
+    local toRemove = {}
 
     for key, q in pairs(QuestiePlayer.currentQuestlog) do
         local keyId = tonumber(key)
@@ -124,10 +127,8 @@ function QuestieTracker:PruneGhostQuests()
         if questId and type(q) ~= "table" then
             local quest = QuestieDB and QuestieDB.GetQuest and QuestieDB.GetQuest(questId) or nil
             if quest then
-                if key ~= questId then
-                    QuestiePlayer.currentQuestlog[key] = nil
-                end
-                QuestiePlayer.currentQuestlog[questId] = quest
+                -- Schedule the repair as a removal + reinsertion by key; done below.
+                toRemove[#toRemove + 1] = { key = key, questId = questId, quest = quest, repair = true }
                 q = quest
                 keyId = questId
             end
@@ -136,20 +137,34 @@ function QuestieTracker:PruneGhostQuests()
         if questId then
             local idx = GetQuestLogIndexByID and GetQuestLogIndexByID(questId)
             if (not idx) or idx <= 0 then
-                QuestiePlayer.currentQuestlog[key] = nil
-                if key ~= questId then
-                    QuestiePlayer.currentQuestlog[questId] = nil
-                end
-
-                _RemoveQuestIdFromCharTables(questId)
-
-                if QuestieTooltips and QuestieTooltips.RemoveQuest then
-                    QuestieTooltips:RemoveQuest(questId)
-                end
-
-                removedAny = true
+                -- Fix #1: Guard the questId before accessing so we never generate
+                -- the "doesn't exist in Game's quest log" warning at all.
+                toRemove[#toRemove + 1] = { key = key, questId = questId, clean = true }
             end
         end
+    end
+
+    -- Apply removals / repairs safely outside the iteration.
+    local i = 1
+    while i <= #toRemove do
+        local entry = toRemove[i]
+        if entry.repair then
+            if entry.key ~= entry.questId then
+                QuestiePlayer.currentQuestlog[entry.key] = nil
+            end
+            QuestiePlayer.currentQuestlog[entry.questId] = entry.quest
+        elseif entry.clean then
+            QuestiePlayer.currentQuestlog[entry.key] = nil
+            if entry.key ~= entry.questId then
+                QuestiePlayer.currentQuestlog[entry.questId] = nil
+            end
+            _RemoveQuestIdFromCharTables(entry.questId)
+            if QuestieTooltips and QuestieTooltips.RemoveQuest then
+                QuestieTooltips:RemoveQuest(entry.questId)
+            end
+            removedAny = true
+        end
+        i = i + 1
     end
 
     return removedAny
@@ -173,23 +188,14 @@ local function _InstallQuestLogUpdateListener()
     QuestieTracker._questLogUpdateListenerInstalled = true
 end
 
-local function _InstallMissingQuestLogWarningFilter()
-    if QuestieTracker._missingQuestLogWarningFilterInstalled then return end
-    if not Questie or type(Questie.Warning) ~= "function" then return end
-
-    local orig = Questie.Warning
-    QuestieTracker._origWarning = orig
-
-    function Questie:Warning(msg, ...)
-        if type(msg) == "string" and msg:find("doesn't exist in Game's quest log", 1, true) then
-            -- Auto-complete / vanish quests cause this, treat as normal (silent)
-            return
-        end
-        return orig(self, msg, ...)
-    end
-
-    QuestieTracker._missingQuestLogWarningFilterInstalled = true
-end
+-- Fix #1: _InstallMissingQuestLogWarningFilter is REMOVED.
+-- The old implementation did `function Questie:Warning(...)` which is a raw
+-- method replacement on the globally-registered Questie object, tainting it.
+-- The warnings it suppressed are now prevented upstream in PruneGhostQuests
+-- via the two-phase (collect then delete) pattern, so ghost-quest log index
+-- warnings are never generated in the first place.
+-- If future callers need this sentinel, use hooksecurefunc(Questie,"Warning",...)
+-- which is safe on all clients that support it.
 
 
 function QuestieTracker.Initialize()
@@ -247,7 +253,8 @@ function QuestieTracker.Initialize()
     TrackerLinePool.Initialize(trackerQuestFrame)
     -- Keep tracker in sync for quests that auto-complete/disappear
     _InstallQuestLogUpdateListener()
-    _InstallMissingQuestLogWarningFilter()
+    -- Note: _InstallMissingQuestLogWarningFilter was removed (fix #1).
+    -- Ghost quest warnings are now prevented upstream in PruneGhostQuests.
 
     TrackerFadeTicker.Initialize(trackerBaseFrame, trackerHeaderFrame)
     QuestieTracker.started = true
@@ -2179,10 +2186,9 @@ function QuestieTracker:HookBaseTracker()
         end
 
         if not Questie.db.profile.autoTrackQuests then
-            return Questie.db.char.TrackedQuests[questId or -1]
+            return questId and Questie.db.char.TrackedQuests[questId]
         else
-            return questId and QuestiePlayer.currentQuestlog[questId] and
-                (not Questie.db.char.AutoUntrackedQuests[questId])
+            return questId and QuestiePlayer.currentQuestlog[questId] and (not Questie.db.char.AutoUntrackedQuests[questId])
         end
     end
 
@@ -2284,8 +2290,10 @@ function QuestieTracker.RemoveQuestWatch(index, isQuestie)
             local questId = select(8, GetQuestLogTitle(index))
             if questId == 0 then
                 -- When an objective progresses in TBC "index" is the questId, but when a quest is manually removed from
-                --  the quest watch (e.g. shift clicking it in the quest log) "index" is the questLogIndex.
-                questId = index
+                -- the quest watch (e.g. shift clicking it in the quest log) "index" is the questLogIndex.
+                -- We should NOT untrack when Blizzard calls this with a questId internally during objective updates.
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker.RemoveQuestWatch] - Internal Blizzard update, skipping untrack for ID:", index)
+                return
             end
 
             if questId then

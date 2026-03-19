@@ -411,6 +411,21 @@ end
 
 function QuestieInit:LoadDatabase(key)
     if type(QuestieDB[key]) == "string" then
+        -- Fix #6: `loadstring` at LOAD TIME is safe, but calling it here during
+        -- event-driven runtime taints any tables produced on WotLK/Era clients.
+        -- This path is for legacy single-file DB format.  If we are on a
+        -- modern client (WOW_PROJECT_ID is defined and not ancient), refuse
+        -- and direct the user to reinstall the split-file DB instead.
+        local isModernClient = QuestieCompat and QuestieCompat.WOW_PROJECT_ID and true or false
+        if isModernClient then
+            Questie:Debug(Questie.DEBUG_DEVELOP,
+                "[DBDiag] LEGACY DB ('" .. key .. "' is string) on modern client. "
+                .. "Runtime loadstring() would taint this data. "
+                .. "Please reinstall the Questie-X-WotLKDB addon in split-file format.")
+            QuestieDB[key] = {}
+            return
+        end
+        -- Lua 5.0 / ancient custom server: loadstring is the only option.
         coYield()
         local fn, loadErr = loadstring(QuestieDB[key])
         coYield()
@@ -449,7 +464,8 @@ function QuestieInit:UpdateWotLKDBStats()
         OBJECT = _countTable(_G["QuestieX_WotLKDB_object"]),
         ITEM   = _countTable(_G["QuestieX_WotLKDB_item"]),
     }
-    _G.QuestieX_WotLKDB_Counts = counts
+    -- Fix #11: Do NOT write to _G.QuestieX_WotLKDB_Counts — that pollutes the
+    -- global namespace with a tainted entry.  Push counts only to the plugin object.
     local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
     if QuestiePluginAPI then
         local wotlkPlugin = QuestiePluginAPI:GetPlugin("WotLKDB")
@@ -494,10 +510,7 @@ function QuestieInit:LoadBaseDB()
     }
     Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] WotLKDB pull: quest=" .. tostring(_pulled.quest) .. " npc=" .. tostring(_pulled.npc) .. " obj=" .. tostring(_pulled.object) .. " item=" .. tostring(_pulled.item))
 
-    -- Push counts directly onto the plugin object so the Database panel always shows them,
-    -- regardless of when the panel is opened relative to the async coroutine.
-    -- Also persist in _G as a fallback for anything that reads it directly.
-    _G.QuestieX_WotLKDB_Counts = _counts
+    -- Fix #11: second site — push counts only to plugin object, not to _G.
     local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
     if QuestiePluginAPI then
         local wotlkPlugin = QuestiePluginAPI:GetPlugin("WotLKDB")

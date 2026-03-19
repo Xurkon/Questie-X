@@ -176,6 +176,24 @@
     </div>
 
     <div class="container">
+        <h2 id="v135">v1.3.5 — Comprehensive Taint &amp; Architecture Fixes</h2>
+        <p><em>A comprehensive update resolving 13 distinct issues related to global environment taint, unsafe polyfills, and module stability across all supported Lua environments (5.0, 5.1, 5.2).</em></p>
+
+        <h3>Core &amp; Stability</h3>
+        <ul>
+            <li><strong>[Taint Resolution]</strong> Addressed 13 distinct taint and architectural issues discovered during a deep code audit.</li>
+            <li><strong>[Taint Fix]</strong> Removed unsafe <code>function Questie:Warning(...)</code> global monkey-patching in <code>QuestieTracker.lua</code> (<code>_InstallMissingQuestLogWarningFilter</code> deleted). Ghost quest iterations now use a safe, two-phase collection and deletion pattern to prevent warning generation upfront.</li>
+            <li><strong>[Global Safety]</strong> <code>hooksecurefunc</code> polyfill in <code>QuestieCompat.lua</code> no longer pollutes the global <code>_G</code> namespace. It runs strictly as a local fallback when the native function is absent.</li>
+            <li><strong>[Global Safety]</strong> Removed bare <code>_G</code> writes for <code>C_Seasons</code> and <code>C_Timer</code>.</li>
+            <li><strong>[Global Safety]</strong> Prevented <code>_G.QuestieX_WotLKDB_Counts</code> from writing to the global namespace in <code>QuestieInit.lua</code>. Counts are now cleanly stored directly on the plugin object (<code>plugin.stats</code>).</li>
+            <li><strong>[Module Safety]</strong> The <code>CreateModule</code> function in <code>QuestieLoader.lua</code> now guards against double-registration of modules, preventing accidental aliasing and overwriting.</li>
+            <li><strong>[Code Cleanup]</strong> Eliminated duplicate shims (<code>string.match</code>, <code>select</code>) from <code>QuestieCompat.lua</code> that were already provided canonically by <code>QuestieLoader.lua</code>.</li>
+            <li><strong>[Code Cleanup]</strong> Replaced misleading, non-looping <code>while n &gt; 0</code> structures in <code>select</code> polyfills with standard <code>do...end</code> blocks.</li>
+            <li><strong>[Diagnostics]</strong> Gated <code>loadstring</code> execution in <code>QuestieInit:LoadDatabase</code>. On modern clients, it now safely blocks and logs an error instead of executing potentially tainted legacy string DBs at runtime.</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v134">v1.3.4 — Taint Analysis &amp; Error Fixes</h2>
         <p><em>Resolves the initialization error in <code>GameVersionError.lua</code> and implements a version guard to support Classic-era private servers. Also confirms the integrity of the WotLKDB module after a deep taint analysis.</em></p>
 

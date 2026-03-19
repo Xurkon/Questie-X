@@ -6,6 +6,10 @@ local WOW_PROJECT_CLASSIC = QuestieCompat.WOW_PROJECT_CLASSIC
 local WOW_PROJECT_BURNING_CRUSADE_CLASSIC = QuestieCompat.WOW_PROJECT_BURNING_CRUSADE_CLASSIC
 local WOW_PROJECT_WRATH_CLASSIC = QuestieCompat.WOW_PROJECT_WRATH_CLASSIC
 local WOW_PROJECT_ID = QuestieCompat.WOW_PROJECT_ID
+-- Fix #3: Use QuestieCompat.C_Seasons instead of bare _G[C_Seasons].  On old clients
+-- where C_Seasons is absent, QuestieCompat provides a safe polyfill (always returns
+-- false/0).  On modern clients the native is used directly.
+local C_Seasons = QuestieCompat.C_Seasons
 
 -- Check addon is not renamed to avoid conflicts in global name space.
 if (not QuestieCompat.Is335) and addonName ~= "Questie" then

@@ -11,7 +11,7 @@ local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
 local l10n = QuestieLoader:ImportModule("l10n")
 
 --- COMPATIBILITY ---
-local addonName = QuestieCompat.Is335 and QuestieCompat.addonName or "Questie"
+local addonName = QuestieLoader.addonName
 
 QuestieLib.AddonPath = "Interface\\Addons\\"..addonName.."\\"
 

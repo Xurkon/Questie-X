@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.3.7 — Quest Tracking & Robustness 
+
+- **[Quest Tracking]** Resolved inconsistent quest tracking/untracking by making the tracking state idempotent. This eliminates "doing nothing" results while toggling quests in the Quest Log and prevents tracking loops caused by Blizzard's auto-track feature.
+- **[Robustness]** Improved `QuestieTracker` to safely handle `nil` returns from the WoW API (`GetQuestLogTitle`), preventing potential "attempt to compare number with nil" errors during rapid quest log updates.
+- **[Internal Logic]** Refined the detection of internal Blizzard objective updates to ensure they don't accidentally untrack quests that the user intended to watch.
+- **[Linting]** Suppressed diagnostic warnings related to global namespace shimming in `QuestieCompat.lua`.
+
 ## v1.3.6 — Tooltip Fixes & Enhanced Taint Workaround
 
 - **[Quest Progress]** Resolved an issue where quest tooltips would not reliably update their progress counts when dynamically learning AI spawns or during rapid kill credit updates.

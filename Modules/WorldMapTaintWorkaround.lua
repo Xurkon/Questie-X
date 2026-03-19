@@ -2,23 +2,28 @@
 -- This should be independednt of Questie and all libraries.
 
 local function doWorkaround()
-    -- Blizzard's bugs
-    -- https://github.com/Stanzilla/WoWUIBugs/issues/114 and https://github.com/Stanzilla/WoWUIBugs/issues/165
-    -- HDB (and Questie fork of it) uses WorldMapFrame:AddDataProvider().
-    -- Reassigning the _Update functions (e.g. WorldMapContinentDropDown_Update = function() end) 
-    -- BEFORE any calls are made is often more reliable than only Hiding the frame.
+    -- On 3.3.5, the WorldMap has several dropdowns that are prone to tainting UIDropDownMenu.
+    -- We hide them and replace their global update functions with no-ops.
+    -- This prevents Blizzard code from calling tainted logic when opening the map.
     
-    if WorldMapZoneMinimapDropDown then
-        WorldMapZoneMinimapDropDown:Hide()
-        WorldMapZoneMinimapDropDown.Update = function() end
-    end
-    if WorldMapContinentDropDown then
-        WorldMapContinentDropDown:Hide()
-        WorldMapContinentDropDown.Update = function() end
-    end
-    if WorldMapZoneDropDown then
-        WorldMapZoneDropDown:Hide()
-        WorldMapZoneDropDown.Update = function() end
+    local dropdowns = {
+        "WorldMapContinentDropDown",
+        "WorldMapZoneDropDown",
+        "WorldMapZoneMinimapDropDown",
+        "WorldMapMagnifyingGlassButton"
+    }
+    
+    for _, name in ipairs(dropdowns) do
+        local frame = _G[name]
+        if frame then
+            if frame.Hide then frame:Hide() end
+            -- Replacing the global update function is the standard workaround.
+            -- Do NOT assign to frame.Update as that taints the frame object itself.
+            local updateFuncName = name .. "_Update"
+            if _G[updateFuncName] then
+                _G[updateFuncName] = function() end
+            end
+        end
     end
 end
 

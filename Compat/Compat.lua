@@ -38,8 +38,7 @@ local QuestieNameplate = QuestieLoader:ImportModule("QuestieNameplate")
 local QuestieCorrections = QuestieLoader:ImportModule("QuestieCorrections")
 
 -- addon/folder name
-local addonName, _ = ...
-QuestieCompat.addonName = addonName or "Questie"
+QuestieCompat.addonName = QuestieLoader.addonName or "Questie"
 
 -- polyfill hooksecurefunc for 1.12
 if not hooksecurefunc then

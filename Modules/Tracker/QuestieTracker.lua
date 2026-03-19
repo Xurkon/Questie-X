@@ -2288,11 +2288,13 @@ function QuestieTracker.RemoveQuestWatch(index, isQuestie)
     if not isQuestie then
         if index then
             local questId = select(8, GetQuestLogTitle(index))
-            if questId == 0 then
+            if (not questId) or questId == 0 then
                 -- When an objective progresses in TBC "index" is the questId, but when a quest is manually removed from
                 -- the quest watch (e.g. shift clicking it in the quest log) "index" is the questLogIndex.
                 -- We should NOT untrack when Blizzard calls this with a questId internally during objective updates.
-                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker.RemoveQuestWatch] - Internal Blizzard update, skipping untrack for ID:", index)
+                if questId == 0 then
+                    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTracker.RemoveQuestWatch] - Internal Blizzard update, skipping untrack for ID:", index)
+                end
                 return
             end
 
@@ -2351,22 +2353,19 @@ function QuestieTracker:AQW_Insert(index, expire)
     RemoveQuestWatch(index, true)
 
     local questId = select(8, GetQuestLogTitle(index))
-    if questId == 0 then
+    if (not questId) or questId == 0 then
         -- When an objective progresses in TBC "index" is the questId, but when a quest is manually added to the quest watch
         -- (e.g. shift clicking it in the quest log) "index" is the questLogIndex.
         questId = index
     end
 
-    if questId > 0 then
+    if questId and questId > 0 then
         -- These checks makes sure the only way to track a quest is through the Blizzard Quest Log
         -- or another Addon hooked into the Blizzard Quest Log that replaces the default Quest Log.
         if not Questie.db.profile.autoTrackQuests then
-            if Questie.db.char.TrackedQuests[questId] then
-                Questie.db.char.TrackedQuests[questId] = nil
-            else
-                -- Add quest to the tracker
-                Questie.db.char.TrackedQuests[questId] = true
-            end
+            -- Manual track mode: force track when AddQuestWatch is called
+            Questie.db.char.TrackedQuests[questId] = true
+            Questie.db.char.AutoUntrackedQuests[questId] = nil
         else
             if Questie.db.char.AutoUntrackedQuests[questId] then
                 -- Quest was manually hidden — shift-click re-tracks it

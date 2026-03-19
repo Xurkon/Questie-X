@@ -1,6 +1,8 @@
 ---@diagnostic disable: undefined-global, return-type-mismatch, undefined-field
 ---@class QuestieCompat
+---@type table|_G
 QuestieCompat = setmetatable({}, { __index = _G })
+QuestieCompat.addonName = QuestieLoader.addonName
 
 ------------------------------------------
 -- Lua 5.0 / 5.1 / 5.2 compatibility shims

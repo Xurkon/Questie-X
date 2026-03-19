@@ -61,6 +61,8 @@ end
 ---@class QuestieLoader
 QuestieLoader = QuestieLoader or {}
 
+local addonName = ...
+QuestieLoader.addonName = addonName or "Questie"
 
 local modules = (QuestieLoader._modules) or {}
 
@@ -101,7 +103,13 @@ function QuestieLoader:PopulateGlobals() -- called when debugging is enabled
         if _G[name] == nil then
             _G[name] = module
         elseif _G[name] ~= module then
-            Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieLoader] GLOBAL COLLISION: '" .. tostring(name) .. "' already exists in _G! Skipping population to avoid Taint.")
+            -- Use a safe print fallback if Questie is not yet initialized or does not have Debug
+            local msg = "[QuestieLoader] WARNING: Global collision detected for '" .. tostring(name) .. "'. Skipping population to avoid taining the global namespace."
+            if Questie and Questie.Debug then
+                Questie:Debug(1, msg)
+            else
+                print("|cFFFF0000" .. msg .. "|r")
+            end
         end
     end
 end

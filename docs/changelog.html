@@ -176,33 +176,13 @@
     </div>
 
     <div class="container">
-        <h2 id="codereview">Code Review Fixes (2026-03-19)</h2>
-        <p><em>Reviewed by Kilo Code. Fixed Lua 5.x compatibility issues and code quality concerns.</em></p>
-
-        <h3>HIGH Priority Fixes Applied</h3>
+        <h2 id="v140">v1.4.0 — Taint Resolution &amp; Compatibility Fixes</h2>
         <ul>
-            <li><strong>[QuestieCompat.lua:147]</strong> Fixed `C_Timer` OnUpdate to use <code>function(self, elapsed)</code> instead of computing <code>1/GetFramerate()</code>. This provides precise frame timing and eliminates timer drift.</li>
-            <li><strong>[QuestieCompat.lua:443]</strong> Fixed `IsAchievementCompleted` to use <code>select(4, GetAchievementInfo(...))</code> instead of criteria count. This properly checks the completion boolean rather than just checking if criteria exist.</li>
-            <li><strong>[QuestieCompat.lua:416]</strong> Fixed <code>C_Map.GetPlayerMapPosition</code> to call <code>GetPlayerMapPosition("player")</code> directly instead of passing the numeric <code>uiMapID</code> to the legacy API. On pre-Cata clients, the legacy API does not accept a map ID argument, causing incorrect results.</li>
-            <li><strong>[QuestieLearner.lua]</strong> Fixed <code>GetNpcIdFromGUID</code> and <code>GetObjectIdFromGUID</code> being called before definition. Added forward declarations before event handlers (line 1168) and removed duplicate definitions. This fixes "attempt to call global 'GetNpcIdFromGUID' (a nil value)" errors.</li>
-            <li><strong>[Taint Fix: Secure Hook Guards]</strong> Added <code>InCombatLockdown()</code> guards and <code>pcall</code> wrappers to secure hooks to prevent tainting protected execution paths. Affected hooks: <code>SetItemRef</code> (QuestieDebugOffer.lua), <code>DeleteCursorItem</code> (QuestEventHandler.lua), <code>QuestLogTitleButton_OnClick</code> (QuestLinks/Hooks.lua), <code>ChatFrame_OnHyperlinkShow</code> (QuestLinks/Link.lua), <code>GetQuestReward</code>, <code>SetAbandonQuest</code>, <code>AbandonQuest</code> (Compat.lua). This resolves "ADDON_ACTION_BLOCKED: tried to call UseAction()" errors.</li>
-        </ul>
-
-        <h3>Architecture Recommendations</h3>
-        <ul>
-            <li>Split large modules: <code>QuestieQuest.lua</code> (1400+ lines), <code>QuestieTracker.lua</code> (1103+ lines), <code>QuestieLearner.lua</code></li>
-        </ul>
-
-        <hr>
-
-        <h2 id="v140">v1.4.0 — Code Review Fixes &amp; Taint Resolution</h2>
-        <ul>
-            <li><strong>[Code Review]</strong> Comprehensive code review of core modules for Lua 5.0/5.1/5.2/5.3 compatibility and code quality.</li>
             <li><strong>[C_Timer Fix]</strong> Fixed <code>C_Timer</code> OnUpdate to use precise <code>(self, elapsed)</code> parameter instead of <code>1/GetFramerate()</code>.</li>
             <li><strong>[Achievement Fix]</strong> Fixed <code>IsAchievementCompleted</code> to properly check completion boolean via <code>select(4, GetAchievementInfo(...))</code>.</li>
             <li><strong>[Map Fix]</strong> Fixed <code>C_Map.GetPlayerMapPosition</code> to use correct legacy API.</li>
             <li><strong>[QuestieLearner Fix]</strong> Fixed <code>GetNpcIdFromGUID</code> and <code>GetObjectIdFromGUID</code> being called before definition.</li>
-            <li><strong>[Taint Fix]</strong> Added <code>InCombatLockdown()</code> guards and <code>pcall</code> wrappers to secure hooks to prevent <code>ADDON_ACTION_BLOCKED: UseAction()</code> errors.</li>
+            <li><strong>[Taint Fix]</strong> Added <code>InCombatLockdown()</code> guards and <code>pcall</code> wrappers to secure hooks to prevent protected function access errors.</li>
         </ul>
 
         <hr>

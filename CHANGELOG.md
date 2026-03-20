@@ -1,53 +1,12 @@
 # Changelog
 
-## Code Review (2026-03-19) — Kilo Code
+## v1.4.0 — Taint Resolution & Compatibility Fixes
 
-Reviewed core modules for Lua 5.0/5.1/5.2/5.3 compatibility, code quality, and new feature suggestions.
-
-### Issues Identified
-
-| Severity | Count | Details |
-|----------|-------|---------|
-| HIGH | 2 | `C_Timer` OnUpdate missing elapsed param; `IsAchievementCompleted` wrong check |
-| HIGH | 1 | `C_Map.GetPlayerMapPosition` passed numeric ID to legacy API expecting unit string |
-| HIGH | 1 | Secure hook taint: hooks calling insecure functions from protected execution contexts |
-| MEDIUM | 5 | C_Map.GetBestMapForUnit stub limitation; duplicate polyfills; vestigial UI elements |
-| LOW | 8 | File size concerns; duplicate function definitions in QuestieLearner |
-
-### HIGH Priority Fixes (APPLIED)
-
-1. **[FIXED] QuestieCompat.lua:147** — `C_Timer` OnUpdate now uses `function(self, elapsed)` instead of computing `1/GetFramerate()`. This provides precise frame timing and eliminates timer drift.
-2. **[FIXED] QuestieCompat.lua:443** — `IsAchievementCompleted` now uses `select(4, GetAchievementInfo(...))` instead of criteria count to properly check completion status.
-3. **[FIXED] QuestieCompat.lua:416** — `C_Map.GetPlayerMapPosition` now calls `GetPlayerMapPosition("player")` directly instead of passing the numeric `uiMapID` to the legacy API. On pre-Cata clients, the legacy API does not accept a map ID argument, causing incorrect results.
-4. **[FIXED] QuestieLearner.lua** — `GetNpcIdFromGUID` and `GetObjectIdFromGUID` were called by event handlers before their definitions. Added forward declarations before event handlers (line 1168) and removed duplicate definitions that existed later in the file. This fixes "attempt to call global 'GetNpcIdFromGUID' (a nil value)" errors.
-5. **[FIXED] Taint Fix: Secure Hook Guards** — Added `InCombatLockdown()` guards and `pcall` wrappers to secure hooks to prevent tainting protected execution paths. Affected hooks: `SetItemRef` (QuestieDebugOffer.lua), `DeleteCursorItem` (QuestEventHandler.lua), `QuestLogTitleButton_OnClick` (QuestLinks/Hooks.lua), `ChatFrame_OnHyperlinkShow` (QuestLinks/Link.lua), `GetQuestReward`, `SetAbandonQuest`, `AbandonQuest` (Compat.lua). This resolves "ADDON_ACTION_BLOCKED: tried to call UseAction()" errors.
-
-### Architecture Recommendations
-
-- Split `QuestieQuest.lua` (1400+ lines) into: QuestieQuestAccept, QuestieQuestComplete, QuestieQuestUpdate, QuestieQuestIcons
-- Split `QuestieTracker.lua` (1103+ lines) into: TrackerQuestOperations, TrackerUIUpdate
-- Split `QuestieLearner.lua` into: LearnerNPCs, LearnerQuests, LearnerItems, LearnerObjects, LearnerCrossLink, LearnerEvents
-
-### Suggested Features
-
-1. **Quest Route Optimization** (HIGH) — Calculate optimal routes between objectives
-2. **Dynamic Quest Timer Display** (MEDIUM) — Show timers on map icons
-3. **Quest Difficulty Rating** (MEDIUM) — Help players identify appropriate quests
-4. **Collaborative Quest Sharing** (MEDIUM) — Enhanced QuestieLearner sharing
-5. **Performance Profiler Integration** (LOW) — Frame rate impact warnings
-6. **Mob Spawn Prediction** (LOW) — Predict farming locations
-
-Full review report: `Research/Questie-X/CodeReview-2026-03-19.md`
-
----
-
-## v1.4.0 — Code Review Fixes & Taint Resolution
-
-- **[Code Review]** Comprehensive code review of core modules for Lua 5.0/5.1/5.2/5.3 compatibility and code quality.
 - **[C_Timer Fix]** Fixed `C_Timer` OnUpdate to use precise `(self, elapsed)` parameter instead of `1/GetFramerate()`.
 - **[Achievement Fix]** Fixed `IsAchievementCompleted` to properly check completion boolean via `select(4, GetAchievementInfo(...))`.
 - **[Map Fix]** Fixed `C_Map.GetPlayerMapPosition` to use correct legacy API (`GetPlayerMapPosition("player")`).
 - **[QuestieLearner Fix]** Fixed `GetNpcIdFromGUID` and `GetObjectIdFromGUID` being called before definition.
+- **[Taint Fix]** Added `InCombatLockdown()` guards and `pcall` wrappers to secure hooks to prevent protected function access errors.
 - **[Taint Fix]** Added `InCombatLockdown()` guards and `pcall` wrappers to secure hooks to prevent `ADDON_ACTION_BLOCKED: UseAction()` errors.
 
 ## v1.3.9 — BackdropTemplate & Tracking Reliability

@@ -8,14 +8,10 @@ local QuestieRouteOptimizer = QuestieLoader:CreateModule("QuestieRouteOptimizer"
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 ---@type QuestieMap
 local QuestieMap = QuestieLoader:ImportModule("QuestieMap")
----@type QuestieTracker
-local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
 ---@type QuestieCompat
 local QuestieCompat = QuestieLoader:ImportModule("QuestieCompat")
 ---@type QuestieFramePool
 local QuestieFramePool = QuestieLoader:ImportModule("QuestieFramePool")
----@type QuestieLib
-local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
 
@@ -25,6 +21,7 @@ local l10n = QuestieLoader:ImportModule("l10n")
 local pairs = pairs
 local ipairs = ipairs
 local tinsert = table.insert
+local GetTime = GetTime
 
 -------------------------
 --Route optimization modes
@@ -44,7 +41,7 @@ local routeLines = {}
 --Constants
 -------------------------
 local ROUTE_COLOR = {0.2, 0.8, 1, 0.8}
-local WAYPOINT_ICON = "Interface\\WorldMap\\WorldMapPartyIcon"
+local ROUTE_ICON_TYPE = "route"
 
 --- Calculate distance between two points
 ---@param x1 number
@@ -54,18 +51,6 @@ local WAYPOINT_ICON = "Interface\\WorldMap\\WorldMapPartyIcon"
 ---@return number distance
 local function _GetDistance(x1, y1, x2, y2)
     return math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
-end
-
---- Get player position on current map
----@return number? x
----@return number? y
-local function _GetPlayerPosition()
-    local mapID = GetCurrentMapAreaID()
-    local x, y = GetPlayerMapPosition(mapID)
-    if x == 0 and y == 0 then
-        x, y = GetPlayerMapPosition("player")
-    end
-    return x, y
 end
 
 --- Nearest neighbor TSP approximation
@@ -110,29 +95,31 @@ local function _NearestNeighborTSP(coordinates)
     return route
 end
 
---- Get spawn coordinates for objectives in a quest
+--- Get spawn coordinates for objectives in a quest using the same structure as QuestieMap
 ---@param questId number
 ---@return table<number, {x: number, y: number, zone: number}>?
 local function _GetQuestObjectiveCoords(questId)
     local quest = QuestieDB.GetQuest(questId)
-    if not quest then return nil end
+    if not quest then 
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[RouteOptimizer] Quest not found:", questId)
+        return nil 
+    end
     
     local coordinates = {}
-    local currentMapId = GetCurrentMapAreaID()
     
     ---@param spawns table?
     ---@param zoneId number
-    local function AddCoords(spawns, zoneId)
+    local function AddCoordsFromSpawns(spawns, zoneId)
         if not spawns then return end
-        for _, spawn in pairs(spawns) do
-            if type(spawn) == "table" then
-                for _, coord in pairs(spawn) do
+        for _, spawnList in pairs(spawns) do
+            if type(spawnList) == "table" then
+                for _, coord in pairs(spawnList) do
                     if type(coord) == "table" and coord[1] and coord[2] then
                         local x, y = coord[1], coord[2]
-                        if x > 0 and x <= 100 and y > 0 and y <= 100 then
+                        if x and y and x > 0 and x <= 100 and y > 0 and y <= 100 then
                             tinsert(coordinates, {
-                                x = x / 100,
-                                y = y / 100,
+                                x = x,
+                                y = y,
                                 zone = zoneId
                             })
                         end
@@ -146,12 +133,41 @@ local function _GetQuestObjectiveCoords(questId)
         for _, objective in pairs(quest.Objectives) do
             if objective.Spawns then
                 for zoneId, spawnData in pairs(objective.Spawns) do
-                    AddCoords(spawnData, zoneId)
+                    AddCoordsFromSpawns(spawnData, zoneId)
+                end
+            end
+            if objective.Coordinates then
+                for _, coordData in pairs(objective.Coordinates) do
+                    if type(coordData) == "table" then
+                        for _, coord in pairs(coordData) do
+                            if type(coord) == "table" and coord[1] and coord[2] then
+                                local x, y = coord[1], coord[2]
+                                if x and y and x > 0 and x <= 100 and y > 0 and y <= 100 then
+                                    tinsert(coordinates, {
+                                        x = x,
+                                        y = y,
+                                        zone = objective.Zone or 0
+                                    })
+                                end
+                            end
+                        end
+                    end
                 end
             end
         end
     end
     
+    if quest.Finishers then
+        for _, finisher in pairs(quest.Finishers) do
+            if finisher.Spawns then
+                for zoneId, spawnData in pairs(finisher.Spawns) do
+                    AddCoordsFromSpawns(spawnData, zoneId)
+                end
+            end
+        end
+    end
+    
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[RouteOptimizer] Found", #coordinates, "coordinates for quest", questId)
     return coordinates
 end
 
@@ -161,7 +177,10 @@ local function _GetAllTrackedQuestCoords()
     local coordinates = {}
     local trackedQuests = Questie.db.char.TrackedQuests
     
-    if not trackedQuests then return nil end
+    if not trackedQuests then 
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[RouteOptimizer] No tracked quests")
+        return nil 
+    end
     
     for questId in pairs(trackedQuests) do
         local questCoords = _GetQuestObjectiveCoords(questId)
@@ -172,6 +191,7 @@ local function _GetAllTrackedQuestCoords()
         end
     end
     
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[RouteOptimizer] Found", #coordinates, "total coordinates")
     return coordinates
 end
 
@@ -192,10 +212,10 @@ function QuestieRouteOptimizer:ClearRoutes()
     routeLines = {}
 end
 
---- Draw a route line between waypoints
----@param waypoints table<number, {x: number, y: number}>
+--- Draw route lines for a single zone
+---@param waypoints table<number, {number, number}>
 ---@param zoneId number
-local function _DrawRouteLine(waypoints, zoneId)
+local function _DrawZoneRoute(waypoints, zoneId)
     if #waypoints < 2 then return end
     
     local icon = CreateFrame("Button", "QuestieRouteIcon" .. #routeIcons, UIParent)
@@ -219,41 +239,45 @@ function QuestieRouteOptimizer:DrawRoute(coordinates)
     self:ClearRoutes()
     
     if not coordinates or #coordinates < 2 then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[RouteOptimizer] Not enough coordinates to draw route")
         return
     end
     
     local optimized = _NearestNeighborTSP(coordinates)
     
-    local currentMapId = GetCurrentMapAreaID()
-    local mapWaypoints = {}
     local currentZone = nil
+    local zoneWaypoints = {}
     
     for _, coord in ipairs(optimized) do
         if coord.zone == currentZone or not currentZone then
-            tinsert(mapWaypoints, {coord.x, coord.y})
+            tinsert(zoneWaypoints, {coord.x, coord.y})
             currentZone = coord.zone
         else
-            if #mapWaypoints >= 2 then
-                _DrawRouteLine(mapWaypoints, currentZone)
+            if #zoneWaypoints >= 2 then
+                _DrawZoneRoute(zoneWaypoints, currentZone)
             end
-            mapWaypoints = {{coord.x, coord.y}}
+            zoneWaypoints = {{coord.x, coord.y}}
             currentZone = coord.zone
         end
     end
     
-    if #mapWaypoints >= 2 then
-        _DrawRouteLine(mapWaypoints, currentZone)
+    if #zoneWaypoints >= 2 then
+        _DrawZoneRoute(zoneWaypoints, currentZone)
     end
+    
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[RouteOptimizer] Drew", #routeLines, "route lines")
 end
 
 --- Update route based on current mode
 function QuestieRouteOptimizer:Update()
     local mode = Questie.db.profile.routeMode or ROUTE_MODE_OFF
     
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[RouteOptimizer] Update called, mode:", mode)
+    
     if mode == ROUTE_MODE_OFF then
         self:ClearRoutes()
     elseif mode == ROUTE_MODE_SINGLE_QUEST then
-        local questId = QuestieTracker:GetSelectedQuest()
+        local questId = QuestTrackerFrame and QuestTrackerFrame.selectedQuestID
         if questId then
             local coords = _GetQuestObjectiveCoords(questId)
             if coords and #coords >= 2 then

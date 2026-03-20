@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.1 — Cleanup & Repository Maintenance
+
+- **[Cleanup]** Removed `.history/` and `Research/` folders from repository tracking (were already gitignored but previously committed).
+- **[Cleanup]** Removed `Tests/` folder from repository tracking.
+- **[Badge]** Updated downloads badge format in README.
+- **[Gitignore]** Added `tests/` to `.gitignore`.
+
 ## v1.4.0 — Taint Resolution & Compatibility Fixes
 
 - **[C_Timer Fix]** Fixed `C_Timer` OnUpdate to use precise `(self, elapsed)` parameter instead of `1/GetFramerate()`.
@@ -7,7 +14,6 @@
 - **[Map Fix]** Fixed `C_Map.GetPlayerMapPosition` to use correct legacy API (`GetPlayerMapPosition("player")`).
 - **[QuestieLearner Fix]** Fixed `GetNpcIdFromGUID` and `GetObjectIdFromGUID` being called before definition.
 - **[Taint Fix]** Added `InCombatLockdown()` guards and `pcall` wrappers to secure hooks to prevent protected function access errors.
-- **[Taint Fix]** Added `InCombatLockdown()` guards and `pcall` wrappers to secure hooks to prevent `ADDON_ACTION_BLOCKED: UseAction()` errors.
 
 ## v1.3.9 — BackdropTemplate & Tracking Reliability
 

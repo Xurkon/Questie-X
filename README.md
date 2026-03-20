@@ -3,7 +3,7 @@
 <img src="docs/QuestieXlogo.png" alt="Questie-X Logo" width="320" />
 
 ![Version](https://img.shields.io/badge/Questie--X-v1.4.0-blue.svg?style=for-the-badge)
-![Downloads](https://img.shields.io/github/downloads/Xurkon/Questie-X/total.svg?style=for-the-badge&color=e67e22)
+[![Downloads](https://img.shields.io/github/downloads/Xurkon/Questie-X/total?style=for-the-badge&color=e67e22)](https://github.com/Xurkon/Questie-X/releases)
 [![Documentation](https://img.shields.io/badge/Documentation-View%20Docs-58a6ff?style=for-the-badge)](https://xurkon.github.io/Questie-X/)
 [![Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/Xurkon)
 [![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.me/Xurkon)

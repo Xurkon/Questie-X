@@ -15,6 +15,8 @@ local TrackerLinePool = QuestieLoader:ImportModule("TrackerLinePool")
 local TrackerQuestTimers = QuestieLoader:ImportModule("TrackerQuestTimers")
 ---@type QuestieArrow
 local QuestieArrow = QuestieLoader:ImportModule("QuestieArrow")
+---@type QuestieRouteOptimizer
+local QuestieRouteOptimizer = QuestieLoader:ImportModule("QuestieRouteOptimizer")
 
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
@@ -945,6 +947,30 @@ function QuestieOptions.tabs.tracker:Initialize()
                         end
                     },
                 }
+            },
+            route_header = {
+                type = "header",
+                order = 50,
+                name = function() return l10n('Quest Route Optimization') end,
+            },
+            routeMode = {
+                type = "select",
+                order = 51,
+                width = 2,
+                name = function() return l10n('Route Mode') end,
+                desc = function() return l10n('Choose how quest routes are calculated and displayed.') end,
+                disabled = function() return not Questie.db.profile.trackerEnabled end,
+                get = function() return Questie.db.profile.routeMode or 1 end,
+                set = function(_, value)
+                    Questie.db.profile.routeMode = value
+                    QuestieRouteOptimizer:Update()
+                end,
+                values = {
+                    [1] = l10n('Off'),
+                    [2] = l10n('Single Quest'),
+                    [3] = l10n('All Tracked Quests'),
+                    [4] = l10n('TSP Approximation'),
+                },
             },
         }
     }

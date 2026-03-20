@@ -158,6 +158,9 @@ function QuestieOptionsDefaults:Load()
             objectiveProgressSoundChoiceName = "ObjectiveProgress",
             iconTheme = "questie",
 
+            routeMode = 1,
+            routeDrawInterval = 5,
+
             minimap = {
                 hide = false
             },

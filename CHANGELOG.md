@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.2 — Quest Route Optimization
+
+- **[Feature]** Added Quest Route Optimization with three modes: Single Quest, All Tracked Quests, and TSP Approximation.
+- **[Feature]** Route mode can be selected in Tracker options under "Route Mode".
+- **[Feature]** Nearest-neighbor TSP algorithm for calculating optimal quest routes.
+- **[Feature]** Visual route lines drawn on map connecting objectives in optimized order.
+
 ## v1.4.1 — Cleanup & Repository Maintenance
 
 - **[Cleanup]** Removed `.history/` and `Research/` folders from repository tracking (were already gitignored but previously committed).

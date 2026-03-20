@@ -963,7 +963,9 @@ function QuestieOptions.tabs.tracker:Initialize()
                 get = function() return Questie.db.profile.routeMode or 1 end,
                 set = function(_, value)
                     Questie.db.profile.routeMode = value
-                    QuestieRouteOptimizer:Update()
+                    if QuestieRouteOptimizer and QuestieRouteOptimizer.Update then
+                        QuestieRouteOptimizer:Update()
+                    end
                 end,
                 values = {
                     [1] = l10n('Off'),

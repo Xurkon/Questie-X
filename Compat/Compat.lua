@@ -1470,6 +1470,8 @@ function QuestieCompat.QuestEventHandler_RegisterEvents()
     -- https://wowpedia.fandom.com/wiki/QUEST_TURNED_IN
     QuestieQuestEventFrame:UnregisterEvent("QUEST_TURNED_IN")
     hooksecurefunc("GetQuestReward", function(itemChoice)
+        -- FIX: Added InCombatLockdown guard to prevent tainting secure execution paths.
+        if InCombatLockdown() then return end
         local questTitle = GetTitleText()
         local questId = QuestieCompat.GetQuestIDFromName(questTitle)
         if questId and questId > 0 then
@@ -1478,16 +1480,20 @@ function QuestieCompat.QuestEventHandler_RegisterEvents()
     end)
 
     hooksecurefunc("SetAbandonQuest", function()
+        -- FIX: Added InCombatLockdown guard to prevent tainting secure execution paths.
+        if InCombatLockdown() then return end
         QuestieCompat.abandonQuestID = QuestieCompat.GetQuestIDFromLogIndex(GetQuestLogSelection())
     end)
 
     --https://wowpedia.fandom.com/wiki/QUEST_REMOVED
     QuestieQuestEventFrame:UnregisterEvent("QUEST_REMOVED")
     hooksecurefunc("AbandonQuest", function()
+        -- FIX: Added InCombatLockdown guard and pcall to prevent tainting secure execution paths.
+        if InCombatLockdown() then return end
         local questId = QuestieCompat.abandonQuestID or QuestieCompat.GetQuestIDFromLogIndex(GetQuestLogSelection())
         QuestieCompat.abandonQuestID = nil
         if questId and questId > 0 then
-            _QuestEventHandler:QuestRemoved(questId)
+            pcall(_QuestEventHandler.QuestRemoved, _QuestEventHandler, questId)
         end
     end)
 end

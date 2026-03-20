@@ -144,8 +144,7 @@ else
     local TickerFrame = CreateFrame("Frame")
     local tickers = {}
 
-    TickerFrame:SetScript("OnUpdate", function()
-        local elapsed = 1 / GetFramerate()
+    TickerFrame:SetScript("OnUpdate", function(self, elapsed)
         local i = table.getn(tickers)
         while i >= 1 do
             local ticker = tickers[i]
@@ -415,10 +414,7 @@ end
 QuestieCompat.C_Map = QuestieCompat.C_Map or {}
 
 function QuestieCompat.C_Map.GetPlayerMapPosition(uiMapID)
-    local x, y = GetPlayerMapPosition(uiMapID)
-    if x == 0 and y == 0 then
-        x, y = GetPlayerMapPosition("player")
-    end
+    local x, y = GetPlayerMapPosition("player")
     return x, y
 end
 
@@ -440,7 +436,8 @@ end
 
 --- IsAchievementCompleted Shim
 QuestieCompat.IsAchievementCompleted = QuestieCompat.IsAchievementCompleted or function(achievementID)
-    return GetAchievementNumCriteria(achievementID) > 0
+    local completed = select(4, GetAchievementInfo(achievementID))
+    return completed or false
 end
 
 --- LibUIDropDownMenu Shim

@@ -361,6 +361,8 @@ _AddPlayerQuestProgress = function (quest, starterName, starterZoneName, finishe
 end
 
 hooksecurefunc("ChatFrame_OnHyperlinkShow", function(...)
+    -- FIX: Added InCombatLockdown guard to prevent tainting secure execution paths.
+    if InCombatLockdown() then return end
     local _, link, _, button = ...
     if (IsShiftKeyDown() and ChatEdit_GetActiveWindow() and button == "LeftButton") then
         local linkType, questId, _ = string.split(":", link)
@@ -368,8 +370,8 @@ hooksecurefunc("ChatFrame_OnHyperlinkShow", function(...)
             Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTooltips:OnHyperlinkShow] Relinking Quest Link to chat:", link)
             questId = tonumber(questId)
 
-            local quest = QuestieDB.GetQuest(questId)
-            if quest then
+            local success, quest = pcall(QuestieDB.GetQuest, QuestieDB, questId)
+            if success and quest then
                 local msg = ChatFrame1EditBox:GetText()
                 if msg then
                     ChatFrame1EditBox:SetText("")

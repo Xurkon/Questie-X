@@ -1163,22 +1163,51 @@ local function GetIdAndTypeFromGUID(guid)
     return nil, nil
 end
 
-local function GetNpcIdFromGUID(guid)
-    local id, unitType = GetIdAndTypeFromGUID(guid)
-    if unitType == "Creature" or unitType == "Vehicle" then return id end
+-- Forward declarations for GUID parsing functions used by event handlers above.
+-- The full implementations are at lines 1567 and 1604.
+local GetNpcIdFromGUID = function(guid)
+    if not guid or type(guid) ~= "string" then return nil end
+    local strId = guid:match("Creature%-%d+%-%d+%-%d+%-%d+%-(%d+)")
+    if strId then return tonumber(strId) end
+    if guid:match("^0x") then
+        local hex = guid:sub(3)
+        local prefix = hex:sub(1, 4)
+        local isCreature = (
+            prefix == "F130" or prefix == "F131" or
+            prefix == "F110" or prefix == "F111" or
+            prefix == "F150" or prefix == "F151" or
+            (prefix:sub(1,1) == "F" and prefix ~= "F140" and prefix ~= "F141")
+        )
+        if not isCreature then return nil end
+        if #hex >= 10 then
+            local id = tonumber(hex:sub(5, 10), 16)
+            if id and id > 0 then return id end
+        end
+        if #hex >= 8 then
+            local id = tonumber(hex:sub(5, 8), 16)
+            if id and id > 0 then return id end
+        end
+    end
     return nil
 end
 
-local function GetObjectIdFromGUID(guid)
-    local id, unitType = GetIdAndTypeFromGUID(guid)
-    if unitType == "GameObject" then return id end
+local GetObjectIdFromGUID = function(guid)
+    if not guid or type(guid) ~= "string" then return nil end
+    local strId = guid:match("GameObject%-%d+%-%d+%-%d+%-%d+%-(%d+)")
+    if strId then return tonumber(strId) end
+    if guid:match("^0x") then
+        local hex = guid:sub(3)
+        if #hex >= 10 then
+            local id = tonumber(hex:sub(5, 10), 16)
+            if id and id > 0 then return id end
+        end
+        if #hex >= 8 then
+            local id = tonumber(hex:sub(5, 8), 16)
+            if id and id > 0 then return id end
+        end
+    end
     return nil
 end
-
--- Expose for use in event handlers below
-_Learner.GetNpcIdFromGUID    = GetNpcIdFromGUID
-_Learner.GetObjectIdFromGUID = GetObjectIdFromGUID
-_Learner.GetIdAndTypeFromGUID = GetIdAndTypeFromGUID
 
 ------------------------------------------------------------------------
 -- Event handlers
@@ -1571,71 +1600,6 @@ function QuestieLearner:OnGetItemInfoReceived(itemId)
 end
 
 ------------------------------------------------------------------------
--- Combat log: kill tracking with GUID-keyed cache
-------------------------------------------------------------------------
-
--- Extract the NPC entry ID from a GUID string.
--- Supports both modern string format (Creature-0-...-entryID) and
--- 3.3.5a/Ascension hex format (0x[4-char prefix][6-char entryID][spawn]).
--- Logic mirrors DataExporter's DE:GetCreatureIDFromGUID.
-local function GetNpcIdFromGUID(guid)
-    if not guid or type(guid) ~= "string" then return nil end
-
-    -- Modern string format: "Creature-0-XXXX-XXXX-XXXX-entryID-XXXX"
-    local strId = guid:match("Creature%-%d+%-%d+%-%d+%-%d+%-(%d+)")
-    if strId then return tonumber(strId) end
-
-    -- 3.3.5a / Ascension hex format: 0x[prefix:4][entryID:6][spawn:...]
-    if guid:match("^0x") then
-        local hex = guid:sub(3)
-        local prefix = hex:sub(1, 4)
-
-        -- Known creature prefixes (F130/F131 = standard WotLK, F110/F111 = Ascension)
-        local isCreature = (
-            prefix == "F130" or prefix == "F131" or
-            prefix == "F110" or prefix == "F111" or
-            prefix == "F150" or prefix == "F151" or
-            (prefix:sub(1,1) == "F" and prefix ~= "F140" and prefix ~= "F141")
-        )
-        if not isCreature then return nil end
-
-        -- Entry ID sits at hex chars 5-10 (6 hex chars = 24-bit field)
-        if #hex >= 10 then
-            local id = tonumber(hex:sub(5, 10), 16)
-            if id and id > 0 then return id end
-        end
-        -- Fallback for shorter GUIDs
-        if #hex >= 8 then
-            local id = tonumber(hex:sub(5, 8), 16)
-            if id and id > 0 then return id end
-        end
-    end
-
-    return nil
-end
-
--- Same logic for game objects (interactable quest objects)
-local function GetObjectIdFromGUID(guid)
-    if not guid or type(guid) ~= "string" then return nil end
-
-    local strId = guid:match("GameObject%-%d+%-%d+%-%d+%-%d+%-(%d+)")
-    if strId then return tonumber(strId) end
-
-    if guid:match("^0x") then
-        local hex = guid:sub(3)
-        if #hex >= 10 then
-            local id = tonumber(hex:sub(5, 10), 16)
-            if id and id > 0 then return id end
-        end
-        if #hex >= 8 then
-            local id = tonumber(hex:sub(5, 8), 16)
-            if id and id > 0 then return id end
-        end
-    end
-
-    return nil
-end
-
 -- Cache recent kills: guid → {npcId, name, x, y, zoneId, ts}
 _Learner.recentKills = _Learner.recentKills or {}
 -- Previous objective counts for active quests: questId → {[idx] = count}

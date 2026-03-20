@@ -16,6 +16,10 @@ function Hooks:HookQuestLogTitle()
     Questie:Debug(Questie.DEBUG_DEVELOP, "[Hooks] Hooking Quest Log Title")
 
     hooksecurefunc("QuestLogTitleButton_OnClick", function(self, button)
+        -- FIX: Added InCombatLockdown guard to prevent tainting secure execution paths.
+        -- This hook can be called during combat if the player interacts with the quest log
+        -- while in combat, which may cause taint that propagates to protected functions.
+        if InCombatLockdown() then return end
         if (not self) or self.isHeader then
             return
         end
@@ -47,10 +51,10 @@ function Hooks:HookQuestLogTitle()
             if questId and questId > 0 then
                 if Questie.db.char.TrackedQuests[questId] or (Questie.db.profile.autoTrackQuests and (not Questie.db.char.AutoUntrackedQuests[questId])) then
                     -- Quest is currently tracked — hidden it
-                    QuestieTracker:UntrackQuestId(questId)
+                    pcall(QuestieTracker.UntrackQuestId, QuestieTracker, questId)
                 else
                     -- Quest is currently hidden — show it
-                    QuestieTracker:AQW_Insert(questLogLineIndex, QUEST_WATCH_NO_EXPIRE)
+                    pcall(QuestieTracker.AQW_Insert, QuestieTracker, questLogLineIndex, QUEST_WATCH_NO_EXPIRE)
                 end
             end
             if WatchFrame_Update then

@@ -642,10 +642,15 @@ local LINK_COLOR = CreateColorFromHexString("cff71d5ff");
 local LINK_LENGTHS = LINK_CODE:len();
 
 -- handles clicking on link
+-- FIX: Added InCombatLockdown guard and pcall to prevent tainting secure execution paths.
+-- SetItemRef can be called during action button clicks (e.g., quest item tooltips) which
+-- run in a protected execution context. If the hook runs insecure code, it can taint
+-- the call chain and cause "ADDON_ACTION_BLOCKED: tried to call UseAction()" errors.
 hooksecurefunc("SetItemRef", function(link)
+    if InCombatLockdown() then return end
     local linkType = link:sub(1, LINK_LENGTHS);
     if linkType == LINK_CODE then
-        QuestieDebugOffer.ShowOffer(link)
+        pcall(QuestieDebugOffer.ShowOffer, link)
     end
 end);
 

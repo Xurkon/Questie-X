@@ -174,12 +174,16 @@ function QuestEventHandler:RegisterEvents()
 
     hooksecurefunc("DeleteCursorItem", function()
         -- Hook DeleteCursorItem so we know when the player clicks the Accept button
+        -- FIX: Added InCombatLockdown guard and pcall to prevent tainting secure execution paths.
+        if InCombatLockdown() then return end
         if deletedQuestItem then
             Questie:Debug(Questie.DEBUG_DEVELOP,
                 "[QuestieQuest] DeleteCursorItem: Quest Item deleted. Update all quests.")
 
             C_Timer.After(0.25, function()
-                _QuestEventHandler:UpdateAllQuests()
+                pcall(function()
+                    _QuestEventHandler:UpdateAllQuests()
+                end)
                 deletedQuestItem = false
             end)
         end

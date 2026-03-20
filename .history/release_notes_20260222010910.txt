@@ -1,3 +1,0 @@
-### Fixes
-- **[Quest]** **Fixed Lootbot Tracker Stalling**: `BAG_UPDATE_DELAYED` now explicitly forces a quest log scan and updates the tracker instantly. This resolves issues where autoloot bots on Ebonhold bypass traditional loot events, causing the tracker to stop updating item counts correctly.
-- **[Map]** **Fixed Lingering "Special Objective" Pins**: Required source items and unlisted extra objectives now use `GetItemCount()` to calculate their completion status. This ensures these pins correctly unload from the map and minimap as soon as the items are gathered, rather than persisting until the quest is turned in.

@@ -21,8 +21,6 @@ local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 local l10n = QuestieLoader:ImportModule("l10n")
 ---@type QuestieCombatQueue
 local QuestieCombatQueue = QuestieLoader:ImportModule("QuestieCombatQueue")
----@type QuestieRouteOptimizer
-local QuestieRouteOptimizer = QuestieLoader:ImportModule("QuestieRouteOptimizer")
 
 
 function QuestieSlash.RegisterSlashCommands()
@@ -223,6 +221,12 @@ function QuestieSlash.HandleCommands(input)
 
     -- /questie route [off/single/all/tsp]
     if mainCommand == "route" then
+        local QuestieRouteOptimizer = QuestieLoader:ImportModule("QuestieRouteOptimizer")
+        if not QuestieRouteOptimizer or not QuestieRouteOptimizer.SetMode then
+            Questie:Print("QuestieRouteOptimizer module not loaded")
+            return
+        end
+        
         local ROUTE_MODE_OFF = 1
         local ROUTE_MODE_SINGLE_QUEST = 2
         local ROUTE_MODE_ALL_TRACKED = 3

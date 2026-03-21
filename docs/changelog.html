@@ -170,13 +170,192 @@
         <p class="subtitle">Complete history of changes, fixes, and additions.</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
             <a href="index.html"
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Questie-X - Developer Documentation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-green: #3fb950;
+            --accent-blue: #58a6ff;
+            --accent-purple: #a371f7;
+            --accent-orange: #d29922;
+            --border-color: #30363d;
+            --code-bg: #1b1f23;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #1c2128 0%, #0d1117 100%);
+            padding: 80px 20px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            max-width: 800px;
+            margin: 0 auto 30px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+
+        section {
+            margin-bottom: 80px;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--accent-blue);
+        }
+
+        h3 {
+            font-size: 1.3rem;
+            margin: 30px 0 15px;
+            color: var(--text-primary);
+        }
+
+        p {
+            margin-bottom: 15px;
+            color: var(--text-secondary);
+        }
+
+        code {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background: var(--code-bg);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: #e6edf3;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .card h4 {
+            color: var(--accent-green);
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .important {
+            background: rgba(210, 153, 34, 0.1);
+            border-left: 4px solid var(--accent-orange);
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .file-path {
+            color: var(--accent-purple);
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="hero">
+        <img src="QuestieXlogo.png" alt="Questie-X Logo" width="400" />
+        <p class="subtitle">Complete history of changes, fixes, and additions.</p>
+        <div style="display: flex; justify-content: center; gap: 10px;">
+            <a href="index.html"
                 style="color: var(--accent-blue); text-decoration: none; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;">&larr;
                 Back to Documentation</a>
         </div>
     </div>
 
     <div class="container">
-        <h2 id="v144">v1.4.4 — AceGUI Pool & Event Handling Fixes</h2>
+        <h2 id="v144r1">v1.4.4r1 &mdash; WotLKDB Global Namespace Taint Fix</h2>
+        <ul>
+            <li><strong>[Taint Fix]</strong> Resolved <code>ADDON_ACTION_BLOCKED</code> errors caused by <code>Questie-X-WotLKDB</code> leaving tainted global variables in <code>_G</code> after initialization. <code>QuestieInit._pullGlobal</code> now sets <code>_G[globalName] = nil</code> immediately after copying each WotLKDB table reference into <code>QuestieDB</code>, removing the taint vector while keeping all data fully accessible through <code>QuestieDB</code>. <code>QuestieLearner</code> real-time updates are unaffected — they write exclusively to <code>QuestieDB.*Overrides</code> and <code>learnedData</code>.</li>
+        </ul>
+
+        <hr>
+
+        <h2 id="v144">v1.4.4 — AceGUI Pool &amp; Event Handling Fixes</h2>
         <ul>
             <li><strong>[AceGUI Fix]</strong> Fixed <code>Compat/embeds.xml</code> to load Wrath-compatible Ace library versions from <code>Libs/</code> (AceGUI-3.0 v34, AceConfigDialog-3.0 v66) instead of newer versions from <code>..\Libs/</code> that caused widget pool corruption.</li>
             <li><strong>[AceGUI Fix]</strong> Added nil checks throughout AceGUI-3.0 (<code>Create</code>, <code>Release</code>, <code>WidgetBase.Fire</code>, <code>WidgetContainerBase</code> methods) to prevent crashes when pooled widgets have corrupted/nil properties.</li>

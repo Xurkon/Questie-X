@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.4.4r1 — WotLKDB Global Namespace Taint Fix
+
+- **[Taint Fix]** Resolved `ADDON_ACTION_BLOCKED` errors caused by `Questie-X-WotLKDB` leaving tainted global variables in `_G` after initialization. `QuestieInit._pullGlobal` now sets `_G[globalName] = nil` immediately after copying each WotLKDB table reference into `QuestieDB`, removing the taint vector while keeping all data fully accessible through `QuestieDB`.
+
 ## v1.4.4 — AceGUI Pool & Event Handling Fixes
 
 - **[AceGUI Fix]** Fixed `Compat/embeds.xml` to load Wrath-compatible Ace library versions from `Libs/` (AceGUI-3.0 v34, AceConfigDialog-3.0 v66) instead of newer versions from `..\Libs/` that caused widget pool corruption.

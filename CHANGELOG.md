@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.4.4r6 — Questie-X Network Deserialization Fix
+
+- **[Network Fix]** Resolved a critical crash ("`Usage: AceSerializer:Deserialize(str): str must be a string, got table`") occurring in QuestieLearnerComms and Export functions. This was caused by a lightweight, customized `AceSerializer-3.0.lua` implementation in Questie-X that lacked proper `self` parameter handling for standard colon-syntax method calls (`:`). As a result, method calls were serializing/deserializing the library table itself instead of the intended payload string. We patched `AceSerializer` natively to dynamically support both dot (`.`) and colon (`:`) syntax seamlessly without dropping arguments, while ensuring `Deserialize` correctly yields `(success, result)` tuples expected by the calling functions.
+
 ## v1.4.4r5 — Comprehensive LibDeflate Taint Fix
 
 - **[Network Fix]** Expanded the previous LibDeflate network crash hotfix: completely purged all 71 instances of unsafe `#` -> `table.getn` replacements injected by earlier vanilla compatibility automation throughout `LibDeflate.lua`. These have been wrapped with a custom dual-typed safe access function that flawlessly determines whether to compute properties natively via `string.len(x)` for strings or the standard `table.getn(x)` for structured tables—guaranteeing 100% stable networking cross-client from 1.12 to 3.3.5 and upwards.

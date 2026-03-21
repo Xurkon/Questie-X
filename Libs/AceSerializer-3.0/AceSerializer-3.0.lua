@@ -77,7 +77,10 @@ local function Serialize(t)
 	return strjoin("", s)
 end
 
-AceSerializer.Serialize = Serialize
+AceSerializer.Serialize = function(self, t)
+	local target = (self == AceSerializer or (type(self) == "table" and AceSerializer.embeds[self])) and t or self
+	return Serialize(target)
+end
 
 local function Deserialize(s)
 	if type(s) ~= "string" then
@@ -180,7 +183,11 @@ local function Deserialize(s)
 	return value
 end
 
-AceSerializer.Deserialize = Deserialize
+AceSerializer.Deserialize = function(self, s)
+	local str = (self == AceSerializer or (type(self) == "table" and AceSerializer.embeds[self])) and s or self
+	local ok, res = pcall(Deserialize, str)
+	if ok then return true, res else return false, res end
+end
 
 -- http://lua-users.org/wiki/Base64EncoderAndDecoder
 local b64 = {

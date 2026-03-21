@@ -158,6 +158,7 @@ function TrackerLinePool.Initialize(questFrame)
         
         -- TEST: Always capture clicks to debug
         line:SetScript("OnClick", function(self, button)
+            print("[DEBUG] TEST_OnClick FIRED! button=" .. tostring(button) .. " lineName=" .. self:GetName())
             Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool:TEST_OnClick] button:", button, "Shift:", IsShiftKeyDown())
         end)
 

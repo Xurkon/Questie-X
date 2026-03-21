@@ -19,6 +19,7 @@ function Hooks:HookQuestLogTitle()
         -- FIX: Added InCombatLockdown guard to prevent tainting secure execution paths.
         -- This hook can be called during combat if the player interacts with the quest log
         -- while in combat, which may cause taint that propagates to protected functions.
+        print("[DEBUG] QuestLogTitleButton_OnClick hook! button=" .. tostring(button) .. " shift=" .. tostring(IsShiftKeyDown()))
         if InCombatLockdown() then return end
         if (not self) or self.isHeader then
             return
@@ -46,7 +47,9 @@ function Hooks:HookQuestLogTitle()
 
         -- For all other clicks (including tracking/untracking), use the original function
         -- only call Questie's tracker if we actually want to fix this quest (normal quests already call AQW_insert)
-        if Questie.db.profile.trackerEnabled and GetNumQuestLeaderBoards(questLogLineIndex) == 0 then
+        -- Only handle tracking on shift-click for "Talk to" quests (no objectives)
+        if Questie.db.profile.trackerEnabled and GetNumQuestLeaderBoards(questLogLineIndex) == 0 and IsShiftKeyDown() then
+            print("[DEBUG] Hook tracking condition met for questId=", questId)
             local _, _, _, _, _, _, _, questId = GetQuestLogTitle(questLogLineIndex)
             if questId and questId > 0 then
                 if Questie.db.char.TrackedQuests[questId] or (Questie.db.profile.autoTrackQuests and (not Questie.db.char.AutoUntrackedQuests[questId])) then

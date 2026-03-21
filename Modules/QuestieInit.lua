@@ -489,6 +489,7 @@ function QuestieInit:LoadBaseDB()
     local function _pullGlobal(dbKey, globalName)
         if type(_G[globalName]) == "table" then
             QuestieDB[dbKey] = _G[globalName]
+            _G[globalName] = nil  -- Remove tainted global from _G; data lives on through QuestieDB[dbKey]
             return true
         end
         return false

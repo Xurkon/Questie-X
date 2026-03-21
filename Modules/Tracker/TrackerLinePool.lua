@@ -992,7 +992,7 @@ end
 
 ---@param button string
 TrackerLinePool.OnClickQuest = function(self, button)
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool:_OnClickQuest]")
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool:_OnClickQuest] button:", button, "Shift:", IsShiftKeyDown(), "Quest:", self.Quest and self.Quest.name or "nil")
     if (not self.Quest) then
         return
     end
@@ -1000,6 +1000,8 @@ TrackerLinePool.OnClickQuest = function(self, button)
     if TrackerMenu.menuFrame:IsShown() then
         LibDropDown:CloseDropDownMenus()
     end
+
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool:_OnClickQuest] bindUntrack:", Questie.db.profile.trackerbindUntrack, "IsBindTrue:", TrackerUtils:IsBindTrue(Questie.db.profile.trackerbindUntrack, button))
 
     if TrackerUtils:IsBindTrue(Questie.db.profile.trackerbindSetTomTom, button) then
         local spawn, zone, name = QuestieMap:GetNearestQuestSpawn(self.Quest)

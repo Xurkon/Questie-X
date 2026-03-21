@@ -189,6 +189,7 @@
             <li><strong>[QuestieLearner Fix]</strong> Added early return checks in <code>BroadcastLearnedData</code> when data is nil or sanitization produces empty results.</li>
             <li><strong>[Journey Fix]</strong> Added nil check for <code>container</code> in <code>HandleTabChange</code> to prevent "attempt to index local 'container'" errors.</li>
             <li><strong>[l10n Fix]</strong> Added type check for <code>translationValue</code> in l10n:translate to prevent "bad argument #2 to 'format'" errors when translation is not a string or when format arguments are missing.</li>
+            <li><strong>[Tracker Fix]</strong> Removed redundant shift-click tracking toggle logic in <code>Hooks.lua</code> that was instantly reverting tracker states when shift-clicking a quest in the Quest Log.</li>
         </ul>
 
         <hr>

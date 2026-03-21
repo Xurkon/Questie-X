@@ -13,6 +13,7 @@
 - **[QuestieLearner Fix]** Added early return checks in `BroadcastLearnedData` when data is nil or sanitization produces empty results.
 - **[Journey Fix]** Added nil check for `container` in `HandleTabChange` to prevent "attempt to index local 'container'" errors.
 - **[l10n Fix]** Added type check for `translationValue` in l10n:translate to prevent "bad argument #2 to 'format'" errors when translation is not a string or when format arguments are missing.
+- **[Tracker Fix]** Removed redundant shift-click tracking toggle logic in `Hooks.lua` that was instantly reverting tracker states when shift-clicking a quest in the Quest Log.
 
 ## v1.4.3 — Taint & API Compatibility Fixes
 

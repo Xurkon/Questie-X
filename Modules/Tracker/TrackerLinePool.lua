@@ -997,6 +997,7 @@ end
 
 ---@param button string
 TrackerLinePool.OnClickQuest = function(self, button)
+    print("[DEBUG] OnClickQuest called! button=" .. tostring(button) .. " shift=" .. tostring(IsShiftKeyDown()))
     Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool:_OnClickQuest] button:", button, "Shift:", IsShiftKeyDown(), "Quest:", self.Quest and self.Quest.name or "nil")
     if (not self.Quest) then
         return

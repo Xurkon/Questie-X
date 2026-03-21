@@ -476,6 +476,15 @@ function QuestieInit:UpdateWotLKDBStats()
             wotlkPlugin.stats.ITEM   = counts.ITEM
         end
     end
+
+    -- Fix #11: When the database is already compiled (cached), LoadBaseDB is never
+    -- run, so the global cleanup there is skipped. We MUST clean the namespace here
+    -- to prevent continuous ADDON_ACTION_BLOCKED taint errors during gameplay.
+    -- (Doing this also frees ~20MB of redundant RAM since the data is cached!)
+    _G["QuestieX_WotLKDB_quest"] = nil
+    _G["QuestieX_WotLKDB_npc"] = nil
+    _G["QuestieX_WotLKDB_object"] = nil
+    _G["QuestieX_WotLKDB_item"] = nil
 end
 
 function QuestieInit:LoadBaseDB()

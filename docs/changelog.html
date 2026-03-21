@@ -348,6 +348,13 @@
     </div>
 
     <div class="container">
+        <h2 id="v144r2">v1.4.4r2 &mdash; Cached Load Taint Fix</h2>
+        <ul>
+            <li><strong>[Taint Fix]</strong> Resolved lingering <code>ADDON_ACTION_BLOCKED</code> taint on <code>ActionButton</code> and <code>StaticPopup</code> that occurred when Questie loaded data from its cache rather than manually recompiling. The <code>_G</code> namespace cleanup for <code>Questie-X-WotLKDB</code> globals now runs accurately during cached loads (via <code>UpdateWotLKDBStats</code>), ensuring the taint vector is closed and additionally freeing ~20MB of redundant cached memory.</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v144r1">v1.4.4r1 &mdash; WotLKDB Global Namespace Taint Fix</h2>
         <ul>
             <li><strong>[Taint Fix]</strong> Resolved <code>ADDON_ACTION_BLOCKED</code> errors caused by <code>Questie-X-WotLKDB</code> leaving tainted global variables in <code>_G</code> after initialization. <code>QuestieInit._pullGlobal</code> now sets <code>_G[globalName] = nil</code> immediately after copying each WotLKDB table reference into <code>QuestieDB</code>, removing the taint vector while keeping all data fully accessible through <code>QuestieDB</code>. <code>QuestieLearner</code> real-time updates are unaffected — they write exclusively to <code>QuestieDB.*Overrides</code> and <code>learnedData</code>.</li>

@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.4.4r2 — Cached Load Taint Fix
+
+- **[Taint Fix]** Resolved lingering `ADDON_ACTION_BLOCKED` taint on `ActionButton` and `StaticPopup` that occurred when Questie loaded data from its cache rather than manually recompiling. The `_G` namespace cleanup for `Questie-X-WotLKDB` globals now runs accurately during cached loads (via `UpdateWotLKDBStats`), ensuring the taint vector is closed and additionally freeing ~20MB of redundant cached memory.
+
 ## v1.4.4r1 — WotLKDB Global Namespace Taint Fix
 
 - **[Taint Fix]** Resolved `ADDON_ACTION_BLOCKED` errors caused by `Questie-X-WotLKDB` leaving tainted global variables in `_G` after initialization. `QuestieInit._pullGlobal` now sets `_G[globalName] = nil` immediately after copying each WotLKDB table reference into `QuestieDB`, removing the taint vector while keeping all data fully accessible through `QuestieDB`.

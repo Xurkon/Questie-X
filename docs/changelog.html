@@ -348,6 +348,14 @@
     </div>
 
     <div class="container">
+        <h2 id="v144r3">v1.4.4r3 &mdash; Legacy Client Initialization &amp; Learner Fixes</h2>
+        <ul>
+            <li><strong>[Init Fix]</strong> Fixed an issue where the database loader would silently abort on custom 3.3.5 / legacy client setups due to false-positive modern client detection. The <code>isModernClient</code> safeguard now uses a bulletproof <code>tocversion</code> range check to flawlessly differentiate between original legacy engines and modern Classic counterparts.</li>
+            <li><strong>[QuestieLearner Fix]</strong> Resolved an <code>attempt to index global 'l10n' (a nil value)</code> error that triggered when accepting a new quest, caused by a missing module import at the top of <code>QuestieLearner.lua</code>.</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v144r2">v1.4.4r2 &mdash; Cached Load Taint Fix</h2>
         <ul>
             <li><strong>[Taint Fix]</strong> Resolved lingering <code>ADDON_ACTION_BLOCKED</code> taint on <code>ActionButton</code> and <code>StaticPopup</code> that occurred when Questie loaded data from its cache rather than manually recompiling. The <code>_G</code> namespace cleanup for <code>Questie-X-WotLKDB</code> globals now runs accurately during cached loads (via <code>UpdateWotLKDBStats</code>), ensuring the taint vector is closed and additionally freeing ~20MB of redundant cached memory.</li>

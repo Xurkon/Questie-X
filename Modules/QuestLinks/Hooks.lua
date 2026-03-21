@@ -48,7 +48,7 @@ function Hooks:HookQuestLogTitle()
         -- For all other clicks (including tracking/untracking), use the original function
         -- only call Questie's tracker if we actually want to fix this quest (normal quests already call AQW_insert)
         -- Only handle tracking on shift-click for "Talk to" quests (no objectives)
-        print("[DEBUG] questLogLineIndex=", questLogLineIndex, "numLeaderBoards=", GetNumQuestLeaderBoards(questLogLineIndex), "shift=", IsShiftKeyDown())
+        print("[DEBUG] questLogLineIndex=", questLogLineIndex, "numLeaderBoards=", GetNumQuestLeaderBoards(questLogLineIndex), "shift=", IsShiftKeyDown(), "tracked=", Questie.db.char.TrackedQuests[questId])
         if Questie.db.profile.trackerEnabled and GetNumQuestLeaderBoards(questLogLineIndex) == 0 and IsShiftKeyDown() then
             local _, _, _, isHeader, _, _, _, questId = GetQuestLogTitle(questLogLineIndex)
             print("[DEBUG] After GetQuestLogTitle - isHeader=", isHeader, "questId=", questId)

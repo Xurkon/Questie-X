@@ -5,7 +5,7 @@
 ## Notes-esES: Ayundante de misiones
 ## Notes-ptBR: Ajudante de misiones
 ## Notes-frFR: Assistant de quêtes
-## Version: 1.4.4
+## Version: 1.4.5
 ## RequiredDeps:
 ## OptionalDeps: Ace3, CallbackHandler-1.0, HereBeDragons, LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0, LibStub, LibUIDropDownMenu, Questie-X-TurtleDB
 ## SavedVariables: QuestieConfig

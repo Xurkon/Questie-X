@@ -1,28 +1,13 @@
 # Changelog
 
-## v1.4.4r6 — Questie-X Network Deserialization Fix
+## v1.4.5 — Network & Taint Stability Update
 
 - **[Network Fix]** Resolved a critical crash ("`Usage: AceSerializer:Deserialize(str): str must be a string, got table`") occurring in QuestieLearnerComms and Export functions. This was caused by a lightweight, customized `AceSerializer-3.0.lua` implementation in Questie-X that lacked proper `self` parameter handling for standard colon-syntax method calls (`:`). As a result, method calls were serializing/deserializing the library table itself instead of the intended payload string. We patched `AceSerializer` natively to dynamically support both dot (`.`) and colon (`:`) syntax seamlessly without dropping arguments, while ensuring `Deserialize` correctly yields `(success, result)` tuples expected by the calling functions.
-
-## v1.4.4r5 — Comprehensive LibDeflate Taint Fix
-
 - **[Network Fix]** Expanded the previous LibDeflate network crash hotfix: completely purged all 71 instances of unsafe `#` -> `table.getn` replacements injected by earlier vanilla compatibility automation throughout `LibDeflate.lua`. These have been wrapped with a custom dual-typed safe access function that flawlessly determines whether to compute properties natively via `string.len(x)` for strings or the standard `table.getn(x)` for structured tables—guaranteeing 100% stable networking cross-client from 1.12 to 3.3.5 and upwards.
-
-## v1.4.4r4 — LibDeflate Network Crash Fix
-
 - **[Network Fix]** Fixed a critical Lua error (`bad argument #1 to 'getn' (table expected, got string)`) occurring during data-sharing via the hidden `questiecomm` addon channel. A legacy string length method (`table.getn`) was mistakenly used in `LibDeflate` string decoding; this has been restored to the universally compatible `string.len`.
-
-## v1.4.4r3 — Legacy Client Initialization & Learner Fixes
-
 - **[Init Fix]** Fixed an issue where the database loader would silently abort on custom 3.3.5 / legacy client setups due to false-positive modern client detection. The `isModernClient` safeguard now uses a bulletproof `tocversion` range check to flawlessly differentiate between original legacy engines and modern Classic counterparts.
 - **[QuestieLearner Fix]** Resolved an `attempt to index global 'l10n' (a nil value)` error that triggered when accepting a new quest, caused by a missing module import at the top of `QuestieLearner.lua`.
-
-## v1.4.4r2 — Cached Load Taint Fix
-
 - **[Taint Fix]** Resolved lingering `ADDON_ACTION_BLOCKED` taint on `ActionButton` and `StaticPopup` that occurred when Questie loaded data from its cache rather than manually recompiling. The `_G` namespace cleanup for `Questie-X-WotLKDB` globals now runs accurately during cached loads (via `UpdateWotLKDBStats`), ensuring the taint vector is closed and additionally freeing ~20MB of redundant cached memory.
-
-## v1.4.4r1 — WotLKDB Global Namespace Taint Fix
-
 - **[Taint Fix]** Resolved `ADDON_ACTION_BLOCKED` errors caused by `Questie-X-WotLKDB` leaving tainted global variables in `_G` after initialization. `QuestieInit._pullGlobal` now sets `_G[globalName] = nil` immediately after copying each WotLKDB table reference into `QuestieDB`, removing the taint vector while keeping all data fully accessible through `QuestieDB`.
 
 ## v1.4.4 — AceGUI Pool & Event Handling Fixes

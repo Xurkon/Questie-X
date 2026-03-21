@@ -348,45 +348,15 @@
     </div>
 
     <div class="container">
-        <h2 id="v144r6">v1.4.4r6 &mdash; Questie-X Network Deserialization Fix</h2>
+        <h2 id="v145">v1.4.5 &mdash; Network &amp; Taint Stability Update</h2>
         <ul>
             <li><strong>[Network Fix]</strong> Resolved a critical crash ("<code>Usage: AceSerializer:Deserialize(str): str must be a string, got table</code>") occurring in QuestieLearnerComms and Export functions. This was caused by a lightweight, customized <code>AceSerializer-3.0.lua</code> implementation in Questie-X that lacked proper <code>self</code> parameter handling for standard colon-syntax method calls (<code>:</code>). As a result, method calls were serializing/deserializing the library table itself instead of the intended payload string. We patched <code>AceSerializer</code> natively to dynamically support both dot (<code>.</code>) and colon (<code>:</code>) syntax seamlessly without dropping arguments, while ensuring <code>Deserialize</code> correctly yields <code>(success, result)</code> tuples expected by the calling functions.</li>
-        </ul>
-
-        <hr>
-
-        <h2 id="v144r5">v1.4.4r5 &mdash; Comprehensive LibDeflate Taint Fix</h2>
-        <ul>
             <li><strong>[Network Fix]</strong> Expanded the previous LibDeflate network crash hotfix: completely purged all 71 instances of unsafe <code>#</code> -&gt; <code>table.getn</code> replacements injected by earlier vanilla compatibility automation throughout <code>LibDeflate.lua</code>. These have been wrapped with a custom dual-typed safe access function that flawlessly determines whether to compute properties natively via <code>string.len(x)</code> for strings or the standard <code>table.getn(x)</code> for structured tables&mdash;guaranteeing 100% stable networking cross-client from 1.12 to 3.3.5 and upwards.</li>
-        </ul>
-
-        <hr>
-
-        <h2 id="v144r4">v1.4.4r4 &mdash; LibDeflate Network Crash Fix</h2>
-        <ul>
             <li><strong>[Network Fix]</strong> Fixed a critical Lua error (<code>bad argument #1 to 'getn' (table expected, got string)</code>) occurring during data-sharing via the hidden <code>questiecomm</code> addon channel. A legacy string length method (<code>table.getn</code>) was mistakenly used in <code>LibDeflate</code> string decoding; this has been restored to the universally compatible <code>string.len</code>.</li>
-        </ul>
-
-        <hr>
-
-        <h2 id="v144r3">v1.4.4r3 &mdash; Legacy Client Initialization &amp; Learner Fixes</h2>
-        <ul>
             <li><strong>[Init Fix]</strong> Fixed an issue where the database loader would silently abort on custom 3.3.5 / legacy client setups due to false-positive modern client detection. The <code>isModernClient</code> safeguard now uses a bulletproof <code>tocversion</code> range check to flawlessly differentiate between original legacy engines and modern Classic counterparts.</li>
             <li><strong>[QuestieLearner Fix]</strong> Resolved an <code>attempt to index global 'l10n' (a nil value)</code> error that triggered when accepting a new quest, caused by a missing module import at the top of <code>QuestieLearner.lua</code>.</li>
-        </ul>
-
-        <hr>
-
-        <h2 id="v144r2">v1.4.4r2 &mdash; Cached Load Taint Fix</h2>
-        <ul>
             <li><strong>[Taint Fix]</strong> Resolved lingering <code>ADDON_ACTION_BLOCKED</code> taint on <code>ActionButton</code> and <code>StaticPopup</code> that occurred when Questie loaded data from its cache rather than manually recompiling. The <code>_G</code> namespace cleanup for <code>Questie-X-WotLKDB</code> globals now runs accurately during cached loads (via <code>UpdateWotLKDBStats</code>), ensuring the taint vector is closed and additionally freeing ~20MB of redundant cached memory.</li>
-        </ul>
-
-        <hr>
-
-        <h2 id="v144r1">v1.4.4r1 &mdash; WotLKDB Global Namespace Taint Fix</h2>
-        <ul>
-            <li><strong>[Taint Fix]</strong> Resolved <code>ADDON_ACTION_BLOCKED</code> errors caused by <code>Questie-X-WotLKDB</code> leaving tainted global variables in <code>_G</code> after initialization. <code>QuestieInit._pullGlobal</code> now sets <code>_G[globalName] = nil</code> immediately after copying each WotLKDB table reference into <code>QuestieDB</code>, removing the taint vector while keeping all data fully accessible through <code>QuestieDB</code>. <code>QuestieLearner</code> real-time updates are unaffected — they write exclusively to <code>QuestieDB.*Overrides</code> and <code>learnedData</code>.</li>
+            <li><strong>[Taint Fix]</strong> Resolved <code>ADDON_ACTION_BLOCKED</code> errors caused by <code>Questie-X-WotLKDB</code> leaving tainted global variables in <code>_G</code> after initialization. <code>QuestieInit._pullGlobal</code> now sets <code>_G[globalName] = nil</code> immediately after copying each WotLKDB table reference into <code>QuestieDB</code>, removing the taint vector while keeping all data fully accessible through <code>QuestieDB</code>. <code>QuestieLearner</code> real-time updates are unaffected &mdash; they write exclusively to <code>QuestieDB.*Overrides</code> and <code>learnedData</code>.</li>
         </ul>
 
         <hr>

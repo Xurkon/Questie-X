@@ -1,0 +1,3 @@
+## v1.4.4r6 — Questie-X Network Deserialization Fix
+
+- **[Network Fix]** Resolved a critical crash (Usage: AceSerializer:Deserialize(str): str must be a string, got table) occurring in QuestieLearnerComms and Export functions. This was caused by a lightweight, customized AceSerializer-3.0.lua implementation in Questie-X that lacked proper self parameter handling for standard colon-syntax method calls (:). As a result, method calls were serializing/deserializing the library table itself instead of the intended payload string. We patched AceSerializer natively to dynamically support both dot (.) and colon (:) syntax seamlessly without dropping arguments, while ensuring Deserialize correctly yields (success, result) tuples expected by the calling functions.

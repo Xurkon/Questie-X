@@ -414,9 +414,9 @@ function QuestieInit:LoadDatabase(key)
         -- Fix #6: `loadstring` at LOAD TIME is safe, but calling it here during
         -- event-driven runtime taints any tables produced on WotLK/Era clients.
         -- This path is for legacy single-file DB format.  If we are on a
-        -- modern client (WOW_PROJECT_ID is defined and not ancient), refuse
+        -- modern client (WOW_PROJECT_ID is defined natively and not ancient), refuse
         -- and direct the user to reinstall the split-file DB instead.
-        local isModernClient = QuestieCompat and QuestieCompat.WOW_PROJECT_ID and true or false
+        local isModernClient = _G.WOW_PROJECT_ID ~= nil
         if isModernClient then
             Questie:Debug(Questie.DEBUG_DEVELOP,
                 "[DBDiag] LEGACY DB ('" .. key .. "' is string) on modern client. "

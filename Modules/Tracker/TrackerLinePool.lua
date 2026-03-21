@@ -155,6 +155,11 @@ function TrackerLinePool.Initialize(questFrame)
         line:EnableMouse(true)
         line:RegisterForDrag("LeftButton")
         line:RegisterForClicks("RightButtonUp", "LeftButtonUp")
+        
+        -- TEST: Always capture clicks to debug
+        line:SetScript("OnClick", function(self, button)
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool:TEST_OnClick] button:", button, "Shift:", IsShiftKeyDown())
+        end)
 
         function line:SetOnClick(onClickmode)
             if onClickmode == "quest" then

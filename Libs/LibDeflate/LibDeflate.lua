@@ -408,7 +408,7 @@ function LibDeflate:Adler32(str)
   --
   -- local a = 1
   -- local b = 0
-  -- for i=1, table.getn(str) do
+  -- for i=1, string.len(str) do
   -- 		local s = string.byte(str, i, i)
   -- 		a = (a+s)%65521
   -- 		b = (b+a)%65521
@@ -418,7 +418,7 @@ function LibDeflate:Adler32(str)
     error(string.format(("Usage: LibDeflate:Adler32(str):" ..
       " 'str' - string expected got '%s'."), type(str)), 2)
   end
-  local strlen = table.getn(str)
+  local strlen = string.len(str)
 
   local i = 1
   local a = 1
@@ -506,12 +506,12 @@ function LibDeflate:CreateDictionary(str, strlen, adler32)
     error(string.format(("Usage: LibDeflate:CreateDictionary(str, strlen, adler32):" ..
       " 'adler32' - number expected got '%s'."), type(adler32)), 2)
   end
-  if strlen ~= table.getn(str) then
+  if strlen ~= string.len(str) then
     error(string.format(("Usage: LibDeflate:CreateDictionary(str, strlen, adler32):" ..
         " 'strlen' does not match the actual length of 'str'." ..
-        " 'strlen': %u, 'table.getn(str)': %u ." ..
+        " 'strlen': %u, 'string.len(str)': %u ." ..
         " Please check if 'str' is modified unintentionally."),
-      strlen, table.getn(str)))
+      strlen, string.len(str)))
   end
   if strlen == 0 then
     error(("Usage: LibDeflate:CreateDictionary(str, strlen, adler32):" ..
@@ -777,7 +777,7 @@ local function CreateWriter()
     cache_bitlen = 0
     buffer_size = buffer_size + 1
     buffer[buffer_size] = str
-    total_bitlen = total_bitlen + table.getn(str) * 8
+    total_bitlen = total_bitlen + string.len(str) * 8
   end
 
   -- Flush current stuffs in the writer and return it.
@@ -1765,7 +1765,7 @@ local function Deflate(configs, WriteBits, WriteString, FlushWriter, str,
   local block_end
   local bitlen_written
   local total_bitlen = FlushWriter(_FLUSH_MODE_NO_FLUSH)
-  local strlen = table.getn(str)
+  local strlen = string.len(str)
   local offset
 
   local level
@@ -2925,7 +2925,7 @@ function LibDeflate:CreateCodec(reserved_chars, escape_chars, map_chars)
   end
 
   if escape_chars == "" then return nil, "No escape characters supplied." end
-  if table.getn(reserved_chars) < table.getn(map_chars) then
+  if string.len(reserved_chars) < string.len(map_chars) then
     return nil, "The number of reserved characters must be" ..
         " at least as many as the number of mapped chars."
   end
@@ -2934,7 +2934,7 @@ function LibDeflate:CreateCodec(reserved_chars, escape_chars, map_chars)
   local encode_bytes = reserved_chars .. escape_chars .. map_chars
   -- build list of bytes not available as a suffix to a prefix byte
   local taken = {}
-  for i = 1, table.getn(encode_bytes) do
+  for i = 1, string.len(encode_bytes) do
     local byte = string_byte(encode_bytes, i, i)
     if taken[byte] then
       return nil, "There must be no duplicate characters in the" ..
@@ -2953,10 +2953,10 @@ function LibDeflate:CreateCodec(reserved_chars, escape_chars, map_chars)
   local encode_translate = {}
 
   -- map single byte to single byte
-  if table.getn(map_chars) > 0 then
+  if string.len(map_chars) > 0 then
     local decode_search = {}
     local decode_translate = {}
-    for i = 1, table.getn(map_chars) do
+    for i = 1, string.len(map_chars) do
       local from = string_sub(reserved_chars, i, i)
       local to = string_sub(map_chars, i, i)
       encode_translate[from] = to
@@ -2977,7 +2977,7 @@ function LibDeflate:CreateCodec(reserved_chars, escape_chars, map_chars)
 
   local decode_search = {}
   local decode_translate = {}
-  for i = 1, table.getn(encode_bytes) do
+  for i = 1, string.len(encode_bytes) do
     local c = string_sub(encode_bytes, i, i)
     if not encode_translate[c] then
       while r >= 256 or taken[r] do
@@ -3012,7 +3012,7 @@ function LibDeflate:CreateCodec(reserved_chars, escape_chars, map_chars)
       decode_search[table.getn(decode_search) + 1] = char_r
       r = r + 1
     end
-    if i == table.getn(encode_bytes) then
+    if i == string.len(encode_bytes) then
       decode_patterns[table.getn(decode_patterns) + 1] =
           escape_for_gsub(escape_char) .. "([" ..
           escape_for_gsub(table_concat(decode_search)) .. "])"
@@ -3312,7 +3312,7 @@ function LibDeflate:EncodeForPrint(str)
     error(string.format(("Usage: LibDeflate:EncodeForPrint(str):" ..
       " 'str' - string expected got '%s'."), type(str)), 2)
   end
-  local strlen = table.getn(str)
+  local strlen = string.len(str)
   local strlenMinus2 = strlen - 2
   local i = 1
   local buffer = {}
@@ -3369,7 +3369,7 @@ function LibDeflate:DecodeForPrint(str)
   str = string.gsub(str, "^[%c ]+", "")
   str = string.gsub(str, "[%c ]+$", "")
 
-  local strlen = table.getn(str)
+  local strlen = string.len(str)
   if strlen == 1 then return nil end
   local strlenMinus3 = strlen - 3
   local i = 1
@@ -3510,7 +3510,7 @@ if io and os and debug and _G.arg then
         -- , so it actually prevent you from modifying dictionary
         -- unintentionally during the program development. I do this
         -- here just because no convenient way to verify in commandline.
-        dictionary = LibDeflate:CreateDictionary(dict_str, table.getn(dict_str),
+        dictionary = LibDeflate:CreateDictionary(dict_str, string.len(dict_str),
           LibDeflate:Adler32(dict_str))
       elseif a == "--strategy" then
         -- Not sure if I should check error here

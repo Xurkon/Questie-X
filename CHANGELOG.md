@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.4.4r4 — LibDeflate Network Crash Fix
+
+- **[Network Fix]** Fixed a critical Lua error (`bad argument #1 to 'getn' (table expected, got string)`) occurring during data-sharing via the hidden `questiecomm` addon channel. A legacy string length method (`table.getn`) was mistakenly used in `LibDeflate` string decoding; this has been restored to the universally compatible `string.len`.
+
 ## v1.4.4r3 — Legacy Client Initialization & Learner Fixes
 
 - **[Init Fix]** Fixed an issue where the database loader would silently abort on custom 3.3.5 / legacy client setups due to false-positive modern client detection. The `isModernClient` safeguard now uses a bulletproof `tocversion` range check to flawlessly differentiate between original legacy engines and modern Classic counterparts.

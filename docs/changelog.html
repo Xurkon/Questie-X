@@ -348,6 +348,13 @@
     </div>
 
     <div class="container">
+        <h2 id="v144r4">v1.4.4r4 &mdash; LibDeflate Network Crash Fix</h2>
+        <ul>
+            <li><strong>[Network Fix]</strong> Fixed a critical Lua error (<code>bad argument #1 to 'getn' (table expected, got string)</code>) occurring during data-sharing via the hidden <code>questiecomm</code> addon channel. A legacy string length method (<code>table.getn</code>) was mistakenly used in <code>LibDeflate</code> string decoding; this has been restored to the universally compatible <code>string.len</code>.</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v144r3">v1.4.4r3 &mdash; Legacy Client Initialization &amp; Learner Fixes</h2>
         <ul>
             <li><strong>[Init Fix]</strong> Fixed an issue where the database loader would silently abort on custom 3.3.5 / legacy client setups due to false-positive modern client detection. The <code>isModernClient</code> safeguard now uses a bulletproof <code>tocversion</code> range check to flawlessly differentiate between original legacy engines and modern Classic counterparts.</li>

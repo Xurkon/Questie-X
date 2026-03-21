@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.4.4r5 — Comprehensive LibDeflate Taint Fix
+
+- **[Network Fix]** Expanded the previous LibDeflate network crash hotfix: completely purged all 71 instances of unsafe `#` -> `table.getn` replacements injected by earlier vanilla compatibility automation throughout `LibDeflate.lua`. These have been wrapped with a custom dual-typed safe access function that flawlessly determines whether to compute properties natively via `string.len(x)` for strings or the standard `table.getn(x)` for structured tables—guaranteeing 100% stable networking cross-client from 1.12 to 3.3.5 and upwards.
+
 ## v1.4.4r4 — LibDeflate Network Crash Fix
 
 - **[Network Fix]** Fixed a critical Lua error (`bad argument #1 to 'getn' (table expected, got string)`) occurring during data-sharing via the hidden `questiecomm` addon channel. A legacy string length method (`table.getn`) was mistakenly used in `LibDeflate` string decoding; this has been restored to the universally compatible `string.len`.

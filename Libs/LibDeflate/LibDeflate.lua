@@ -144,6 +144,13 @@ local table_sort = table.sort
 local tostring = tostring
 local type = type
 
+local table_getn_safe_orig = table.getn or function(t) return #t end
+local table_getn_safe = function(x)
+  if type(x) == "string" then return string.len(x) end
+  return table_getn_safe_orig(x)
+end
+
+
 -- Converts i to 2^i, (0<=i<=32)
 -- This is used to implement bit left shift and bit right shift.
 -- "x >> y" in C:   "(x-x%_pow2[y])/_pow2[y]" in Lua
@@ -555,7 +562,7 @@ function LibDeflate:CreateDictionary(str, strlen, adler32)
         t = {};
         hash_tables[hash] = t
       end
-      t[table.getn(t) + 1] = i - strlen
+      t[table_getn_safe(t) + 1] = i - strlen
       i = i + 1
       hash = math.mod((hash * 256 + x2), 16777216)
       t = hash_tables[hash]
@@ -563,7 +570,7 @@ function LibDeflate:CreateDictionary(str, strlen, adler32)
         t = {};
         hash_tables[hash] = t
       end
-      t[table.getn(t) + 1] = i - strlen
+      t[table_getn_safe(t) + 1] = i - strlen
       i = i + 1
       hash = math.mod((hash * 256 + x3), 16777216)
       t = hash_tables[hash]
@@ -571,7 +578,7 @@ function LibDeflate:CreateDictionary(str, strlen, adler32)
         t = {};
         hash_tables[hash] = t
       end
-      t[table.getn(t) + 1] = i - strlen
+      t[table_getn_safe(t) + 1] = i - strlen
       i = i + 1
       hash = math.mod((hash * 256 + x4), 16777216)
       t = hash_tables[hash]
@@ -579,7 +586,7 @@ function LibDeflate:CreateDictionary(str, strlen, adler32)
         t = {};
         hash_tables[hash] = t
       end
-      t[table.getn(t) + 1] = i - strlen
+      t[table_getn_safe(t) + 1] = i - strlen
       i = i + 1
     end
     while i <= strlen - 2 do
@@ -591,7 +598,7 @@ function LibDeflate:CreateDictionary(str, strlen, adler32)
         t = {};
         hash_tables[hash] = t
       end
-      t[table.getn(t) + 1] = i - strlen
+      t[table_getn_safe(t) + 1] = i - strlen
       i = i + 1
     end
   end
@@ -609,7 +616,7 @@ local function IsValidDictionary(dictionary)
   end
   if type(dictionary.adler32) ~= "number" or type(dictionary.string_table) ~=
       "table" or type(dictionary.strlen) ~= "number" or dictionary.strlen <= 0 or
-      dictionary.strlen > 32768 or dictionary.strlen ~= table.getn(dictionary.string_table) or
+      dictionary.strlen > 32768 or dictionary.strlen ~= table_getn_safe(dictionary.string_table) or
       type(dictionary.hash_tables) ~= "table" then
     return false,
         string.format(("'dictionary' - corrupted dictionary."), type(dictionary))
@@ -819,7 +826,7 @@ local function CreateWriter()
     local flushed = table_concat(buffer)
     buffer = {}
     buffer_size = 0
-    result_buffer[table.getn(result_buffer) + 1] = flushed
+    result_buffer[table_getn_safe(result_buffer) + 1] = flushed
 
     if mode == _FLUSH_MODE_MEMORY_CLEANUP then
       return total_bitlen
@@ -1270,7 +1277,7 @@ local function GetBlockLZ77Result(level, string_table, hash_tables, block_start,
         t = {};
         hash_tables[hash] = t
       end
-      t[table.getn(t) + 1] = -1
+      t[table_getn_safe(t) + 1] = -1
     end
     if block_end >= block_start + 1 and dict_string_len >= 1 then
       hash =
@@ -1281,7 +1288,7 @@ local function GetBlockLZ77Result(level, string_table, hash_tables, block_start,
         t = {};
         hash_tables[hash] = t
       end
-      t[table.getn(t) + 1] = 0
+      t[table_getn_safe(t) + 1] = 0
     end
   end
 
@@ -1334,12 +1341,12 @@ local function GetBlockLZ77Result(level, string_table, hash_tables, block_start,
       hash_tables[hash] = hash_chain
       if dict_hash_tables then
         cur_chain = dict_hash_tables[hash]
-        chain_index = cur_chain and table.getn(cur_chain) or 0
+        chain_index = cur_chain and table_getn_safe(cur_chain) or 0
       else
         chain_index = 0
       end
     else
-      chain_old_size = table.getn(hash_chain)
+      chain_old_size = table_getn_safe(hash_chain)
       cur_chain = hash_chain
       chain_index = chain_old_size
     end
@@ -1392,7 +1399,7 @@ local function GetBlockLZ77Result(level, string_table, hash_tables, block_start,
         depth = depth - 1
         if chain_index == 0 and prev > 0 and dict_hash_tables then
           cur_chain = dict_hash_tables[hash]
-          chain_index = cur_chain and table.getn(cur_chain) or 0
+          chain_index = cur_chain and table_getn_safe(cur_chain) or 0
         end
       end
     end
@@ -1456,7 +1463,7 @@ local function GetBlockLZ77Result(level, string_table, hash_tables, block_start,
             hash_chain = {}
             hash_tables[hash] = hash_chain
           end
-          hash_chain[table.getn(hash_chain) + 1] = i
+          hash_chain[table_getn_safe(hash_chain) + 1] = i
         end
       end
       index = index + prev_len - (config_use_lazy and 1 or 0)
@@ -1530,7 +1537,7 @@ local function GetDynamicHuffmanBlockSize(lcodes, dcodes, HCLEN,
   local block_bitlen = 17 -- 1+2+5+5+4
   block_bitlen = block_bitlen + (HCLEN + 4) * 3
 
-  for i = 1, table.getn(rle_deflate_codes) do
+  for i = 1, table_getn_safe(rle_deflate_codes) do
     local code = rle_deflate_codes[i]
     block_bitlen = block_bitlen + rle_codes_huffman_bitlens[code]
     if code >= 16 then
@@ -1540,7 +1547,7 @@ local function GetDynamicHuffmanBlockSize(lcodes, dcodes, HCLEN,
   end
 
   local length_code_count = 0
-  for i = 1, table.getn(lcodes) do
+  for i = 1, table_getn_safe(lcodes) do
     local code = lcodes[i]
     local huffman_bitlen = lcodes_huffman_bitlens[code]
     block_bitlen = block_bitlen + huffman_bitlen
@@ -1590,7 +1597,7 @@ local function CompressDynamicHuffmanBlock(WriteBits, is_last_block, lcodes,
   end
 
   local rleExtraBitsIndex = 1
-  for i = 1, table.getn(rle_deflate_codes) do
+  for i = 1, table_getn_safe(rle_deflate_codes) do
     local code = rle_deflate_codes[i]
     WriteBits(rle_codes_huffman_codes[code], rle_codes_huffman_bitlens[code])
     if code >= 16 then
@@ -1604,7 +1611,7 @@ local function CompressDynamicHuffmanBlock(WriteBits, is_last_block, lcodes,
   local length_code_with_extra_count = 0
   local dist_code_with_extra_count = 0
 
-  for i = 1, table.getn(lcodes) do
+  for i = 1, table_getn_safe(lcodes) do
     local deflate_codee = lcodes[i]
     local huffman_code = lcodes_huffman_codes[deflate_codee]
     local huffman_bitlen = lcodes_huffman_bitlens[deflate_codee]
@@ -1642,7 +1649,7 @@ end
 local function GetFixedHuffmanBlockSize(lcodes, dcodes)
   local block_bitlen = 3
   local length_code_count = 0
-  for i = 1, table.getn(lcodes) do
+  for i = 1, table_getn_safe(lcodes) do
     local code = lcodes[i]
     local huffman_bitlen = _fix_block_literal_huffman_bitlen[code]
     block_bitlen = block_bitlen + huffman_bitlen
@@ -1675,7 +1682,7 @@ local function CompressFixedHuffmanBlock(WriteBits, is_last_block, lcodes,
   local length_code_count = 0
   local length_code_with_extra_count = 0
   local dist_code_with_extra_count = 0
-  for i = 1, table.getn(lcodes) do
+  for i = 1, table_getn_safe(lcodes) do
     local deflate_code = lcodes[i]
     local huffman_code = _fix_block_literal_huffman_code[deflate_code]
     local huffman_bitlen = _fix_block_literal_huffman_bitlen[deflate_code]
@@ -1917,7 +1924,7 @@ local function Deflate(configs, WriteBits, WriteString, FlushWriter, str,
       end
 
       for k, t in pairs(hash_tables) do
-        local tSize = table.getn(t)
+        local tSize = table_getn_safe(t)
         if tSize > 0 and block_end + 1 - t[1] > 32768 then
           if tSize == 1 then
             hash_tables[k] = nil
@@ -2121,7 +2128,7 @@ end
 --]]
 local function CreateReader(input_string)
   local input = input_string
-  local input_strlen = table.getn(input_string)
+  local input_strlen = table_getn_safe(input_string)
   local input_next_byte_pos = 1
   local cache_bitlen = 0
   local cache = 0
@@ -2425,7 +2432,7 @@ local function DecodeUntilEndOfBlock(state, lcodes_huffman_bitlens,
     end
 
     if buffer_size >= 65536 then
-      result_buffer[table.getn(result_buffer) + 1] = table_concat(buffer, "", 1, 32768)
+      result_buffer[table_getn_safe(result_buffer) + 1] = table_concat(buffer, "", 1, 32768)
       for i = 32769, buffer_size do buffer[i - 32768] = buffer[i] end
       buffer_size = buffer_size - 32768
       buffer[buffer_size + 1] = nil
@@ -2476,7 +2483,7 @@ local function DecompressStoreBlock(state)
 
   -- memory clean up when there are enough bytes in the buffer.
   if buffer_size >= 65536 then
-    result_buffer[table.getn(result_buffer) + 1] = table_concat(buffer, "", 1, 32768)
+    result_buffer[table_getn_safe(result_buffer) + 1] = table_concat(buffer, "", 1, 32768)
     for i = 32769, buffer_size do buffer[i - 32768] = buffer[i] end
     buffer_size = buffer_size - 32768
     buffer[buffer_size + 1] = nil
@@ -2636,7 +2643,7 @@ local function Inflate(state)
     if status ~= 0 then return nil, status end
   end
 
-  state.result_buffer[table.getn(state.result_buffer) + 1] =
+  state.result_buffer[table_getn_safe(state.result_buffer) + 1] =
       table_concat(state.buffer, "", 1, state.buffer_size)
   local result = table_concat(state.result_buffer)
   return result
@@ -2897,7 +2904,7 @@ end
 -- reserved\_chars + escape\_chars + map\_chars is longer than 127.
 -- This parameter should be non-empty.
 -- @param map_chars [string] The created encoder will map every
--- reserved\_chars:sub(i, i) (1 <= i <= table.getn(map)\_chars) to map\_chars:sub(i, i).
+-- reserved\_chars:sub(i, i) (1 <= i <= table_getn_safe(map)\_chars) to map\_chars:sub(i, i).
 -- This parameter CAN be empty string.
 -- @return [table/nil] If the codec cannot be created, return nil.<br>
 -- If the codec can be created according to the given
@@ -2960,13 +2967,13 @@ function LibDeflate:CreateCodec(reserved_chars, escape_chars, map_chars)
       local from = string_sub(reserved_chars, i, i)
       local to = string_sub(map_chars, i, i)
       encode_translate[from] = to
-      encode_search[table.getn(encode_search) + 1] = from
+      encode_search[table_getn_safe(encode_search) + 1] = from
       decode_translate[to] = from
-      decode_search[table.getn(decode_search) + 1] = to
+      decode_search[table_getn_safe(decode_search) + 1] = to
     end
-    decode_patterns[table.getn(decode_patterns) + 1] =
+    decode_patterns[table_getn_safe(decode_patterns) + 1] =
         "([" .. escape_for_gsub(table_concat(decode_search)) .. "])"
-    decode_repls[table.getn(decode_repls) + 1] = decode_translate
+    decode_repls[table_getn_safe(decode_repls) + 1] = decode_translate
   end
 
   local escape_char_index = 1
@@ -2983,10 +2990,10 @@ function LibDeflate:CreateCodec(reserved_chars, escape_chars, map_chars)
       while r >= 256 or taken[r] do
         r = r + 1
         if r > 255 then -- switch to next escapeChar
-          decode_patterns[table.getn(decode_patterns) + 1] =
+          decode_patterns[table_getn_safe(decode_patterns) + 1] =
               escape_for_gsub(escape_char) .. "([" ..
               escape_for_gsub(table_concat(decode_search)) .. "])"
-          decode_repls[table.getn(decode_repls) + 1] = decode_translate
+          decode_repls[table_getn_safe(decode_repls) + 1] = decode_translate
 
           escape_char_index = escape_char_index + 1
           escape_char = string_sub(escape_chars, escape_char_index,
@@ -3007,16 +3014,16 @@ function LibDeflate:CreateCodec(reserved_chars, escape_chars, map_chars)
 
       local char_r = _byte_to_char[r]
       encode_translate[c] = escape_char .. char_r
-      encode_search[table.getn(encode_search) + 1] = c
+      encode_search[table_getn_safe(encode_search) + 1] = c
       decode_translate[char_r] = c
-      decode_search[table.getn(decode_search) + 1] = char_r
+      decode_search[table_getn_safe(decode_search) + 1] = char_r
       r = r + 1
     end
     if i == string.len(encode_bytes) then
-      decode_patterns[table.getn(decode_patterns) + 1] =
+      decode_patterns[table_getn_safe(decode_patterns) + 1] =
           escape_for_gsub(escape_char) .. "([" ..
           escape_for_gsub(table_concat(decode_search)) .. "])"
-      decode_repls[table.getn(decode_repls) + 1] = decode_translate
+      decode_repls[table_getn_safe(decode_repls) + 1] = decode_translate
     end
   end
 
@@ -3035,7 +3042,7 @@ function LibDeflate:CreateCodec(reserved_chars, escape_chars, map_chars)
     return string_gsub(str, encode_pattern, encode_repl)
   end
 
-  local decode_tblsize = table.getn(decode_patterns)
+  local decode_tblsize = table_getn_safe(decode_patterns)
   local decode_fail_pattern = "([" .. escape_for_gsub(reserved_chars) .. "])"
 
   function codec:Decode(str)
@@ -3116,7 +3123,7 @@ end
 -- 100% (only encoding data that encodes to two bytes)
 local function GenerateWoWChatChannelCodec()
   local r = {}
-  for i = 128, 255 do r[table.getn(r) + 1] = _byte_to_char[i] end
+  for i = 128, 255 do r[table_getn_safe(r) + 1] = _byte_to_char[i] end
 
   local reserved_chars = "sS\000\010\013\124%" .. table_concat(r)
   return LibDeflate:CreateCodec(reserved_chars, "\029\031", "\015\020")

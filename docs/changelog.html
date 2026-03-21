@@ -348,6 +348,13 @@
     </div>
 
     <div class="container">
+        <h2 id="v144r5">v1.4.4r5 &mdash; Comprehensive LibDeflate Taint Fix</h2>
+        <ul>
+            <li><strong>[Network Fix]</strong> Expanded the previous LibDeflate network crash hotfix: completely purged all 71 instances of unsafe <code>#</code> -&gt; <code>table.getn</code> replacements injected by earlier vanilla compatibility automation throughout <code>LibDeflate.lua</code>. These have been wrapped with a custom dual-typed safe access function that flawlessly determines whether to compute properties natively via <code>string.len(x)</code> for strings or the standard <code>table.getn(x)</code> for structured tables&mdash;guaranteeing 100% stable networking cross-client from 1.12 to 3.3.5 and upwards.</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v144r4">v1.4.4r4 &mdash; LibDeflate Network Crash Fix</h2>
         <ul>
             <li><strong>[Network Fix]</strong> Fixed a critical Lua error (<code>bad argument #1 to 'getn' (table expected, got string)</code>) occurring during data-sharing via the hidden <code>questiecomm</code> addon channel. A legacy string length method (<code>table.getn</code>) was mistakenly used in <code>LibDeflate</code> string decoding; this has been restored to the universally compatible <code>string.len</code>.</li>

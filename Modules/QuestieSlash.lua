@@ -64,7 +64,6 @@ function QuestieSlash.HandleCommands(input)
         print(Questie:Colorize("/questie doable [questID] - " .. l10n("Prints whether you are eligibile to do a quest"), "yellow"));
         print(Questie:Colorize("/questie version - " .. l10n("Prints Questie and client version info"), "yellow"));
         print(Questie:Colorize("/questie learn [toggle/stats/clear/export] - " .. l10n("Self-learning database: toggle on/off, view stats, clear data, or export"), "yellow"));
-        print(Questie:Colorize("/questie route [off/single/all/tsp] - " .. l10n("Toggle quest route optimization. off=disable, single=single quest, all=all tracked, tsp=TSP approximation"), "yellow"));
         return;
     end
 
@@ -215,37 +214,6 @@ function QuestieSlash.HandleCommands(input)
             end
         else
             Questie:Print("Usage: /questie learn [toggle/stats/clear/export]")
-        end
-        return
-    end
-
-    -- /questie route [off/single/all/tsp]
-    if mainCommand == "route" then
-        local QuestieRouteOptimizer = QuestieLoader:ImportModule("QuestieRouteOptimizer")
-        if not QuestieRouteOptimizer or not QuestieRouteOptimizer.SetMode then
-            Questie:Print("QuestieRouteOptimizer module not loaded")
-            return
-        end
-        
-        local ROUTE_MODE_OFF = 1
-        local ROUTE_MODE_SINGLE_QUEST = 2
-        local ROUTE_MODE_ALL_TRACKED = 3
-        local ROUTE_MODE_TSP_APPROXIMATION = 4
-        
-        if subCommand == "off" or not subCommand then
-            QuestieRouteOptimizer:SetMode(ROUTE_MODE_OFF)
-            Questie:Print("Quest route " .. l10n("disabled"))
-        elseif subCommand == "single" then
-            QuestieRouteOptimizer:SetMode(ROUTE_MODE_SINGLE_QUEST)
-            Questie:Print("Quest route " .. l10n("set to single quest mode"))
-        elseif subCommand == "all" then
-            QuestieRouteOptimizer:SetMode(ROUTE_MODE_ALL_TRACKED)
-            Questie:Print("Quest route " .. l10n("set to all tracked quests mode"))
-        elseif subCommand == "tsp" then
-            QuestieRouteOptimizer:SetMode(ROUTE_MODE_TSP_APPROXIMATION)
-            Questie:Print("Quest route " .. l10n("set to TSP approximation mode"))
-        else
-            Questie:Print("Usage: /questie route [off/single/all/tsp]")
         end
         return
     end

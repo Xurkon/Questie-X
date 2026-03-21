@@ -43,24 +43,6 @@ function Hooks:HookQuestLogTitle()
             -- but for chat links the original function usually just selects the quest anyway.
         end
 
-        -- For shift-click tracking toggle, only handle if tracker is enabled
-        if Questie.db.profile.trackerEnabled and IsShiftKeyDown() then
-            local _, _, _, isHeader, _, _, _, questId = GetQuestLogTitle(questLogLineIndex)
-            if questId and questId > 0 and not isHeader then
-                -- Toggle tracking: if tracked, untrack; if untracked, track
-                local isTracked = Questie.db.char.TrackedQuests[questId] or (Questie.db.profile.autoTrackQuests and not Questie.db.char.AutoUntrackedQuests[questId])
-                if isTracked then
-                    -- Quest is currently tracked — untrack it
-                    pcall(QuestieTracker.UntrackQuestId, QuestieTracker, questId)
-                else
-                    -- Quest is currently untracked — track it
-                    Questie.db.char.TrackedQuests[questId] = true
-                    Questie.db.char.AutoUntrackedQuests[questId] = nil
-                    QuestieCombatQueue:Queue(function()
-                        QuestieTracker:Update()
-                    end)
-                end
-            end
-        end
+
     end)
 end

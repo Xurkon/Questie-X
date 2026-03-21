@@ -193,7 +193,6 @@ Questie.icons = {
     ["loot_mono"] = QuestieLib.AddonPath .. "Icons\\loot_mono.tga",
     ["node_cut"] = QuestieLib.AddonPath .. "Icons\\node_cut.tga",
     ["object_mono"] = QuestieLib.AddonPath .. "Icons\\object_mono.tga",
-    ["route"] = QuestieLib.AddonPath .. "Icons\\route.tga",
     ["slay_mono"] = QuestieLib.AddonPath .. "Icons\\slay_mono.tga",
     ["sod_rune"] = QuestieLib.AddonPath .. "Icons\\sod_rune.tga",
     ["startend"] = QuestieLib.AddonPath .. "Icons\\startend.tga",

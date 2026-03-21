@@ -162,6 +162,7 @@ function TrackerLinePool.Initialize(questFrame)
         end)
 
         function line:SetOnClick(onClickmode)
+            print("[DEBUG] SetOnClick called! mode=" .. tostring(onClickmode) .. " lineQuest=" .. (self.Quest and self.Quest.name or "nil"))
             if onClickmode == "quest" then
                 self:SetScript("OnClick", TrackerLinePool.OnClickQuest)
             elseif onClickmode == "achieve" then

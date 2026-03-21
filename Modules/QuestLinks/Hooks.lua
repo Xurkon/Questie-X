@@ -51,18 +51,16 @@ function Hooks:HookQuestLogTitle()
                 local isTracked = Questie.db.char.TrackedQuests[questId] or (Questie.db.profile.autoTrackQuests and not Questie.db.char.AutoUntrackedQuests[questId])
                 if isTracked then
                     -- Quest is currently tracked — untrack it
-                    Questie.db.char.TrackedQuests[questId] = nil
-                    Questie.db.char.AutoUntrackedQuests[questId] = nil
+                    pcall(QuestieTracker.UntrackQuestId, QuestieTracker, questId)
                 else
                     -- Quest is currently untracked — track it
                     Questie.db.char.TrackedQuests[questId] = true
                     Questie.db.char.AutoUntrackedQuests[questId] = nil
+                    QuestieCombatQueue:Queue(function()
+                        QuestieTracker:Update()
+                    end)
                 end
-                QuestieCombatQueue:Queue(function()
-                    QuestieTracker:Update()
-                end)
             end
-            -- Don't call QuestLog_Update() here - it causes loops with the hook
         end
     end)
 end

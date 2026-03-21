@@ -16,10 +16,10 @@ function Hooks:HookQuestLogTitle()
     Questie:Debug(Questie.DEBUG_DEVELOP, "[Hooks] Hooking Quest Log Title")
 
     hooksecurefunc("QuestLogTitleButton_OnClick", function(self, button)
-        -- FIX: Added InCombatLockdown guard to prevent tainting secure execution paths.
+        -- FIX: Added InCombatLockdown guard to prevent taining secure execution paths.
         -- This hook can be called during combat if the player interacts with the quest log
         -- while in combat, which may cause taint that propagates to protected functions.
-        print("[DEBUG] QuestLogTitleButton_OnClick hook! button=" .. tostring(button) .. " shift=" .. tostring(IsShiftKeyDown()))
+        print("[DEBUG] QuestLogTitleButton_OnClick hook! button=" .. tostring(button) .. " isLeft=" .. tostring(button == "LeftButton") .. " shift=" .. tostring(IsShiftKeyDown()))
         if InCombatLockdown() then return end
         if (not self) or self.isHeader then
             return

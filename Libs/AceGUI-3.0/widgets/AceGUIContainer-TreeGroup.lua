@@ -679,7 +679,12 @@ local function Constructor()
 
 	local scrollbg = scrollbar:CreateTexture(nil, "BACKGROUND")
 	scrollbg:SetAllPoints(scrollbar)
-	scrollbg:SetColorTexture(0,0,0,0.4)
+	if scrollbg.SetColorTexture then
+		scrollbg:SetColorTexture(0,0,0,0.4)
+	else
+		scrollbg:SetTexture(0, 0, 0)
+		scrollbg:SetVertexColor(0, 0, 0, 0.4)
+	end
 
 	local border = CreateFrame("Frame", nil, frame, BackdropTemplateMixin and "BackdropTemplate" or nil)
 	border:SetPoint("TOPLEFT", treeframe, "TOPRIGHT")

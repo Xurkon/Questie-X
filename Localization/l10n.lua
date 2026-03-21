@@ -147,6 +147,15 @@ function _l10n:translate(key, ...)
         return format(key, unpack(args))
     end
 
+    if type(translationValue) ~= "string" then
+        if (Questie.db.profile.debugEnabled) then Questie:Debug(Questie.DEBUG_ELEVATED, "ERROR: Translation for '" .. tostring(key) .. "' is not a string!") end
+        return format(key, unpack(args))
+    end
+
+    if #args == 0 then
+        return translationValue
+    end
+
     return format(translationValue, unpack(args))
 end
 

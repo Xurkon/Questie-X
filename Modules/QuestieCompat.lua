@@ -17,6 +17,8 @@ end
 -- Polyfill for xpcall variadic arguments (missing in standard Lua 5.0/5.1 WoW clients).
 -- Modern Ace3 uses xpcall(func, err, ...) which drops arguments on legacy clients,
 -- leading to 'self' being nil in addon callbacks.
+-- Fix #14: Do NOT write to bare _G.xpcall — store in QuestieCompat namespace only.
+-- Writing to _G.xpcall pollutes the global namespace and can cause taint on protected contexts.
 local _xpcall = xpcall
 local xpcall_supported = false
 pcall(function()
@@ -24,7 +26,7 @@ pcall(function()
 end)
 
 if not xpcall_supported then
-    _G.xpcall = function(func, err, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23, arg24, arg25)
+    QuestieCompat.xpcall = function(func, err, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23, arg24, arg25)
         -- To avoid the GC overhead of building {...} on every event fire, we pre-check argument counts.
         -- We support up to 25 arguments just like our select() polyfill.
         if arg25 ~= nil then return _xpcall(function() return func(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23, arg24, arg25) end, err) end
@@ -55,6 +57,33 @@ if not xpcall_supported then
         
         -- No extra args provided
         return _xpcall(func, err)
+    end
+else
+    -- Native xpcall works fine, expose it
+    QuestieCompat.xpcall = _xpcall
+end
+
+------------------------------------------
+-- GetCurrentRegion polyfill (WotLK/Classic)
+------------------------------------------
+
+-- GetCurrentRegion and GetCurrentRegionName are modern API functions that don't exist in WotLK.
+-- AceDB-3.0 uses these for realm identification. Provide fallbacks based on locale.
+if not GetCurrentRegion then
+    local regionByLocale = {
+        ["enUS"] = 1, ["enGB"] = 1, ["koKR"] = 2, ["frFR"] = 3, ["deDE"] = 3,
+        ["zhCN"] = 5, ["zhTW"] = 4, ["esES"] = 3, ["esMX"] = 1, ["ruRU"] = 3,
+        ["ptBR"] = 1, ["itIT"] = 3,
+    }
+    GetCurrentRegion = function()
+        return regionByLocale[GetLocale()] or 1
+    end
+end
+
+if not GetCurrentRegionName then
+    local regionNames = { "US", "KR", "EU", "TW", "CN" }
+    GetCurrentRegionName = function()
+        return regionNames[GetCurrentRegion()] or "US"
     end
 end
 
@@ -89,6 +118,25 @@ QuestieCompat.C_Seasons = C_Seasons or {
 -- Specific subclass of this mixin was added in a minor version and is missing in earlier patches, functionality this makes next to no visual difference
 if not TooltipBackdropTemplateMixin then
     TooltipBackdropTemplateMixin = BackdropTemplateMixin
+end
+
+-------------------------------------------
+-- AceComm/AceSerializer compatibility (WotLK)
+-------------------------------------------
+
+-- Ambiguate is used to disambiguate realm names but doesn't exist in WotLK.
+-- On WotLK, realm names are already unique in the format, so we can just return the name.
+if not Ambiguate then
+    Ambiguate = function(name, kind)
+        return name
+    end
+end
+
+-- RegisterAddonMessagePrefix may not exist in all WotLK versions.
+if not RegisterAddonMessagePrefix then
+    RegisterAddonMessagePrefix = function(prefix)
+        -- No-op on versions that don't support it
+    end
 end
 
 -------------------------------------------

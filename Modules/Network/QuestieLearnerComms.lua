@@ -28,10 +28,29 @@ local LOG_DEVELOP = false
 
 local function DebugLog(tier, msg)
     if tier == "CRITICAL" and LOG_CRITICAL then
-        Questie:Print("|cFF00FF00[QL-CRITICAL]|r " .. msg)
+        -- print("[QuestieLearnerComms] " .. msg)
     elseif tier == "DEVELOP" and LOG_DEVELOP then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "|cFF00FFFF[QL-DEV]|r " .. msg)
+        -- print("[QuestieLearnerComms] " .. msg)
     end
+end
+
+local function SanitizeData(data, depth)
+    depth = depth or 0
+    if depth > 10 then return nil end -- Prevent infinite recursion
+    if type(data) ~= "table" then return {} end
+    local sanitized = {}
+    for k, v in pairs(data) do
+        if type(k) ~= "string" and type(k) ~= "number" then
+            -- Skip non-string/number keys
+        elseif type(v) == "function" or type(v) == "userdata" or type(v) == "thread" then
+            -- Skip these types
+        elseif type(v) == "table" then
+            sanitized[k] = SanitizeData(v, depth + 1)
+        else
+            sanitized[k] = v
+        end
+    end
+    return sanitized
 end
 
 -- Throttling (Token Bucket)
@@ -167,18 +186,29 @@ function _QuestieLearnerComms:ProcessReinforcement()
 end
 
 function QuestieLearnerComms:BroadcastLearnedData(op, entityType, entityId, data)
-    -- 1. Create Payload
+    if not data or type(data) ~= "table" then return end
+    
+    -- 1. Create Payload (sanitize data to remove functions before serialization)
+    local sanitizedData = SanitizeData(data)
+    if not sanitizedData or next(sanitizedData) == nil then return end
+    
     local payload = {
         _ver = ProtocolVersion,
         op = op, -- "NEW", "UPDATE", "CONFIRM"
         typ = entityType,
         id = entityId,
-        d = data,
+        d = sanitizedData,
         ts = time()
     }
 
     -- 2. Serialize and Compress
-    local serialized = AceSerializer:Serialize(payload)
+    local serialized
+    local success, err = pcall(AceSerializer.Serialize, AceSerializer, payload)
+    if not success then
+        DebugLog("CRITICAL", "AceSerializer error: " .. tostring(err))
+        return
+    end
+    serialized = err
     local compressed = LibDeflate:CompressDeflate(serialized, {level = 9})
     local encoded = LibDeflate:EncodeForPrint(compressed)
 

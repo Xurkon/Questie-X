@@ -16,6 +16,12 @@ local QuestieCorrections = QuestieLoader:ImportModule("QuestieCorrections")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
 
+---@type QuestieCompat
+local QuestieCompat = QuestieLoader:ImportModule("QuestieCompat")
+
+---@type C_Timer
+local C_Timer = QuestieCompat.C_Timer
+
 local DebugInformation = {} -- stores text of debug data dump per session
 local debugIndex = 0        -- current debug index, used so we can still retrieve info from previous offers
 local openDebugWindows = {} -- determines if existing debug window is already open, prevents duplicates
@@ -642,15 +648,18 @@ local LINK_COLOR = CreateColorFromHexString("cff71d5ff");
 local LINK_LENGTHS = LINK_CODE:len();
 
 -- handles clicking on link
--- FIX: Added InCombatLockdown guard and pcall to prevent tainting secure execution paths.
--- SetItemRef can be called during action button clicks (e.g., quest item tooltips) which
--- run in a protected execution context. If the hook runs insecure code, it can taint
--- the call chain and cause "ADDON_ACTION_BLOCKED: tried to call UseAction()" errors.
+-- FIX: Added InCombatLockdown guard, deferred execution, and pcall to prevent tainting
+-- secure execution paths. SetItemRef can be called during action button clicks (e.g., quest
+-- item tooltips) which run in a protected execution context. If the hook runs insecure code,
+-- it can taint the call chain and cause "ADDON_ACTION_BLOCKED: tried to call UseAction()" errors.
+-- Using C_Timer.After to defer execution to after the protected context completes.
 hooksecurefunc("SetItemRef", function(link)
     if InCombatLockdown() then return end
     local linkType = link:sub(1, LINK_LENGTHS);
     if linkType == LINK_CODE then
-        pcall(QuestieDebugOffer.ShowOffer, link)
+        C_Timer.After(0, function()
+            pcall(QuestieDebugOffer.ShowOffer, link)
+        end)
     end
 end);
 

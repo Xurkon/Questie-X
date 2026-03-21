@@ -55,6 +55,7 @@ end
 --Always compare to the UnitLevel parameter, returning the highest.
 ---@param level Level
 function QuestiePlayer:SetPlayerLevel(level)
+    if level == nil then return end
     local localLevel = UnitLevel("player");
     _QuestiePlayer.playerLevel = math_max(localLevel, level);
 end

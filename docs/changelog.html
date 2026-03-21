@@ -176,6 +176,36 @@
     </div>
 
     <div class="container">
+        <h2 id="v144">v1.4.4 — AceGUI Pool & Event Handling Fixes</h2>
+        <ul>
+            <li><strong>[AceGUI Fix]</strong> Fixed <code>Compat/embeds.xml</code> to load Wrath-compatible Ace library versions from <code>Libs/</code> (AceGUI-3.0 v34, AceConfigDialog-3.0 v66) instead of newer versions from <code>..\Libs/</code> that caused widget pool corruption.</li>
+            <li><strong>[AceGUI Fix]</strong> Added nil checks throughout AceGUI-3.0 (<code>Create</code>, <code>Release</code>, <code>WidgetBase.Fire</code>, <code>WidgetContainerBase</code> methods) to prevent crashes when pooled widgets have corrupted/nil properties.</li>
+            <li><strong>[AceGUI Fix]</strong> Added content nil checks to layout functions (List, Flow, Fill, Table) to prevent crashes when <code>content</code> is nil during layout.</li>
+            <li><strong>[AceGUI Fix]</strong> Applied same nil check fixes to <code>Compat/Libs/AceGUI-3.0/AceGUI-3.0.lua</code> for consistency.</li>
+            <li><strong>[Event Fix]</strong> Added nil check for <code>message</code> parameter in <code>QuestieEventHandler:ChatMsgSystem</code> to prevent "bad argument #1 to 'find'" errors.</li>
+            <li><strong>[Event Fix]</strong> Added nil check for <code>level</code> parameter in <code>QuestiePlayer:SetPlayerLevel</code> to prevent "number expected, got nil" errors.</li>
+            <li><strong>[QuestieLearner Fix]</strong> Added <code>SanitizeData</code> function with depth limiting and proper key/value filtering to remove functions, userdata, and thread values from learned data before network serialization.</li>
+            <li><strong>[QuestieLearner Fix]</strong> Added pcall wrapper around <code>AceSerializer:Serialize</code> to catch and log any remaining serialization errors instead of crashing.</li>
+            <li><strong>[QuestieLearner Fix]</strong> Added early return checks in <code>BroadcastLearnedData</code> when data is nil or sanitization produces empty results.</li>
+            <li><strong>[Journey Fix]</strong> Added nil check for <code>container</code> in <code>HandleTabChange</code> to prevent "attempt to index local 'container'" errors.</li>
+            <li><strong>[l10n Fix]</strong> Added type check for <code>translationValue</code> in l10n:translate to prevent "bad argument #2 to 'format'" errors when translation is not a string or when format arguments are missing.</li>
+        </ul>
+
+        <hr>
+
+        <h2 id="v143">v1.4.3 — Taint & API Compatibility Fixes</h2>
+        <ul>
+            <li><strong>[Taint Fix]</strong> Deferred SetItemRef hook execution using C_Timer.After to avoid taining protected execution contexts.</li>
+            <li><strong>[Taint Fix]</strong> Removed redundant <code>_G = _G or {}</code> from WotLKDB data file that could contribute to namespace pollution.</li>
+            <li><strong>[Taint Fix]</strong> Moved xpcall polyfill from bare <code>_G.xpcall</code> to <code>QuestieCompat.xpcall</code> namespace to prevent polluting the global table.</li>
+            <li><strong>[API Fix]</strong> Added polyfills for <code>GetCurrentRegion</code> and <code>GetCurrentRegionName</code> for AceDB-3.0 compatibility on WotLK/Classic.</li>
+            <li><strong>[API Fix]</strong> Added polyfills for <code>Ambiguate</code> and <code>RegisterAddonMessagePrefix</code> for AceComm-3.0 compatibility on WotLK/Classic.</li>
+            <li><strong>[API Fix]</strong> Added conditional check for <code>DialogBorderOpaqueTemplate</code> and <code>SetFixedFrameStrata</code> in AceConfigDialog for WotLK/Classic.</li>
+            <li><strong>[AceGUI Fix]</strong> Added WotLK-compatible fallback for <code>SetColorTexture</code> using <code>SetTexture</code> + <code>SetVertexColor</code>.</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v142">v1.4.2 — Quest Route Optimization</h2>
         <ul>
             <li><strong>[Feature]</strong> Added Quest Route Optimization with three modes: Single Quest, All Tracked Quests, and TSP Approximation.</li>

@@ -190,18 +190,18 @@ function MapIconTooltip:Show()
                     end
                 elseif iconData.Type == "available" or iconData.Type == "complete" then
                     local tip = _MapIconTooltip:GetAvailableOrCompleteTooltip(icon)
-                    if not npcAndObjectOrder[tip.title] then
-                        npcAndObjectOrder[tip.title] = {npcNames = {}, quests = {}};
+                    if not npcAndObjectOrder["default"] then
+                        npcAndObjectOrder["default"] = {npcNames = {}, quests = {}};
                     end
-                    npcAndObjectOrder[tip.title].npcNames[iconData.Name] = true
-                    npcAndObjectOrder[tip.title].quests[tip.title] = tip
+                    npcAndObjectOrder["default"].npcNames[iconData.Name] = true
+                    npcAndObjectOrder["default"].quests[tip.title] = tip
                 elseif iconData.Type == "monster" or iconData.Type == "killcredit" or iconData.Type == "spell" or iconData.Type == "object" or iconData.Type == "event" or iconData.Type == "item" then
                     local tip = _MapIconTooltip:GetAvailableOrCompleteTooltip(icon)
-                    if not npcAndObjectOrder[tip.title] then
-                        npcAndObjectOrder[tip.title] = {npcNames = {}, quests = {}};
+                    if not npcAndObjectOrder["default"] then
+                        npcAndObjectOrder["default"] = {npcNames = {}, quests = {}};
                     end
-                    npcAndObjectOrder[tip.title].npcNames[iconData.Name] = true
-                    npcAndObjectOrder[tip.title].quests[tip.title] = tip
+                    npcAndObjectOrder["default"].npcNames[iconData.Name] = true
+                    npcAndObjectOrder["default"].quests[tip.title] = tip
                 elseif iconData.CustomTooltipData then
                     manualOrder[iconData.CustomTooltipData.Title] = { Body = { iconData.CustomTooltipData.Body or "" } }
                 elseif iconData.ManualTooltipData then

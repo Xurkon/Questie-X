@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.4.4 — AceGUI Pool & Event Handling Fixes
+
+- **[AceGUI Fix]** Fixed `Compat/embeds.xml` to load Wrath-compatible Ace library versions from `Libs/` (AceGUI-3.0 v34, AceConfigDialog-3.0 v66) instead of newer versions from `..\Libs/` that caused widget pool corruption.
+- **[AceGUI Fix]** Added nil checks throughout AceGUI-3.0 (`Create`, `Release`, `WidgetBase.Fire`, `WidgetContainerBase` methods) to prevent crashes when pooled widgets have corrupted/nil properties.
+- **[AceGUI Fix]** Added content nil checks to layout functions (List, Flow, Fill, Table) to prevent crashes when `content` is nil during layout.
+- **[AceGUI Fix]** Applied same nil check fixes to `Compat/Libs/AceGUI-3.0/AceGUI-3.0.lua` for consistency.
+- **[Event Fix]** Added nil check for `message` parameter in `QuestieEventHandler:ChatMsgSystem` to prevent "bad argument #1 to 'find'" errors.
+- **[Event Fix]** Added nil check for `level` parameter in `QuestiePlayer:SetPlayerLevel` to prevent "number expected, got nil" errors.
+- **[QuestieLearner Fix]** Added `SanitizeData` function with depth limiting and proper key/value filtering to remove functions, userdata, and thread values from learned data before network serialization.
+- **[QuestieLearner Fix]** Added pcall wrapper around AceSerializer:Serialize to catch and log any remaining serialization errors instead of crashing.
+- **[QuestieLearner Fix]** Added early return checks in `BroadcastLearnedData` when data is nil or sanitization produces empty results.
+- **[Journey Fix]** Added nil check for `container` in `HandleTabChange` to prevent "attempt to index local 'container'" errors.
+- **[l10n Fix]** Added type check for `translationValue` in l10n:translate to prevent "bad argument #2 to 'format'" errors when translation is not a string or when format arguments are missing.
+
+## v1.4.3 — Taint & API Compatibility Fixes
+
+- **[Taint Fix]** Deferred SetItemRef hook execution using C_Timer.After to avoid tainting protected execution contexts.
+- **[Taint Fix]** Removed redundant `_G = _G or {}` from WotLKDB data file that could contribute to namespace pollution.
+- **[Taint Fix]** Moved xpcall polyfill from bare `_G.xpcall` to `QuestieCompat.xpcall` namespace to prevent polluting the global table.
+- **[API Fix]** Added polyfills for `GetCurrentRegion` and `GetCurrentRegionName` for AceDB-3.0 compatibility on WotLK/Classic.
+- **[API Fix]** Added polyfills for `Ambiguate` and `RegisterAddonMessagePrefix` for AceComm-3.0 compatibility on WotLK/Classic.
+- **[API Fix]** Added conditional check for `DialogBorderOpaqueTemplate` and `SetFixedFrameStrata` in AceConfigDialog for WotLK/Classic.
+- **[AceGUI Fix]** Added WotLK-compatible fallback for `SetColorTexture` using `SetTexture` + `SetVertexColor`.
+
 ## v1.4.2 — Quest Route Optimization
 
 - **[Feature]** Added Quest Route Optimization with three modes: Single Quest, All Tracked Quests, and TSP Approximation.

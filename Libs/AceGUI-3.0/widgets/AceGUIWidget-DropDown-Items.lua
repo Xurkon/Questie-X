@@ -455,7 +455,12 @@ do
 
 		local line = self.frame:CreateTexture(nil, "OVERLAY")
 		line:SetHeight(1)
-		line:SetColorTexture(.5, .5, .5)
+		if line.SetColorTexture then
+			line:SetColorTexture(0.5, 0.5, 0.5)
+		else
+			line:SetTexture(0.5, 0.5, 0.5)
+			line:SetVertexColor(0.5, 0.5, 0.5, 1)
+		end
 		line:SetPoint("LEFT", self.frame, "LEFT", 10, 0)
 		line:SetPoint("RIGHT", self.frame, "RIGHT", -10, 0)
 

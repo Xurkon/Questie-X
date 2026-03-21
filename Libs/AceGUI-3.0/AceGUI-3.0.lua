@@ -138,6 +138,8 @@ end
 function AceGUI:Create(widgetType)
 	if WidgetRegistry[widgetType] then
 		local widget = newWidget(widgetType)
+		
+		if not widget then return end
 
 		if rawget(widget, "Acquire") then
 			widget.OnAcquire = widget.Acquire
@@ -170,6 +172,7 @@ end
 -- If this widget is a Container-Widget, all of its Child-Widgets will be releases as well.
 -- @param widget The widget to release
 function AceGUI:Release(widget)
+	if not widget then return end
 	if widget.isQueuedForRelease then return end
 	widget.isQueuedForRelease = true
 	safecall(widget.PauseLayout, widget)
@@ -296,6 +299,7 @@ do
 	end
 
 	WidgetBase.Fire = function(self, name, ...)
+		if not self or not self.type or not self.events then return end
 		if self.events[name] then
 			local success, ret = safecall(self.events[name], self, name, ...)
 			if success then
@@ -412,14 +416,19 @@ do
 	local WidgetContainerBase = AceGUI.WidgetContainerBase
 
 	WidgetContainerBase.PauseLayout = function(self)
-		self.LayoutPaused = true
+		if self then
+			self.LayoutPaused = true
+		end
 	end
 
 	WidgetContainerBase.ResumeLayout = function(self)
-		self.LayoutPaused = nil
+		if self then
+			self.LayoutPaused = nil
+		end
 	end
 
 	WidgetContainerBase.PerformLayout = function(self)
+		if not self then return end
 		if self.LayoutPaused then
 			return
 		end
@@ -428,7 +437,9 @@ do
 
 	--call this function to layout, makes sure layed out objects get a frame to get sizes etc
 	WidgetContainerBase.DoLayout = function(self)
-		self:PerformLayout()
+		if self then
+			self:PerformLayout()
+		end
 --		if not self.parent then
 --			self.frame:SetScript("OnUpdate", LayoutOnUpdate)
 --		end
@@ -471,7 +482,9 @@ do
 	end
 
 	WidgetContainerBase.SetLayout = function(self, Layout)
-		self.LayoutFunc = AceGUI:GetLayout(Layout)
+		if self then
+			self.LayoutFunc = AceGUI:GetLayout(Layout)
+		end
 	end
 
 	WidgetContainerBase.SetAutoAdjustHeight = function(self, adjust)
@@ -617,6 +630,7 @@ end
 -- Very simple Layout, Children are stacked on top of each other down the left side
 AceGUI:RegisterLayout("List",
 	function(content, children)
+		if not content then return end
 		local height = 0
 		local width = content.width or content:GetWidth() or 0
 		for i = 1, #children do
@@ -654,6 +668,7 @@ AceGUI:RegisterLayout("List",
 -- A single control fills the whole content area
 AceGUI:RegisterLayout("Fill",
 	function(content, children)
+		if not content then return end
 		if children[1] then
 			children[1]:SetWidth(content:GetWidth() or 0)
 			children[1]:SetHeight(content:GetHeight() or 0)
@@ -674,6 +689,7 @@ end
 AceGUI:RegisterLayout("Flow",
 	function(content, children)
 		if layoutrecursionblock then return end
+		if not content then return end
 		--used height so far
 		local height = 0
 		--width used in the current row
@@ -852,6 +868,7 @@ Cell:
 ]]
 AceGUI:RegisterLayout("Table",
 	function (content, children)
+		if not content then return end
 		local obj = content.obj
 		obj:PauseLayout()
 

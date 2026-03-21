@@ -9,6 +9,8 @@ local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
 local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
 ---@type QuestLogCache
 local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
+---@type l10n
+local l10n = QuestieLoader:ImportModule("l10n")
 
 local _Learner = QuestieLearner.private or {}
 QuestieLearner.private = _Learner
@@ -1254,7 +1256,6 @@ function QuestieLearner:OnMouseoverUnit()
     local zoneText = GetRealZoneText()
     local areaId = _Learner.zoneCache[zoneText]
     if not areaId then
-        local l10n = QuestieLoader:ImportModule("l10n")
         areaId = l10n:GetAreaIdByLocalName(zoneText)
         if areaId then
             _Learner.zoneCache[zoneText] = areaId

@@ -416,7 +416,16 @@ function QuestieInit:LoadDatabase(key)
         -- This path is for legacy single-file DB format.  If we are on a
         -- modern client (WOW_PROJECT_ID is defined natively and not ancient), refuse
         -- and direct the user to reinstall the split-file DB instead.
-        local isModernClient = _G.WOW_PROJECT_ID ~= nil
+        local _, _, _, tocversion = GetBuildInfo()
+        local isModernClient = false
+        if tocversion then
+            if tocversion >= 100000 then isModernClient = true -- Retail
+            elseif tocversion >= 11300 and tocversion < 12000 then isModernClient = true -- Classic Era
+            elseif tocversion >= 20500 and tocversion < 30000 then isModernClient = true -- TBC Classic
+            elseif tocversion >= 30400 and tocversion < 40000 then isModernClient = true -- WotLK Classic
+            elseif tocversion >= 40400 and tocversion < 50000 then isModernClient = true -- Cata Classic
+            end
+        end
         if isModernClient then
             Questie:Debug(Questie.DEBUG_DEVELOP,
                 "[DBDiag] LEGACY DB ('" .. key .. "' is string) on modern client. "

@@ -155,15 +155,8 @@ function TrackerLinePool.Initialize(questFrame)
         line:EnableMouse(true)
         line:RegisterForDrag("LeftButton")
         line:RegisterForClicks("RightButtonUp", "LeftButtonUp")
-        
-        -- TEST: Always capture clicks to debug
-        line:SetScript("OnClick", function(self, button)
-            print("[DEBUG] TEST_OnClick FIRED! button=" .. tostring(button) .. " lineName=" .. self:GetName())
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool:TEST_OnClick] button:", button, "Shift:", IsShiftKeyDown())
-        end)
 
         function line:SetOnClick(onClickmode)
-            print("[DEBUG] SetOnClick called! mode=" .. tostring(onClickmode) .. " lineQuest=" .. (self.Quest and self.Quest.name or "nil"))
             if onClickmode == "quest" then
                 self:SetScript("OnClick", TrackerLinePool.OnClickQuest)
             elseif onClickmode == "achieve" then
@@ -999,8 +992,6 @@ end
 
 ---@param button string
 TrackerLinePool.OnClickQuest = function(self, button)
-    print("[DEBUG] OnClickQuest called! button=" .. tostring(button) .. " shift=" .. tostring(IsShiftKeyDown()))
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool:_OnClickQuest] button:", button, "Shift:", IsShiftKeyDown(), "Quest:", self.Quest and self.Quest.name or "nil")
     if (not self.Quest) then
         return
     end
@@ -1008,8 +999,6 @@ TrackerLinePool.OnClickQuest = function(self, button)
     if TrackerMenu.menuFrame:IsShown() then
         LibDropDown:CloseDropDownMenus()
     end
-
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool:_OnClickQuest] bindUntrack:", Questie.db.profile.trackerbindUntrack, "IsBindTrue:", TrackerUtils:IsBindTrue(Questie.db.profile.trackerbindUntrack, button))
 
     if TrackerUtils:IsBindTrue(Questie.db.profile.trackerbindSetTomTom, button) then
         local spawn, zone, name = QuestieMap:GetNearestQuestSpawn(self.Quest)

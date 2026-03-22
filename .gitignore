@@ -4,6 +4,15 @@ workflow/
 .vscode/
 .DS_Store
 *.zip
+*.py
+*.js
+*.ps1
+*.txt
+!README.md
+!CHANGELOG.md
+!RELEASE_NOTES.md
+!LICENSE
+!Icons/MIT.txt
 
 # Build/tool artifacts
 __pycache__/
@@ -13,8 +22,9 @@ __pycache__/
 coords.lua
 debug.lua
 debug_tooltip.lua
-tmp_*.py
 .history/
 Research/
 Tools/
 tests/
+docs/
+!docs/changelog.html

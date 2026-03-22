@@ -1,7 +1,0 @@
-## v1.4.5 — Network & Taint Stability Update
-
-- **[Network Fix]** Patched AceSerializer natively to dynamically support both dot and colon syntax seamlessly without dropping arguments, while ensuring Deserialize correctly yields (success, result) tuples.
-- **[Network Fix]** Purged 71 unsafe table.getn replacements in LibDeflate.
-- **[Init Fix]** Bulletproof tocversion range check for legacy client engines.
-- **[QuestieLearner Fix]** Module import scoping error resolved.
-- **[Taint Fix]** Resolved ADDON_ACTION_BLOCKED errors caused by cached loading and QuestieInit._pullGlobal.

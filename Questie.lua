@@ -15,10 +15,19 @@ local TrackerBaseFrame = QuestieLoader:ImportModule("TrackerBaseFrame")
 local QuestieValidateGameCache = QuestieLoader:ImportModule("QuestieValidateGameCache")
 ---@type QuestieLib
 local QuestieLib = QuestieLoader:ImportModule("QuestieLib");
+---@class Questie
+
 
 function Questie:OnInitialize()
+    if Questie.initialized then return end
+    Questie.initialized = true
+
     -- This has to happen OnInitialize to be available asap
     Questie.db = LibStub("AceDB-3.0"):New("QuestieConfig", QuestieOptionsDefaults:Load(), true)
+
+    Questie.dbLearner = LibStub("AceDB-3.0"):New("QuestieLearnerDB", {}, true)
+    Questie.dbCache = LibStub("AceDB-3.0"):New("QuestieCacheDB", {}, true)
+    Questie.dbJourney = LibStub("AceDB-3.0"):New("QuestieJourneyDB", { char = { journey = {} } }, true)
 
     -- These events basically all mean the same: The active profile changed.
     Questie.db.RegisterCallback(Questie, "OnProfileChanged", "RefreshConfig")
@@ -26,6 +35,12 @@ function Questie:OnInitialize()
     Questie.db.RegisterCallback(Questie, "OnProfileReset", "RefreshConfig")
 
     QuestieEventHandler:RegisterEarlyEvents()
+    local ok, res = pcall(function()
+        local QuestieInit = QuestieLoader:ImportModule("QuestieInit")
+        if QuestieInit and QuestieInit.OnInitialize then
+            QuestieInit:OnInitialize()
+        end
+    end)
 end
 
 function Questie:OnEnable()
@@ -167,7 +182,9 @@ function Questie:Debug(msgDebugLevel, ...)
     end
 end
 
+-- Global debug levels
 Questie.icons = {
+
     ["slay"] = QuestieLib.AddonPath .. "Icons\\slay.blp",
     ["loot"] = QuestieLib.AddonPath .. "Icons\\loot.blp",
     ["event"] = QuestieLib.AddonPath .. "Icons\\event.blp",
@@ -205,6 +222,7 @@ Questie.icons = {
     ["tracker_search"] = QuestieLib.AddonPath .. "Icons\\tracker_search.tga",
     ["tracker_settings"] = QuestieLib.AddonPath .. "Icons\\tracker_settings.tga",
 }
+
 
 Questie.usedIcons = {}
 
@@ -266,3 +284,31 @@ Questie.LOWLEVEL_RANGE = 4
 
 -- Start checking the game's cache.
 QuestieValidateGameCache.StartCheck()
+
+
+
+-- AceAddon-3.0 will automatically call Questie:OnInitialize() during the ADDON_LOADED event
+-- for the addonName registered in VersionCheck.lua.
+-- This ensures SavedVariables (QuestieConfig) are fully injected before we use them.
+
+-- Robust check for login state to ensure PlayerLogin is always triggered
+-- If the engine somehow missed the AceAddon lifecycle, this will catch it safely.
+local function checkLogin()
+    if IsLoggedIn() then
+        if not Questie.initialized then
+            Questie:OnInitialize()
+        end
+        if Questie.OnEnable and not Questie.enabled then
+            Questie:OnEnable()
+            Questie.enabled = true
+        end
+    else
+        -- Re-check in 0.2s if not yet logged in
+        local timer = C_Timer or QuestieCompat.C_Timer
+        if timer and timer.After then
+            timer.After(0.2, checkLogin)
+        end
+    end
+end
+
+checkLogin()

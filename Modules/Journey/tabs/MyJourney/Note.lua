@@ -125,7 +125,7 @@ _HandleNoteEntry = function ()
     data.Title = titleBox:GetText()
     data.Timestamp = time()
 
-    tinsert(Questie.db.char.journey, data)
+    tinsert(Questie.dbJourney.char.journey, data)
 
     _QuestieJourney.myJourney:ManageTree(_QuestieJourney.treeCache)
     _QuestieJourney.notePopup:Hide()

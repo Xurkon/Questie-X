@@ -28,7 +28,7 @@ local function GetServer()
 end
 
 local function GetLearnedCounts()
-    local ld   = Questie.db and Questie.db.global and Questie.db.global.learnedData
+    local ld   = Questie.dbLearner and Questie.dbLearner.global
     local none = { npcs = 0, quests = 0, items = 0, objects = 0, total = 0 }
     if not ld then return none end
     local bucket = ld[GetServer()] or (ld.npcs and ld) or nil
@@ -210,10 +210,10 @@ function QuestieOptions.tabs.database:Initialize()
                 order = 2.1,
                 name  = function() return l10n("Learn NPCs") end,
                 desc  = function() return l10n("Record quest-relevant NPC positions and data.") end,
-                get   = function() return Questie.db.global.learnedData and Questie.db.global.learnedData.settings and Questie.db.global.learnedData.settings.learnNpcs end,
+                get   = function() return Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.learnNpcs end,
                 set   = function(_, v)
-                    if Questie.db.global.learnedData and Questie.db.global.learnedData.settings then
-                        Questie.db.global.learnedData.settings.learnNpcs = v
+                    if Questie.dbLearner.global and Questie.dbLearner.global.settings then
+                        Questie.dbLearner.global.settings.learnNpcs = v
                     end
                 end,
             },
@@ -223,10 +223,10 @@ function QuestieOptions.tabs.database:Initialize()
                 order = 2.2,
                 name  = function() return l10n("Learn Quests") end,
                 desc  = function() return l10n("Record quest metadata, objectives, and rewards.") end,
-                get   = function() return Questie.db.global.learnedData and Questie.db.global.learnedData.settings and Questie.db.global.learnedData.settings.learnQuests end,
+                get   = function() return Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.learnQuests end,
                 set   = function(_, v)
-                    if Questie.db.global.learnedData and Questie.db.global.learnedData.settings then
-                        Questie.db.global.learnedData.settings.learnQuests = v
+                    if Questie.dbLearner.global and Questie.dbLearner.global.settings then
+                        Questie.dbLearner.global.settings.learnQuests = v
                     end
                 end,
             },
@@ -236,10 +236,10 @@ function QuestieOptions.tabs.database:Initialize()
                 order = 2.3,
                 name  = function() return l10n("Learn Objects") end,
                 desc  = function() return l10n("Record interactable quest object positions.") end,
-                get   = function() return Questie.db.global.learnedData and Questie.db.global.learnedData.settings and Questie.db.global.learnedData.settings.learnObjects end,
+                get   = function() return Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.learnObjects end,
                 set   = function(_, v)
-                    if Questie.db.global.learnedData and Questie.db.global.learnedData.settings then
-                        Questie.db.global.learnedData.settings.learnObjects = v
+                    if Questie.dbLearner.global and Questie.dbLearner.global.settings then
+                        Questie.dbLearner.global.settings.learnObjects = v
                     end
                 end,
             },
@@ -249,10 +249,10 @@ function QuestieOptions.tabs.database:Initialize()
                 order = 2.4,
                 name  = function() return l10n("Learn Items") end,
                 desc  = function() return l10n("Record quest item drop sources.") end,
-                get   = function() return Questie.db.global.learnedData and Questie.db.global.learnedData.settings and Questie.db.global.learnedData.settings.learnItems end,
+                get   = function() return Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.learnItems end,
                 set   = function(_, v)
-                    if Questie.db.global.learnedData and Questie.db.global.learnedData.settings then
-                        Questie.db.global.learnedData.settings.learnItems = v
+                    if Questie.dbLearner.global and Questie.dbLearner.global.settings then
+                        Questie.dbLearner.global.settings.learnItems = v
                     end
                 end,
             },
@@ -374,9 +374,9 @@ function QuestieOptions.tabs.database:Initialize()
                 min   = 1,
                 max   = 180,
                 step  = 1,
-                get   = function() return (Questie.db.global.learnedData.settings and Questie.db.global.learnedData.settings.staleThreshold) or 90 end,
+                get   = function() return (Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.staleThreshold) or 90 end,
                 set   = function(_, val)
-                    Questie.db.global.learnedData.settings.staleThreshold = val
+                    Questie.dbLearner.global.settings.staleThreshold = val
                 end,
             },
  
@@ -385,9 +385,9 @@ function QuestieOptions.tabs.database:Initialize()
                 order = 5.3,
                 name  = function() return l10n("Include Verified Data in Pruning") end,
                 desc  = function() return l10n("If enabled, even high-confidence (Verified) data will be subject to redundancy pruning (e.g., if it's already in the official DB). Time-based pruning still only affects unconfirmed data.") end,
-                get   = function() return (Questie.db.global.learnedData.settings and Questie.db.global.learnedData.settings.pruneVerified) or false end,
+                get   = function() return (Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.pruneVerified) or false end,
                 set   = function(_, val)
-                    Questie.db.global.learnedData.settings.pruneVerified = val
+                    Questie.dbLearner.global.settings.pruneVerified = val
                 end,
             },
  
@@ -435,7 +435,7 @@ function QuestieOptions.tabs.database:Initialize()
                 confirmText = "Are you sure? This cannot be undone.",
                 func  = function()
                     if Questie.db and Questie.db.global then
-                        Questie.db.global.learnedData = nil
+                        Questie.dbLearner.global = nil
                         Questie:Print("|cFFFF4444[Questie-X]|r All learned data has been reset.")
                     end
                 end,

@@ -146,25 +146,34 @@ end
 ------------------------------------------------------------------------
 
 local function EnsureLearnedData()
-    if not Questie.db then return false end
-    local ld = Questie.db.global.learnedData
-    if not ld then
-        Questie.db.global.learnedData = {
-            npcs    = {},
-            quests  = {},
-            items   = {},
-            objects = {},
-            settings = {
-                enabled      = true,
-                learnNpcs    = true,
-                learnQuests  = true,
-                learnItems   = true,
-                learnObjects = true,
-                minConfidencePins = 2,
-                prioritizeMyData = true,
-                staleThreshold   = 90,    -- days
-                pruneVerified    = false, -- protect verified data by default
-            },
+    if not Questie.db or not Questie.dbLearner then return false end
+
+    -- Migration: If data exists in the old QuestieConfig.global.learnedData, move it to the new QuestieLearnerDB.global
+    if Questie.db.global.learnedData then
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Migrating learnedData to separate SavedVariable...")
+        for k, v in pairs(Questie.db.global.learnedData) do
+            Questie.dbLearner.global[k] = v
+        end
+        Questie.db.global.learnedData = nil
+        Questie:Print("|cFF5EBAF3Questie-X:|r Learned data has been migrated to a separate SavedVariable for better performance.")
+    end
+
+    local ld = Questie.dbLearner.global
+    if (not ld.npcs) and (not ld.quests) then
+        ld.npcs    = {}
+        ld.quests  = {}
+        ld.items   = {}
+        ld.objects = {}
+        ld.settings = {
+            enabled      = true,
+            learnNpcs    = true,
+            learnQuests  = true,
+            learnItems   = true,
+            learnObjects = true,
+            minConfidencePins = 2,
+            prioritizeMyData = true,
+            staleThreshold   = 90,    -- days
+            pruneVerified    = false, -- protect verified data by default
         }
     else
         -- Backfill sub-tables that may be missing from older SavedVariables
@@ -191,12 +200,12 @@ end
 
 function QuestieLearner:IsEnabled()
     if not EnsureLearnedData() then return false end
-    return Questie.db.global.learnedData.settings.enabled
+    return Questie.dbLearner.global.settings.enabled
 end
 
 function QuestieLearner:GetSettings()
     if not EnsureLearnedData() then return {} end
-    return Questie.db.global.learnedData.settings
+    return Questie.dbLearner.global.settings
 end
 
 ------------------------------------------------------------------------
@@ -264,7 +273,7 @@ local function _AddToQuestObjective(qData, slot, entityId, text, ovrTable, quest
     end
 end
 
-local function _GetDB() return Questie.db.global.learnedData end
+local function _GetDB() return Questie.dbLearner.global end
 
 -- Triggers QuestieQuest:UpdateQuest for every active quest in the player's log
 -- that is referenced in the provided set (table with questId keys).
@@ -557,7 +566,7 @@ end
 
 function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionString, spawnX, spawnY, spawnZoneId)
     if not self:IsEnabled() then return end
-    if not Questie.db.global.learnedData.settings.learnNpcs then return end
+    if not Questie.dbLearner.global.settings.learnNpcs then return end
     if not npcId or npcId <= 0 then return end
 
     -- Use provided spawn coords (e.g. from kill event) or fall back to current player position
@@ -569,11 +578,11 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
         x, y = GetPlayerCoords()
     end
 
-    local existing = Questie.db.global.learnedData.npcs[npcId]
+    local existing = Questie.dbLearner.global.npcs[npcId]
     local isNew = existing == nil
     if not existing then
         existing = {}
-        Questie.db.global.learnedData.npcs[npcId] = existing
+        Questie.dbLearner.global.npcs[npcId] = existing
     end
 
     if name          and not existing[1]  then existing[1]  = name end
@@ -593,7 +602,7 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
     existing.ls = time() -- Update last seen
     existing.mc = (existing.mc or 0) + 1
 
-    local threshold = (Questie.db.global.learnedData.settings and Questie.db.global.learnedData.settings.minConfidencePins) or MIN_CONFIDENCE_PINS
+    local threshold = (Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.minConfidencePins) or MIN_CONFIDENCE_PINS
 
     -- Live injection: update npcDataOverrides only if confidence threshold is met
     if existing.mc >= threshold and QuestieDB and QuestieDB.npcDataOverrides then
@@ -640,17 +649,17 @@ function QuestieLearner:LearnQuest(questId, data)
         Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] LearnQuest blocked: learner not enabled")
         return
     end
-    if not Questie.db.global.learnedData.settings.learnQuests then
-        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] LearnQuest blocked: learnQuests=", tostring(Questie.db.global.learnedData.settings.learnQuests))
+    if not Questie.dbLearner.global.settings.learnQuests then
+        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] LearnQuest blocked: learnQuests=", tostring(Questie.dbLearner.global.settings.learnQuests))
         return
     end
     if not questId or questId <= 0 then return end
 
-    local existing = Questie.db.global.learnedData.quests[questId]
+    local existing = Questie.dbLearner.global.quests[questId]
     local isNew = existing == nil
     if not existing then
         existing = {}
-        Questie.db.global.learnedData.quests[questId] = existing
+        Questie.dbLearner.global.quests[questId] = existing
     end
 
     existing.ls = time() -- Update last seen
@@ -685,13 +694,13 @@ end
 -- Records the NPC/object that starts or finishes a quest (array index [2] or [3])
 function QuestieLearner:LearnQuestGiver(questId, entityId, entityType, isStart)
     if not self:IsEnabled() then return end
-    if not Questie.db.global.learnedData.settings.learnQuests then return end
+    if not Questie.dbLearner.global.settings.learnQuests then return end
     if not questId or questId <= 0 or not entityId or entityId <= 0 then return end
 
-    local existing = Questie.db.global.learnedData.quests[questId]
+    local existing = Questie.dbLearner.global.quests[questId]
     if not existing then
         existing = {}
-        Questie.db.global.learnedData.quests[questId] = existing
+        Questie.dbLearner.global.quests[questId] = existing
     end
 
     -- Starters/finishers: { [1]={npcIds}, [2]={objIds}, [3]={itemIds} }
@@ -733,12 +742,12 @@ end
 -- we only need the quest to reference it so tooltips/map-pins get registered.
 function QuestieLearner:LearnQuestObjectiveNPC(questId, npcId, objText)
     if not self:IsEnabled() then return end
-    if not Questie.db.global.learnedData.settings.learnQuests then return end
+    if not Questie.dbLearner.global.settings.learnQuests then return end
     if not questId or questId <= 0 or not npcId or npcId <= 0 then return end
 
     -- 1. Persist to SavedVariables
-    local existing = Questie.db.global.learnedData.quests[questId] or {}
-    Questie.db.global.learnedData.quests[questId] = existing
+    local existing = Questie.dbLearner.global.quests[questId] or {}
+    Questie.dbLearner.global.quests[questId] = existing
     existing[10] = existing[10] or {}
     existing[10][1] = existing[10][1] or {}  -- creatureObjective slot
     local alreadyInSV = false
@@ -787,14 +796,14 @@ end
 
 function QuestieLearner:LearnItem(itemId, name, itemLevel, requiredLevel, itemClass, itemSubClass)
     if not self:IsEnabled() then return end
-    if not Questie.db.global.learnedData.settings.learnItems then return end
+    if not Questie.dbLearner.global.settings.learnItems then return end
     if not itemId or itemId <= 0 then return end
 
-    local existing = Questie.db.global.learnedData.items[itemId]
+    local existing = Questie.dbLearner.global.items[itemId]
     local isNew = existing == nil
     if not existing then
         existing = {}
-        Questie.db.global.learnedData.items[itemId] = existing
+        Questie.dbLearner.global.items[itemId] = existing
     end
 
     if name         and not existing[1]  then existing[1]  = name end
@@ -826,13 +835,13 @@ end
 
 function QuestieLearner:LearnItemDrop(itemId, npcId)
     if not self:IsEnabled() then return end
-    if not Questie.db.global.learnedData.settings.learnItems then return end
+    if not Questie.dbLearner.global.settings.learnItems then return end
     if not itemId or itemId <= 0 or not npcId or npcId <= 0 then return end
 
-    local existing = Questie.db.global.learnedData.items[itemId]
+    local existing = Questie.dbLearner.global.items[itemId]
     if not existing then
         existing = {}
-        Questie.db.global.learnedData.items[itemId] = existing
+        Questie.dbLearner.global.items[itemId] = existing
     end
 
     existing.ls = time() -- Update last seen
@@ -865,17 +874,17 @@ end
 
 function QuestieLearner:LearnObject(objectId, name)
     if not self:IsEnabled() then return end
-    if not Questie.db.global.learnedData.settings.learnObjects then return end
+    if not Questie.dbLearner.global.settings.learnObjects then return end
     if not objectId or objectId <= 0 then return end
 
     local zoneId = GetZoneId()
     local x, y   = GetPlayerCoords()
 
-    local existing = Questie.db.global.learnedData.objects[objectId]
+    local existing = Questie.dbLearner.global.objects[objectId]
     local isNew = existing == nil
     if not existing then
         existing = {}
-        Questie.db.global.learnedData.objects[objectId] = existing
+        Questie.dbLearner.global.objects[objectId] = existing
     end
 
     if name   and not existing[1] then existing[1] = name end
@@ -957,7 +966,7 @@ end
 function QuestieLearner:InjectLearnedData()
     if not EnsureLearnedData() then return end
 
-    local learned = Questie.db.global.learnedData
+    local learned = Questie.dbLearner.global
     local npcCount, questCount, itemCount, objectCount = 0, 0, 0, 0
 
     -- 1. NPCs
@@ -1079,7 +1088,7 @@ end
 
 function QuestieLearner:GetStats()
     if not EnsureLearnedData() then return 0, 0, 0, 0 end
-    local learned = Questie.db.global.learnedData
+    local learned = Questie.dbLearner.global
     local n, q, i, o = 0, 0, 0, 0
     for _ in pairs(learned.npcs)    do n = n + 1 end
     for _ in pairs(learned.quests)  do q = q + 1 end
@@ -1090,10 +1099,10 @@ end
 
 function QuestieLearner:ClearAllData()
     if not EnsureLearnedData() then return end
-    Questie.db.global.learnedData.npcs    = {}
-    Questie.db.global.learnedData.quests  = {}
-    Questie.db.global.learnedData.items   = {}
-    Questie.db.global.learnedData.objects = {}
+    Questie.dbLearner.global.npcs    = {}
+    Questie.dbLearner.global.quests  = {}
+    Questie.dbLearner.global.items   = {}
+    Questie.dbLearner.global.objects = {}
     Questie:Print("Cleared all learned data.")
 end
 
@@ -1113,7 +1122,7 @@ end
 
 function QuestieLearner:ExportData()
     if not EnsureLearnedData() then return "" end
-    local learned = Questie.db.global.learnedData
+    local learned = Questie.dbLearner.global
     local lines = {}
     table.insert(lines, "-- QuestieLearner Export")
     local n, q, i, o = self:GetStats()
@@ -1461,7 +1470,7 @@ end
 -- Fires when any quest is turned in (covers auto-complete quests that skip the QUEST_COMPLETE dialog)
 function QuestieLearner:OnQuestTurnedIn(questId, xpReward, moneyReward)
     if not self:IsEnabled() then return end
-    if not Questie.db.global.learnedData.settings.learnQuests then return end
+    if not Questie.dbLearner.global.settings.learnQuests then return end
     if not questId or questId <= 0 then return end
 
     local data = {}
@@ -1487,7 +1496,7 @@ end
 -- Loot handler with async GetItemInfo retry
 function QuestieLearner:OnLootOpened()
     if not self:IsEnabled() then return end
-    if not Questie.db.global.learnedData.settings.learnItems then return end
+    if not Questie.dbLearner.global.settings.learnItems then return end
 
     local targetGuid = UnitGUID("target")
     local npcId = targetGuid and GetNpcIdFromGUID(targetGuid) or nil
@@ -1806,7 +1815,7 @@ end
 
 function QuestieLearner:Initialize()
     EnsureLearnedData()
-    QuestieLearner.data = Questie.db.global.learnedData
+    QuestieLearner.data = Questie.dbLearner.global
     self:RegisterEvents()
     self:InjectLearnedData()
 
@@ -1843,17 +1852,17 @@ function QuestieLearner:HandleNetworkData(typ, id, d, op)
 
     local store
     if typ == "NPC" then
-        if not Questie.db.global.learnedData.settings.learnNpcs then return end
-        store = Questie.db.global.learnedData.npcs
+        if not Questie.dbLearner.global.settings.learnNpcs then return end
+        store = Questie.dbLearner.global.npcs
     elseif typ == "QUEST" then
-        if not Questie.db.global.learnedData.settings.learnQuests then return end
-        store = Questie.db.global.learnedData.quests
+        if not Questie.dbLearner.global.settings.learnQuests then return end
+        store = Questie.dbLearner.global.quests
     elseif typ == "ITEM" then
-        if not Questie.db.global.learnedData.settings.learnItems then return end
-        store = Questie.db.global.learnedData.items
+        if not Questie.dbLearner.global.settings.learnItems then return end
+        store = Questie.dbLearner.global.items
     elseif typ == "OBJECT" then
-        if not Questie.db.global.learnedData.settings.learnObjects then return end
-        store = Questie.db.global.learnedData.objects
+        if not Questie.dbLearner.global.settings.learnObjects then return end
+        store = Questie.dbLearner.global.objects
     else
         return
     end
@@ -1863,7 +1872,7 @@ function QuestieLearner:HandleNetworkData(typ, id, d, op)
         store[id] = d
         store[id].mc = 1
         self:InjectLearnedData()
-        QuestieLearner.data = Questie.db.global.learnedData
+        QuestieLearner.data = Questie.dbLearner.global
         return
     end
 
@@ -1909,7 +1918,7 @@ function QuestieLearner:HandleNetworkData(typ, id, d, op)
     if changed or (op == "NEW" or op == "UPDATE") then
         existing.ls = time() -- Refresh timestamp on network confirmation
         existing.mc = (existing.mc or 0) + 1
-        QuestieLearner.data = Questie.db.global.learnedData
+        QuestieLearner.data = Questie.dbLearner.global
         self:InjectLearnedData()
     end
 end

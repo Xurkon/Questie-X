@@ -76,9 +76,6 @@ function QuestieLoader:CreateModule(name)
     if modules[name] and modules[name]._defined then
         -- Print a debug message rather than hard-error so it doesn't break live servers
         -- even if another file accidentally calls CreateModule twice.
-        if Questie and Questie.Debug then
-            Questie:Debug(1, "[QuestieLoader] WARNING: CreateModule called twice for '" .. tostring(name) .. "'. Using existing module.")
-        end
         return modules[name]
     end
     if not modules[name] then
@@ -112,5 +109,31 @@ function QuestieLoader:PopulateGlobals() -- called when debugging is enabled
             end
         end
     end
+end
+
+-- Initialize Questie object early to avoid nil errors during loading
+local Questie = QuestieLoader:CreateModule("Questie")
+_G.Questie = Questie
+
+-- Initial stubs for Debug and Colorize so early calls don't crash
+Questie.DEBUG_CRITICAL = 1
+Questie.DEBUG_ELEVATED = 2
+Questie.DEBUG_INFO = 4
+Questie.DEBUG_DEVELOP = 8
+Questie.DEBUG_SPAM = 16
+Questie.DEBUG_LEARNER = 32
+Questie.DEBUG_COMMS = 64
+
+function Questie:Debug(level, ...)
+    -- Initial stub: just print to chat if it's a critical message
+    -- This will be replaced by the real Questie:Debug in Questie.lua
+    if level == Questie.DEBUG_CRITICAL then
+        print("|cFFFFFF00[Questie-X Pre-Init Debug]|r", ...)
+    end
+end
+
+function Questie:Colorize(str, color)
+    -- Initial stub: just return the string without color or with basic color
+    return str
 end
 

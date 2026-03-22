@@ -48,14 +48,18 @@ local function GetServerKey()
     return realm ~= "" and realm or "unknown"
 end
 
--- Returns the learnedData sub-table for the current server, or nil
-local function GetServerBucket(serverKey)
-    local ld = Questie.db and Questie.db.global and Questie.db.global.learnedData
+function QuestieLearnerExport:GetExportTable(serverKey)
+    local ld = Questie.dbLearner and Questie.dbLearner.global
     if not ld then return nil end
     if ld[serverKey] then return ld[serverKey] end
     -- Fallback: flat (pre-bucket) layout still in use
     if ld.npcs or ld.quests then return ld end
     return nil
+end
+
+-- Returns the learnedData sub-table for the current server, or nil
+local function GetServerBucket(serverKey)
+    return QuestieLearnerExport:GetExportTable(serverKey)
 end
 
 -- Builds a lightweight stats summary table from a bucket
@@ -127,7 +131,7 @@ end
 --- Exports ALL server buckets merged into one payload.
 ---@return string|nil, table|string
 function QuestieLearnerExport:ExportAll()
-    local ld = Questie.db and Questie.db.global and Questie.db.global.learnedData
+    local ld = Questie.dbLearner and Questie.dbLearner.global
     if not ld then return nil, "No learned data." end
 
     local merged = { npcs = {}, quests = {}, items = {}, objects = {} }
@@ -326,7 +330,7 @@ function _Export:RunPrune(dryRun)
     local result = { npcs = 0, quests = 0, items = 0, objects = 0, total = 0, reasons = {} }
     if not bucket then return result end
  
-    local settings = (Questie.db.global.learnedData and Questie.db.global.learnedData.settings) or {}
+    local settings = (Questie.dbLearner and Questie.dbLearner.global and Questie.dbLearner.global.settings) or {}
     local thresholdDays = settings.staleThreshold or 90
     local thresholdSeconds = thresholdDays * 86400
     local minConfidence = settings.minConfidencePins or 2

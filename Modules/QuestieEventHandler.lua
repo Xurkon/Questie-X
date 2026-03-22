@@ -225,7 +225,10 @@ function QuestieEventHandler:RegisterLateEvents()
     end)
 end
 
+local _PlayerLoginFired = false
 function _EventHandler:PlayerLogin()
+    if _PlayerLoginFired then return end
+    _PlayerLoginFired = true
     -- Check config exists
     if not Questie.db or not QuestieConfig then
         -- Did you move Questie.db = LibStub("AceDB-3.0"):New("QuestieConfig",.......) out of Questie:OnInitialize() ?

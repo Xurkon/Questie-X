@@ -190,7 +190,8 @@ local function timerOnFinished(self)
     end
 end
 
-QuestieCompat.C_Timer = {
+if not QuestieCompat.C_Timer then
+    QuestieCompat.C_Timer = {
     -- Schedules a (repeating) timer that can be canceled. (https://wowpedia.fandom.com/wiki/API_C_Timer.NewTimer)
     NewTicker = function(duration, callback, iterations)
         local timer = next(inactiveTimers)
@@ -221,6 +222,7 @@ QuestieCompat.C_Timer = {
         return QuestieCompat.C_Timer.NewTicker(duration, callback, 1)
     end
 }
+end
 
 local mapIdToUiMapId = {}
 -- convert current mapAreaID and mapLevel to UiMapId
@@ -408,23 +410,36 @@ end
 local questObjectivesCache = {}
 
 local function parseQuestObjective(text)
-    return string.match(string.gsub(text, "\239\188\154", ":"), "(.*):%s*([%d]+)%s*/%s*([%d]+)")
+    local name, fulfilled, required = string.match(string.gsub(text, "\239\188\154", ":"), "(.*):%s*([%d]+)%s*/%s*([%d]+)")
+    if not name then
+
+    end
+    return name, fulfilled, required
 end
 
-QuestieCompat.C_QuestLog = {
-    GetQuestObjectives = function(questID, questLogIndex)
+
+if not rawget(QuestieCompat, "C_QuestLog") then
+    QuestieCompat.C_QuestLog = {}
+end
+local cLog = QuestieCompat.C_QuestLog
+
+cLog.GetQuestObjectives = function(questID, questLogIndex)
+
         local questObjectives = {}
         if questLogIndex then
             local numObjectives = GetNumQuestLeaderBoards(questLogIndex)
             for i = 1, numObjectives do
                 local description, objectiveType, isCompleted = GetQuestLogLeaderBoard(i, questLogIndex)
-                if objectiveType ~= "log" then
+                if objectiveType ~= "log" and description then
                     local objectiveName, numFulfilled, numRequired = parseQuestObjective(description)
-                    local fulfilled = questObjectivesCache[objectiveName]
-                    if fulfilled then
-                        numFulfilled = fulfilled
-                        questObjectivesCache[objectiveName] = nil
+                    if objectiveName then
+                        local fulfilled = questObjectivesCache[objectiveName]
+                        if fulfilled then
+                            numFulfilled = fulfilled
+                            questObjectivesCache[objectiveName] = nil
+                        end
                     end
+
 
                     table.insert(questObjectives, {
                         text = description,
@@ -437,16 +452,16 @@ QuestieCompat.C_QuestLog = {
             end
         end
         return questObjectives
-    end,
-
-    GetMaxNumQuestsCanAccept = function()
+    end
+    
+    cLog.GetMaxNumQuestsCanAccept = function()
         return MAX_QUESTLOG_QUESTS
-    end,
-
-    IsOnQuest = function(questId)
+    end
+    
+    cLog.IsOnQuest = function(questId)
         return QuestieCompat.GetQuestLogIndexByID(questId) ~= nil
-    end,
-}
+    end
+
 
 
 -- Can't find anything about this function.

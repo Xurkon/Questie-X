@@ -1324,7 +1324,7 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
         end
 
         -- Filter static spawns if prioritizeMyData is enabled and we have high-confidence learned data
-        if Questie.db.global.learnedData and Questie.db.global.learnedData.settings and Questie.db.global.learnedData.settings.prioritizeMyData then
+        if Questie.dbLearner and Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.prioritizeMyData then
             for zone in pairs(zones) do
                 local suppressed = (objectiveData.Type == "monster" and QuestieDB.GetSuppressedNPCs(zone)) or (objectiveData.Type == "object" and QuestieDB.GetSuppressedObjects(zone))
                 if suppressed then

@@ -1,4 +1,5 @@
 --[[
+
 Flow:
 -> QuestieValidateGameCache.StartCheck()
 --> Wait for PLAYER_ENTERING_WORLD
@@ -10,16 +11,9 @@ Flow:
 
 ---@class QuestieValidateGameCache
 local QuestieValidateGameCache = QuestieLoader:CreateModule("QuestieValidateGameCache")
-
-
----@type QuestieLib
-local QuestieLib = QuestieLoader:CreateModule("QuestieLib")
-
---- COMPATIBILITY ---
-local GetNumQuestLogEntries = GetNumQuestLogEntries
-local GetQuestLogTitle = QuestieCompat.GetQuestLogTitle
-local GetQuestObjectives = QuestieCompat.C_QuestLog.GetQuestObjectives
-local HaveQuestData = QuestieCompat.HaveQuestData
+local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
+local QuestieCompat = QuestieLoader:ImportModule("QuestieCompat")
+-- Defer API assignments to runtime to avoid load-order nil errors
 
 local stringByte, tremove = string.byte, table.remove
 local tpack = QuestieLib.tpack
@@ -27,94 +21,83 @@ local tunpack = QuestieLib.tunpack
 
 -- 3 * (Max possible number of quests in game quest log)
 -- This is a safe value, even smaller would be enough. Too large won't effect performance
-local MAX_QUEST_LOG_INDEX = 75
-
-local eventFrame
-local numberOfQuestLogUpdatesToSkip
+local numberOfQuestLogUpdatesToSkip = 0
 local checkStarted = false
-
+local eventFrame = nil
+local callbacks = {}
 local isCacheGood = false
-local callbacks = {} -- example: { [1] = {func, {arg1, arg2, arg3}}, [2] = {func, {arg1, arg2}}, }
-
----@return boolean
-function QuestieValidateGameCache.IsCacheGood()
-    return isCacheGood
-end
-
---- Calls the callback function imediately if the cache is already good.
---- Otherwise adds it to list of functions called once the cache comes good.
----@param func function @A function to call once cache is good.
----@param ... any @Possible arguments for function.
-function QuestieValidateGameCache.AddCallback(func, ...)
-    if isCacheGood then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieValidateGameCache] Calling a callback function imediately.")
-        func(...)
-    else
-        callbacks[#callbacks + 1] = { func, tpack(...) }
-    end
-end
 
 local function DestroyEventFrame()
     if eventFrame then
         eventFrame:UnregisterAllEvents()
         eventFrame:SetScript("OnEvent", nil)
-        eventFrame:SetParent(nil)
         eventFrame = nil
     end
 end
 
--- Called directly and OnEvent.
 local function OnQuestLogUpdate()
-    local numEntries, numQuests = GetNumQuestLogEntries()
+    -- Fetch APIs at runtime with extreme defensive checks
+    local qCompat = QuestieCompat or _G.QuestieCompat
+    local rawCLog = qCompat and rawget(qCompat, "C_QuestLog")
+    local cLog = (qCompat and qCompat.C_QuestLog) or {}
 
-    -- Player can have 0 quests in quest log for real OR game's cached quest log can be empty while cache is still invalid
-    -- This is to wait until cache has atleast some refreshed data from a game server.
-    if numberOfQuestLogUpdatesToSkip > 0 then
-        numberOfQuestLogUpdatesToSkip = numberOfQuestLogUpdatesToSkip - 1
-        Questie:Debug(Questie.DEBUG_DEVELOP,
-            "[QuestieValidateGameCache] Skipping a QUEST_LOG_UPDATE event. Quest log has entries, quests:", numEntries,
-            numQuests)
+    
+    local GetNumQuestLogEntries = cLog.GetNumQuestLogEntries or _G.GetNumQuestLogEntries
+    local GetQuestLogTitle = cLog.GetQuestLogTitle or _G.GetQuestLogTitle
+    local GetNumQuestLeaderBoards = _G.GetNumQuestLeaderBoards
+    local GetQuestObjectives = cLog.GetQuestObjectives or function() return {} end
+
+
+
+
+    if isCacheGood then
+        DestroyEventFrame()
         return
     end
 
+    if numberOfQuestLogUpdatesToSkip > 0 then
+        numberOfQuestLogUpdatesToSkip = numberOfQuestLogUpdatesToSkip - 1
+        return
+    end
+
+
     local isQuestLogGood = true
-    local goodQuestsCount = 0 -- for debug stats
+    local numQuests = select(1, GetNumQuestLogEntries()) or 0
+    local goodQuestsCount = 0
 
-    for i = 1, MAX_QUEST_LOG_INDEX do
-        local title, level, questTag, isHeader, isCollapsed, isComplete, isDaily, questId = GetQuestLogTitle(i)
-        if title and questId and (not isHeader) then
-            if (not HaveQuestData(questId)) then
-                isQuestLogGood = false
-            else
-                local hasInvalidObjective -- for debug stats
-                local objectiveList = GetQuestObjectives(questId, i)
 
-                if type(objectiveList) ~= "table" then
-                    -- On WotLK private servers, GetQuestObjectives can return nil for quests with
-                    -- no trackable objectives. This is not a broken cache state; treat it as an
-                    -- empty (valid) objective list so goodQuestsCount increments correctly.
-                    Questie:Debug(Questie.DEBUG_DEVELOP,
-                        "[QuestieValidateGameCache] GetQuestObjectives returned non-table for questId:", questId,
-                        "- treating as empty objectives")
-                    objectiveList = {}
-                end
-
-                for _, objective in pairs(objectiveList) do                               -- objectiveList may be {}, which is also a valid cached quest in quest log
-                    if (not objective.text) or (stringByte(objective.text, 1) == 32) then -- if (text starts with a space " ") then
-                        -- Game hasn't cached the quest fully yet
+    for i = 1, numQuests do
+        local status, err = pcall(function()
+            local title, _, _, _, isHeader, _, _, _, questId = GetQuestLogTitle(i)
+            if title and (not isHeader) and questId and questId > 0 then
+                local numObjectives = GetNumQuestLeaderBoards(i) or 0
+                
+                if numObjectives > 0 then
+                    local objectiveList = GetQuestObjectives(questId, i)
+                    if objectiveList and objectiveList[1] then
+                        local hasInvalidObjective = false
+                        for _, objective in pairs(objectiveList) do
+                            if (not objective.text) or (stringByte(objective.text, 1) == 32) then
+                                isQuestLogGood = false
+                                hasInvalidObjective = true
+                                break
+                            end
+                        end
+                        if not hasInvalidObjective then
+                            goodQuestsCount = goodQuestsCount + 1
+                        end
+                    else
                         isQuestLogGood = false
-                        hasInvalidObjective = true
-
-                        -- No early "return false" here to force iterate whole quest log and speed up caching
                     end
-                end
-
-                if not hasInvalidObjective then
+                else
                     goodQuestsCount = goodQuestsCount + 1
                 end
+
             end
-        end
+        end)
     end
+
+
 
     if not isQuestLogGood then
         Questie:Debug(Questie.DEBUG_INFO, "[QuestieValidateGameCache] Quest log is NOT yet okey. Good quest:",
@@ -122,53 +105,76 @@ local function OnQuestLogUpdate()
         return
     end
 
-    if goodQuestsCount ~= numQuests then
-        -- This count mismatch can occur on WotLK private servers where GetNumQuestLogEntries
-        -- returns a different value than objectives-loop counted. The cache is valid because
-        -- isQuestLogGood already passed above. Log at debug level only.
-        Questie:Debug(Questie.DEBUG_INFO,
-            "[QuestieValidateGameCache] Quest count mismatch (expected " ..
-            tostring(numQuests) .. ", validated " .. tostring(goodQuestsCount) .. "). Cache is still valid.")
-    end
-
     DestroyEventFrame()
-
     Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieValidateGameCache] Quest log is ok. Good quest:",
         goodQuestsCount .. "/" .. numQuests)
 
     isCacheGood = true
 
-    -- Call all callbacks
     while (#callbacks > 0) do
         local callback = tremove(callbacks, 1)
         local func, args = callback[1], callback[2]
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieValidateGameCache] Calling a callback.")
         func(tunpack(args))
     end
 end
 
 local function OnPlayerEnteringWorld(_, _, isInitialLogin, isReloadingUi)
-    -- 335 Cant find a way to distinguish between 'first login' and 'UI reload'
-    if QuestieCompat.Is335 then
-        isInitialLogin, isReloadingUi = false, true -- 335 Not skipping for now
-    end
-    assert(isInitialLogin or isReloadingUi)         -- We should get to here only at login or at /reload.
+    if isInitialLogin == nil then isInitialLogin = true end
+    if isReloadingUi == nil then isReloadingUi = false end
 
-    -- Game's quest log has still old cached data on the first QUEST_LOG_UPDATE after PLAYER_ENTERING_WORLD during login.
-    -- So we need to skip that event.
+    if QuestieCompat.Is335 then
+        isInitialLogin, isReloadingUi = false, true
+    end
+
     numberOfQuestLogUpdatesToSkip = isInitialLogin and 1 or 0
 
+    if not eventFrame then eventFrame = CreateFrame("Frame") end
     eventFrame:UnregisterAllEvents()
     eventFrame:SetScript("OnEvent", OnQuestLogUpdate)
     eventFrame:RegisterEvent("QUEST_LOG_UPDATE")
 end
 
--- MUST be started very early to count number of events firing.
 function QuestieValidateGameCache.StartCheck()
-    assert(not checkStarted) -- to avoid bugging the module by wrong usage
+    if checkStarted then return end
     checkStarted = true
 
-    eventFrame = CreateFrame("Frame")
-    eventFrame:SetScript("OnEvent", OnPlayerEnteringWorld)
+    if not eventFrame then eventFrame = CreateFrame("Frame") end
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    eventFrame:SetScript("OnEvent", OnPlayerEnteringWorld)
+
+    if IsLoggedIn() then
+        OnPlayerEnteringWorld(eventFrame, "PLAYER_ENTERING_WORLD", true, false)
+    end
+
+    local function backupCheck()
+        if isCacheGood then return end
+        OnQuestLogUpdate()
+        if not isCacheGood then
+            local qCompat = QuestieCompat or _G.QuestieCompat
+            local timer = (qCompat and qCompat.C_QuestLog and qCompat.C_Timer) or _G.C_Timer
+            if timer and timer.After then
+                timer.After(2.0, backupCheck)
+            end
+        end
+    end
+    
+    local qCompat = QuestieCompat or _G.QuestieCompat
+    local timer = (qCompat and qCompat.C_QuestLog and qCompat.C_Timer) or _G.C_Timer
+    if timer and timer.After then
+        timer.After(2.0, backupCheck)
+    end
+
 end
+
+function QuestieValidateGameCache.IsCacheGood()
+    return isCacheGood
+end
+
+function QuestieValidateGameCache.RegisterCallback(func, ...)
+    if isCacheGood then
+        func(...)
+    else
+        table.insert(callbacks, { func, tpack(...) })
+    end
+end
+

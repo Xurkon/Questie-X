@@ -22,6 +22,12 @@ local lshift = bit.lshift
 local TICKS_PER_YIELD = 48
 local TICKS_PER_YIELD_DEBUG = TICKS_PER_YIELD * 3
 
+local function safeYield()
+    if coroutine.running() then
+        coroutine.yield()
+    end
+end
+
 ---@alias CompilerTypes
 ---| "u8"
 ---| "u16"
@@ -924,7 +930,7 @@ function QuestieDBCompiler:DecodePointerMap(stream)
             ret[stream:ReadInt24()] = stream:ReadInt24()
         end
         i = i + 768
-        coroutine.yield()
+        safeYield()
     end
     return ret
 end
@@ -972,16 +978,17 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
     local supportedTypes = QuestieDBCompiler.supportedTypes
 
     while true do
-        coroutine.yield()
+        safeYield()
         for _=0,Questie.db.profile.debugEnabled and TICKS_PER_YIELD_DEBUG or (entriesPerTick or TICKS_PER_YIELD) do
             index = index + 1
             if index == count then
+                local binaryBucket = Questie.dbCache and Questie.dbCache.global or Questie.db.global
                 if Questie.IsSoD then
-                    Questie.db.global.sod[databaseKey.."Bin"] = stream:Save()
-                    Questie.db.global.sod[databaseKey.."Ptrs"] = QuestieDBCompiler:EncodePointerMap(stream, pointerMap)
+                    binaryBucket.sod[databaseKey.."Bin"] = stream:Save()
+                    binaryBucket.sod[databaseKey.."Ptrs"] = QuestieDBCompiler:EncodePointerMap(stream, pointerMap)
                 else
-                    Questie.db.global[databaseKey.."Bin"] = stream:Save()
-                    Questie.db.global[databaseKey.."Ptrs"] = QuestieDBCompiler:EncodePointerMap(stream, pointerMap)
+                    binaryBucket[databaseKey.."Bin"] = stream:Save()
+                    binaryBucket[databaseKey.."Ptrs"] = QuestieDBCompiler:EncodePointerMap(stream, pointerMap)
                 end
                 stream:finished() -- relief memory pressure
                 return
@@ -1096,12 +1103,14 @@ end
 
 function QuestieDBCompiler:ValidateNPCs()
     local npcBin, npcPtrs
+    local binaryBucket = Questie.dbCache and Questie.dbCache.global or Questie.db.global
     if Questie.IsSoD then
-        npcBin = Questie.db.global.sod.npcBin
-        npcPtrs = Questie.db.global.sod.npcPtrs
+        binaryBucket = binaryBucket.sod or {}
+        npcBin = binaryBucket.npcBin
+        npcPtrs = binaryBucket.npcPtrs
     else
-        npcBin = Questie.db.global.npcBin
-        npcPtrs = Questie.db.global.npcPtrs
+        npcBin = binaryBucket.npcBin
+        npcPtrs = binaryBucket.npcPtrs
     end
     local validator = QuestieDBCompiler:GetDBHandle(npcBin, npcPtrs, QuestieDBCompiler:BuildSkipMap(QuestieDB.npcCompilerTypes, QuestieDB.npcCompilerOrder))
 
@@ -1129,7 +1138,7 @@ function QuestieDBCompiler:ValidateNPCs()
 
         if count == TICKS_PER_YIELD_DEBUG then
             count = 0
-            coroutine.yield()
+            safeYield()
         end
         count = count + 1
     end
@@ -1173,7 +1182,7 @@ function QuestieDBCompiler:ValidateObjects()
 
     if count == TICKS_PER_YIELD_DEBUG then
         count = 0
-        coroutine.yield()
+        safeYield()
         end
         count = count + 1
     end
@@ -1185,20 +1194,22 @@ function QuestieDBCompiler:ValidateObjects()
 
 function QuestieDBCompiler:ValidateItems()
     local itemBin, objBin, npcBin, objPtrs, itemPtrs, npcPtrs
+    local binaryBucket = Questie.dbCache and Questie.dbCache.global or Questie.db.global
     if Questie.IsSoD then
-        itemBin = Questie.db.global.sod.itemBin
-        itemPtrs = Questie.db.global.sod.itemPtrs
-        objBin = Questie.db.global.sod.objBin
-        objPtrs = Questie.db.global.sod.objPtrs
-        npcBin = Questie.db.global.sod.npcBin
-        npcPtrs = Questie.db.global.sod.npcPtrs
+        binaryBucket = binaryBucket.sod or {}
+        itemBin = binaryBucket.itemBin
+        itemPtrs = binaryBucket.itemPtrs
+        objBin = binaryBucket.objBin
+        objPtrs = binaryBucket.objPtrs
+        npcBin = binaryBucket.npcBin
+        npcPtrs = binaryBucket.npcPtrs
     else
-        itemBin = Questie.db.global.itemBin
-        itemPtrs = Questie.db.global.itemPtrs
-        objBin = Questie.db.global.objBin
-        objPtrs = Questie.db.global.objPtrs
-        npcBin = Questie.db.global.npcBin
-        npcPtrs = Questie.db.global.npcPtrs
+        itemBin = binaryBucket.itemBin
+        itemPtrs = binaryBucket.itemPtrs
+        objBin = binaryBucket.objBin
+        objPtrs = binaryBucket.objPtrs
+        npcBin = binaryBucket.npcBin
+        npcPtrs = binaryBucket.npcPtrs
     end
 
     local validator = QuestieDBCompiler:GetDBHandle(itemBin, itemPtrs, QuestieDBCompiler:BuildSkipMap(QuestieDB.itemCompilerTypes, QuestieDB.itemCompilerOrder))
@@ -1258,7 +1269,7 @@ function QuestieDBCompiler:ValidateItems()
         --end
         if count == TICKS_PER_YIELD_DEBUG then
             count = 0
-            coroutine.yield()
+            safeYield()
         end
         count = count + 1
     end
@@ -1286,7 +1297,7 @@ function QuestieDBCompiler:ValidateItems()
 
         if count == TICKS_PER_YIELD_DEBUG then
             count = 0
-            coroutine.yield()
+            safeYield()
         end
         count = count + 1
     end
@@ -1379,7 +1390,7 @@ function QuestieDBCompiler:ValidateQuests()
 
         if count == TICKS_PER_YIELD_DEBUG then
             count = 0
-            coroutine.yield()
+            safeYield()
         end
         count = count + 1
     end
@@ -1393,12 +1404,12 @@ function QuestieDBCompiler:GetDBHandle(data, pointers, skipMap, keyToRootIndex, 
     local map, lastIndex, lastPtr, types, _, indexToKey, keyToIndex = unpack(skipMap)
 
     local stream = QuestieStream:GetStream("raw")
-    coroutine.yield()
+    safeYield()
     stream:Load(pointers)
-    coroutine.yield()
+    safeYield()
     pointers = QuestieDBCompiler:DecodePointerMap(stream)
     --Questie.db.global.__pointers = pointers
-    coroutine.yield()
+    safeYield()
     stream:Load(data)
     handle.stream = stream
 

@@ -1,5 +1,6 @@
 local GetAddOnMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
 
+
 ---@class QuestieLib
 local QuestieLib = QuestieLoader:CreateModule("QuestieLib")
 
@@ -13,7 +14,8 @@ local l10n = QuestieLoader:ImportModule("l10n")
 --- COMPATIBILITY ---
 local addonName = QuestieLoader.addonName
 
-QuestieLib.AddonPath = "Interface\\Addons\\"..addonName.."\\"
+QuestieLib.AddonPath = "Interface\\Addons\\" .. addonName .. "\\"
+
 
 local math_abs = math.abs
 local math_sqrt = math.sqrt

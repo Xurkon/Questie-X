@@ -11,21 +11,17 @@
 ## Notes-esES: Ayundante de misión
 ## Notes-ptBR: Ajudante de missão
 ## Notes-frFR: Assistant de quête
-## Version: 1.4.5
-## RequiredDeps:
+## Version: 1.4.6
 ## OptionalDeps: Ace3, CallbackHandler-1.0, HereBeDragons, LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0, LibStub, LibUIDropDownMenu, Questie-X-WotLKDB, Questie-X-ClassicDB, Questie-X-TBCDB, Questie-X-TurtleDB, Questie-X-AscensionDB, Questie-X-EbonholdDB
-## SavedVariables: QuestieConfig, QuestieLearnerDB
+## SavedVariables: QuestieConfig, QuestieLearnerDB, QuestieCacheDB, QuestieJourneyDB
 ## SavedVariablesPerCharacter: QuestieConfigCharacter
 ## X-Curse-Project-ID: 334372
 ## X-Wago-ID: qv634BKb
 ## X-WOW_PROJECT_ID: 11
-
 # Loader module
 Modules\Libs\QuestieLoader.lua
-
 # Plugin API
 Modules\Libs\QuestiePluginAPI.lua
-
 # COMPATIBILITY
 Modules\QuestieCompat.lua
 Modules\WorldMapTaintWorkaround.lua
@@ -33,27 +29,20 @@ Modules\GameVersionError.lua
 Libs\LibStub\LibStub.lua
 Compat\embeds.xml
 Libs\XXH_Lua_Lib\XXH_Lua_Lib.lua
-
 Modules\VersionCheck.lua
-
 # SERVER ENVIRONMENT DETECTION
 Modules\QuestieServer.lua
-
 # Thread Manager
 Modules\Libs\ThreadLib.lua
 #Message Handler
 Modules\Libs\MessageHandler.lua
-
 #Quest XP
 Database\QuestXP\QuestieXP.lua
-
 # stream module (used by DB)
 Modules\QuestieStream.lua
-
 # Zones
 Database\Zones\zoneTables.lua
 Database\Zones\zoneDB.lua
-
 # Core Database schema (data injected by DB plugins)
 Database\QuestieDB.lua
 Database\questDB.lua
@@ -62,7 +51,6 @@ Database\npcDB.lua
 Database\itemDB.lua
 Database\Constants.lua
 Database\MeetingStones.lua
-
 # Corrections framework (expansion-specific fixes loaded by DB plugins)
 Database\Corrections\AutoTableUpdates.lua
 Database\Corrections\QuestieCorrections.lua
@@ -70,45 +58,36 @@ Database\Corrections\QuestieItemBlacklist.lua
 Database\Corrections\QuestieNPCBlacklist.lua
 Database\Corrections\QuestieQuestBlacklist.lua
 Database\Corrections\QuestieEvent.lua
-
 # Classic corrections (always loaded; _LoadCorrections skips missing IDs gracefully)
 Database\Corrections\classicQuestFixes.lua
 Database\Corrections\classicNPCFixes.lua
 Database\Corrections\classicItemFixes.lua
 Database\Corrections\classicObjectFixes.lua
-
 # TBC corrections (gated by Questie.IsTBC / Questie.IsWotLK inside QuestieCorrections)
 Database\Corrections\tbcQuestFixes.lua
 Database\Corrections\tbcNPCFixes.lua
 Database\Corrections\tbcItemFixes.lua
 Database\Corrections\tbcObjectFixes.lua
-
 # WotLK corrections (gated by Questie.IsWotLK inside QuestieCorrections)
 Database\Corrections\wotlkQuestFixes.lua
 Database\Corrections\wotlkNPCFixes.lua
 Database\Corrections\wotlkItemFixes.lua
 Database\Corrections\wotlkObjectFixes.lua
-
 # Automatic General Corrections
 Database\Corrections\Automatic\itemStartFixes.lua
 Database\Corrections\Automatic\classicQuestReputationFixes.lua
-
 # Compiler
 Database\compiler.lua
-
 # Localization
 Localization\l10n.lua
 Localization\Translations\Translations.xml
-
 Localization\lookups\lookupQuestCategories.lua
 Localization\lookups\lookupZones.lua
-
 # Libs
 Modules\Libs\QuestieLib.lua
 Modules\Libs\QuestieSerializer.lua
 Modules\Libs\QuestieCombatQueue.lua
 Modules\Libs\RamerDouglasPeucker.lua
-
 # Modules
 Modules\QuestieValidateGameCache.lua
 Modules\Arrow\QuestieArrow.lua
@@ -133,32 +112,26 @@ Modules\QuestiePlayer.lua
 #Modules\QuestieDebugOffer.lua
 Modules\WorldMapButton\WorldMapButton.lua
 #Modules\WorldMapButton\QuestieWorldMapButtonTemplate.xml
-
 # QuestLinks
 Modules\QuestLinks\ChatFilter.lua
 Modules\QuestLinks\Hooks.lua
 Modules\QuestLinks\Link.lua
-
 # Tooltips
 Modules\Tooltips\Tooltip.lua
 Modules\Tooltips\MapIconTooltip.lua
 Modules\Tooltips\TooltipHandler.lua
-
 # Auto
 Modules\Auto\QuestieAuto.lua
 Modules\Auto\Privates.lua
 Modules\Auto\DisallowedIDs.lua
-
 # FramePool
 Modules\FramePool\QuestieFramePool.lua
 Modules\FramePool\QuestieFrame.lua
-
 # Map
 Modules\Map\QuestieMap.lua
 Modules\Map\QuestieMapUtils.lua
 Modules\Map\HBDHooks.lua
 Modules\Map\WeaponMasterSkills.lua
-
 # Quest
 Modules\Quest\AvailableQuests.lua
 Modules\Quest\QuestLogCache.lua
@@ -168,16 +141,13 @@ Modules\Quest\QuestEventHandler.lua
 Modules\Quest\QuestgiverFrame.lua
 Modules\Quest\QuestieQuest.lua
 Modules\Quest\QuestieQuestPrivates.lua
-
 Modules\QuestieNameplate.lua
 Modules\QuestieCoordinates.lua
-
 # Network
 Modules\Network\QuestieComms.lua
 Modules\Network\QuestieCommsData.lua
 Modules\Network\QuestieLearnerComms.lua
 Modules\QuestieLearnerExport.lua
-
 # Journey
 Modules\Journey\QuestieJourney.lua
 Modules\Journey\QuestieJourneyPrivates.lua
@@ -193,7 +163,6 @@ Modules\Journey\tabs\QuestsByZone\QuestsByZoneTab.lua
 #Modules\Journey\tabs\Search\SearchTab.lua
 Modules\Journey\QuestieSearch.lua
 Modules\Journey\QuestieSearchResults.lua
-
 # Tracker
 Modules\Tracker\QuestieTracker.lua
 Modules\Tracker\TrackerUtils.lua
@@ -204,14 +173,11 @@ Modules\Tracker\TrackerHeaderFrame.lua
 Modules\Tracker\TrackerQuestFrame.lua
 Modules\Tracker\TrackerQuestTimers.lua
 Modules\Tracker\TrackerLinePool.lua
-
 # Tutorial
 Modules\Tutorial\ChooseObjectiveType.lua
 Modules\Tutorial\Tutorial.lua
-
 #Modules\QuestieDBMIntegration.lua
 Modules\QuestieSlash.lua
-
 # Options
 Modules\Options\QuestieOptions.lua
 Modules\Options\QuestieOptionsDefaults.lua
@@ -225,13 +191,9 @@ Modules\Options\GeneralTab\QuestieOptionsGeneral.lua
 Modules\Options\IconsTab\QuestieOptionsIcons.lua
 Modules\Options\NameplateTab\QuestieOptionsNameplate.lua
 Modules\Options\TrackerTab\QuestieOptionsTracker.lua
-
 # Cleanup
 Modules\QuestieCleanup.lua
-
 # Profiler
 Modules\QuestieProfiler.lua
-
 # Main
 Questie.lua
-

@@ -1,8 +1,10 @@
 ---@diagnostic disable: undefined-global, return-type-mismatch, undefined-field
 ---@class QuestieCompat
 ---@type table|_G
-QuestieCompat = setmetatable({}, { __index = _G })
+QuestieCompat = QuestieLoader:CreateModule("QuestieCompat")
+setmetatable(QuestieCompat, { __index = _G })
 QuestieCompat.addonName = QuestieLoader.addonName
+
 
 ------------------------------------------
 -- Lua 5.0 / 5.1 / 5.2 compatibility shims
@@ -17,8 +19,6 @@ end
 -- Polyfill for xpcall variadic arguments (missing in standard Lua 5.0/5.1 WoW clients).
 -- Modern Ace3 uses xpcall(func, err, ...) which drops arguments on legacy clients,
 -- leading to 'self' being nil in addon callbacks.
--- Fix #14: Do NOT write to bare _G.xpcall — store in QuestieCompat namespace only.
--- Writing to _G.xpcall pollutes the global namespace and can cause taint on protected contexts.
 local _xpcall = xpcall
 local xpcall_supported = false
 pcall(function()
@@ -58,6 +58,9 @@ if not xpcall_supported then
         -- No extra args provided
         return _xpcall(func, err)
     end
+    -- Crucial: Expose to the global environment so that unmodified Ace3 libraries (like AceGUI-3.0) 
+    -- will pick it up instead of using the broken native version which drops arguments causing crashes.
+    _G.xpcall = QuestieCompat.xpcall
 else
     -- Native xpcall works fine, expose it
     QuestieCompat.xpcall = _xpcall
@@ -241,6 +244,7 @@ else
             return ticker
         end
     }
+    _G.C_Timer = QuestieCompat.C_Timer
 end
 
 ---[SetMinResize Documentation](https://wowpedia.fandom.com/wiki/API_Frame_SetMinResize)
@@ -414,7 +418,9 @@ function QuestieCompat.GetItemCooldown(itemID)
 end
 
 --- C_QuestLog Shim
-QuestieCompat.C_QuestLog = QuestieCompat.C_QuestLog or {}
+if not rawget(QuestieCompat, "C_QuestLog") then
+    QuestieCompat.C_QuestLog = {}
+end
 
 function QuestieCompat.C_QuestLog.GetNumQuestLogEntries()
     return GetNumQuestLogEntries()
@@ -444,13 +450,8 @@ function QuestieCompat.C_QuestLog.GetAllQuestIDs()
     return questIDs
 end
 
-function QuestieCompat.C_QuestLog.GetQuestObjectives(questID)
-    local questIndex = GetQuestLogIndexByID(questID)
-    if not questIndex then return nil end
-    return QuestieCompat.GetQuestObjectives(questIndex)
-end
-
 function QuestieCompat.C_QuestLog.IsQuestFlaggedCompleted(questID)
+
     return IsQuestFlaggedCompleted(questID)
 end
 
@@ -492,3 +493,4 @@ end
 QuestieCompat.LibUIDropDownMenu = QuestieCompat.LibUIDropDownMenu or {}
 QuestieCompat.LibUIDropDownMenu.UIDropDownMenu_Menu_NewSize = function()
 end
+

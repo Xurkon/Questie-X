@@ -99,6 +99,7 @@ function l10n:PostBoot()
 
     local count = 0
     -- Create {['name'] = {ID, },} table for lookup of possible object IDs by name
+    if not QuestieDB.ObjectPointers then return end
     for id in pairs(QuestieDB.ObjectPointers) do
         local name = QuestieDB.QueryObjectSingle(id, "name")
         if name then -- We (meaning me, BreakBB) introduced Fake IDs for objects to show additional locations, so we need to check this

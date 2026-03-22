@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.6 (2026-03-22)
+- **[Fix]** Resolved issue where Questie would not save options or show the Welcome screen repeatedly. This was caused by version mismatches in `.toc` files and an initialization race condition.
+- **[Fix]** Synchronized AceAddon registration name to `"Questie-X"` to match the folder name, ensuring proper `ADDON_LOADED` event handling and database initialization.
+- **[Fix]** Patched `AceGUI-3.0` widgets (`Heading`, `Frame`, `Window`, `Icon`, `DropDown-Items`, `ColorPicker`) to use string texture paths instead of numeric `FileDataIDs`, resolving "red texture" issues on WotLK 3.3.5a clients.
+- **[Cleanup]** Systematically removed all `QX:` debug print statements across the entire codebase for a cleaner production experience.
+- **[Version]** Bumped version to 1.4.6 and updated `Interface` version to 30300 across all `.toc` files.
+
 ## v1.4.5 — Network & Taint Stability Update
 
 - **[Network Fix]** Resolved a critical crash ("`Usage: AceSerializer:Deserialize(str): str must be a string, got table`") occurring in QuestieLearnerComms and Export functions. This was caused by a lightweight, customized `AceSerializer-3.0.lua` implementation in Questie-X that lacked proper `self` parameter handling for standard colon-syntax method calls (`:`). As a result, method calls were serializing/deserializing the library table itself instead of the intended payload string. We patched `AceSerializer` natively to dynamically support both dot (`.`) and colon (`:`) syntax seamlessly without dropping arguments, while ensuring `Deserialize` correctly yields `(success, result)` tuples expected by the calling functions.

@@ -269,24 +269,27 @@ function QuestieDB:Initialize()
 
     -- For now we store both, the SoD database and the Era/HC database
     local npcBin, npcPtrs, questBin, questPtrs, objBin, objPtrs, itemBin, itemPtrs
+    local binaryBucket = Questie.dbCache and Questie.dbCache.global or Questie.db.global
+
     if Questie.IsSoD then
-        npcBin = Questie.db.global.sod.npcBin
-        npcPtrs = Questie.db.global.sod.npcPtrs
-        questBin = Questie.db.global.sod.questBin
-        questPtrs = Questie.db.global.sod.questPtrs
-        objBin = Questie.db.global.sod.objBin
-        objPtrs = Questie.db.global.sod.objPtrs
-        itemBin = Questie.db.global.sod.itemBin
-        itemPtrs = Questie.db.global.sod.itemPtrs
+        binaryBucket = binaryBucket.sod or {}
+        npcBin = binaryBucket.npcBin
+        npcPtrs = binaryBucket.npcPtrs
+        questBin = binaryBucket.questBin
+        questPtrs = binaryBucket.questPtrs
+        objBin = binaryBucket.objBin
+        objPtrs = binaryBucket.objPtrs
+        itemBin = binaryBucket.itemBin
+        itemPtrs = binaryBucket.itemPtrs
     else
-        npcBin = Questie.db.global.npcBin
-        npcPtrs = Questie.db.global.npcPtrs
-        questBin = Questie.db.global.questBin
-        questPtrs = Questie.db.global.questPtrs
-        objBin = Questie.db.global.objBin
-        objPtrs = Questie.db.global.objPtrs
-        itemBin = Questie.db.global.itemBin
-        itemPtrs = Questie.db.global.itemPtrs
+        npcBin = binaryBucket.npcBin
+        npcPtrs = binaryBucket.npcPtrs
+        questBin = binaryBucket.questBin
+        questPtrs = binaryBucket.questPtrs
+        objBin = binaryBucket.objBin
+        objPtrs = binaryBucket.objPtrs
+        itemBin = binaryBucket.itemBin
+        itemPtrs = binaryBucket.itemPtrs
     end
 
     QuestieDB.QueryNPC = QuestieDBCompiler:GetDBHandle(npcBin, npcPtrs, QuestieDBCompiler:BuildSkipMap(QuestieDB.npcCompilerTypes, QuestieDB.npcCompilerOrder), QuestieDB.npcKeys, QuestieDB.npcDataOverrides)
@@ -592,7 +595,7 @@ end
 ---@return table<number, boolean>
 function QuestieDB.GetSuppressedNPCs(zoneId)
     local suppressed = {}
-    local ld = Questie.db.global.learnedData
+    local ld = Questie.dbLearner.global
     if ld and ld.settings and ld.settings.prioritizeMyData and ld.npcs then
         local threshold = ld.settings.minConfidencePins or 2
         for npcId, entry in pairs(ld.npcs) do
@@ -610,7 +613,7 @@ end
 ---@return table<number, boolean>
 function QuestieDB.GetSuppressedObjects(zoneId)
     local suppressed = {}
-    local ld = Questie.db.global.learnedData
+    local ld = Questie.dbLearner.global
     if ld and ld.settings and ld.settings.prioritizeMyData and ld.objects then
         local threshold = ld.settings.minConfidencePins or 2
         for objId, entry in pairs(ld.objects) do

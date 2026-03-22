@@ -58,7 +58,7 @@ function _QuestieJourney.myJourney:ManageTree(container)
                 local created = AceGUI:Create("Label");
                 created:SetFullWidth(true);
 
-                local entry = Questie.db.char.journey[tonumber(e)];
+                local entry = Questie.dbJourney.char.journey[tonumber(e)];
                 local day = CALENDAR_WEEKDAY_NAMES[ tonumber(date('%w', entry.Timestamp)) + 1 ];
                 local month = CALENDAR_FULLDATE_MONTH_NAMES[ tonumber(date('%m', entry.Timestamp)) ];
                 local timestamp = Questie:Colorize(date( day ..', '.. month ..' %d @ %H:%M' , entry.Timestamp), 'blue');

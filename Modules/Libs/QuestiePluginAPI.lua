@@ -48,6 +48,14 @@ function QuestiePluginAPI:RegisterPlugin(pluginName)
     self.registeredPlugins[pluginName] = plugin
     Questie:Debug(Questie.DEBUG_INFO, "[QuestiePluginAPI] Successfully registered plugin: " .. pluginName)
 
+    if pluginName == "WotLKDB" and Questie.wotlkStatsCache then
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestiePluginAPI] Applying cached WotLK stats...")
+        plugin.stats.QUEST  = Questie.wotlkStatsCache.QUEST  or 0
+        plugin.stats.NPC    = Questie.wotlkStatsCache.NPC    or 0
+        plugin.stats.OBJECT = Questie.wotlkStatsCache.OBJECT or 0
+        plugin.stats.ITEM   = Questie.wotlkStatsCache.ITEM   or 0
+    end
+
     return plugin
 end
 

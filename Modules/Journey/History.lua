@@ -65,7 +65,7 @@ function _QuestieJourney:GetJourneyEntries()
     local dateTable = {}
     -- -- Sort all of the entries by year and month
     -- ---@param v JourneyEntry
-    for i, v in ipairs(Questie.db.char.journey) do
+    for i, v in ipairs(Questie.dbJourney.char.journey) do
         local year = tonumber(date('%Y', v.Timestamp))
         if (not dateTable[year]) then
             dateTable[year] = {}

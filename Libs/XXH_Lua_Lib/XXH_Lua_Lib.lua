@@ -24,12 +24,13 @@ API:
 
 ]]
 
-local bit    = bit
-local band   = bit.band
-local bor    = bit.bor
-local bxor   = bit.bxor
-local lshift = bit.lshift
-local rshift = bit.rshift
+local bit    = _G.bit
+local band   = bit and bit.band
+local bor    = bit and bit.bor
+local bxor   = bit and bit.bxor
+local lshift = bit and bit.lshift
+local rshift = bit and bit.rshift
+
 
 local string = string
 local sbyte  = string.byte

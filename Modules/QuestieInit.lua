@@ -1,4 +1,5 @@
 ---@class QuestieInit
+
 local QuestieInit = QuestieLoader:CreateModule("QuestieInit")
 local _QuestieInit = QuestieInit.private
 
@@ -57,6 +58,8 @@ local QuestieValidateGameCache = QuestieLoader:ImportModule("QuestieValidateGame
 local MinimapIcon = QuestieLoader:ImportModule("MinimapIcon")
 ---@type QuestieComms
 local QuestieComms = QuestieLoader:ImportModule("QuestieComms");
+---@type QuestieCompat
+local QuestieCompat = QuestieLoader:ImportModule("QuestieCompat")
 ---@type QuestieOptions
 local QuestieOptions = QuestieLoader:ImportModule("QuestieOptions");
 ---@type QuestieCoords
@@ -92,7 +95,14 @@ local QuestieServer = QuestieLoader:ImportModule("QuestieServer")
 local WOW_PROJECT_ID = QuestieCompat.WOW_PROJECT_ID
 local C_Timer = QuestieCompat.C_Timer
 
-local coYield = coroutine.yield
+-- Safe yield: only yields when we are actually inside a running coroutine.
+-- Without this check, coroutine.yield() throws "attempt to yield across C-call boundary"
+-- when Stage 1 runs synchronously inside AceAddon's pcall (a C stack frame).
+local function coYield()
+    if coroutine.running() then
+        coroutine.yield()
+    end
+end
 
 local function _dbStats(t)
     if type(t) ~= "table" then return "type=" .. type(t) end
@@ -134,6 +144,29 @@ local function loadFullDatabase()
     print("\124cFF4DDBFF [5/9] " .. l10n("Optimizing waypoints") .. "...")
     coYield()
     QuestieCorrections:PreCompile()
+end
+
+function QuestieInit:OnInitialize()
+    if QuestieInit.initialized then return end
+    QuestieInit.initialized = true
+    if QuestieInit.Stages and QuestieInit.Stages[1] and (not QuestieInit.stage1Done) then
+        QuestieInit.stage1Done = true
+        -- Run Stage 1 inside a coroutine so that all coroutine.yield() calls
+        -- in Stage 1 and its callees (Townsfolk, compiler, etc.) have a valid
+        -- coroutine context.  AceAddon calls OnInitialize from a C pcall boundary
+        -- so calling coroutine.yield() without an enclosing coroutine crashes.
+        -- We drain the coroutine synchronously (resume until dead) so that
+        -- QuestieDB.QuestPointers is set before OnInitialize returns.
+        local co = coroutine.create(QuestieInit.Stages[1])
+        while coroutine.status(co) == "suspended" do
+            local ok, err = coroutine.resume(co)
+            if not ok then
+                print(debugstack(co))
+                break
+            end
+        end
+    else
+    end
 end
 
 ---Run the validator
@@ -226,16 +259,22 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
         dbCompiledLang = Questie.db.global.dbCompiledLang
     end
 
+
     if Questie.IsSoD then
         coYield()
         SeasonOfDiscovery.Initialize()
     end
 
     -- Check if the DB needs to be recompiled
+    do
+        local addonV = QuestieLib:GetAddonVersionString()
+        local uiLoc = l10n:GetUILocale()
+        local storedExp = Questie.db.global.dbCompiledExpansion
+    end
     if (not dbIsCompiled) or (QuestieLib:GetAddonVersionString() ~= dbCompiledOnVersion) or (l10n:GetUILocale() ~= dbCompiledLang) or (Questie.db.global.dbCompiledExpansion ~= WOW_PROJECT_ID) then
-        print("\124cFFAAEEFF" ..
+        print("|cFFAAEEFF" ..
         l10n("Questie DB has updated!") ..
-        "\124r\124cFFFF6F22 " .. l10n("Data is being processed, this may take a few moments and cause some lag..."))
+        "|r|cFFFF6F22 " .. l10n("Data is being processed, this may take a few moments and cause some lag..."))
         loadFullDatabase()
         Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] Before Compile - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
         QuestieDBCompiler:Compile()
@@ -294,10 +333,15 @@ QuestieInit.Stages[2] = function()
     local keepWaiting = true
     -- We had users reporting that a quest did not reach a valid state in the game cache.
     -- In this case we still need to continue the initialization process, even though a specific quest might be bugged
+    -- 3-second timeout for cache validation
     C_Timer.After(3, function()
         if keepWaiting then
-            Questie:Debug(Questie.DEBUG_CRITICAL, "QuestieInit: Timeout waiting for Game Cache validation. Continuing.")
+            Questie:Error("[QuestieInit:Stage2] Quest cache validation timed out! Some data may be missing.")
             keepWaiting = false
+            local ok, err = coroutine.resume(QuestieInit.Thread)
+            if not ok then
+                Questie:Debug(Questie.DEBUG_INFO, "[QuestieInit:Stage2] Resume failed (timeout): " .. tostring(err))
+            end
         end
     end)
 
@@ -424,6 +468,7 @@ function QuestieInit:LoadDatabase(key)
             elseif tocversion >= 20500 and tocversion < 30000 then isModernClient = true -- TBC Classic
             elseif tocversion >= 30400 and tocversion < 40000 then isModernClient = true -- WotLK Classic
             elseif tocversion >= 40400 and tocversion < 50000 then isModernClient = true -- Cata Classic
+            elseif tocversion >= 50000 and tocversion < 60000 then isModernClient = true -- MoP (e.g. 50400)
             end
         end
         if isModernClient then
@@ -473,8 +518,7 @@ function QuestieInit:UpdateWotLKDBStats()
         OBJECT = _countTable(_G["QuestieX_WotLKDB_object"]),
         ITEM   = _countTable(_G["QuestieX_WotLKDB_item"]),
     }
-    -- Fix #11: Do NOT write to _G.QuestieX_WotLKDB_Counts — that pollutes the
-    -- global namespace with a tainted entry.  Push counts only to the plugin object.
+    Questie.wotlkStatsCache = counts
     local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
     if QuestiePluginAPI then
         local wotlkPlugin = QuestiePluginAPI:GetPlugin("WotLKDB")
@@ -529,7 +573,7 @@ function QuestieInit:LoadBaseDB()
     }
     Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] WotLKDB pull: quest=" .. tostring(_pulled.quest) .. " npc=" .. tostring(_pulled.npc) .. " obj=" .. tostring(_pulled.object) .. " item=" .. tostring(_pulled.item))
 
-    -- Fix #11: second site — push counts only to plugin object, not to _G.
+    Questie.wotlkStatsCache = _counts
     local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
     if QuestiePluginAPI then
         local wotlkPlugin = QuestiePluginAPI:GetPlugin("WotLKDB")
@@ -549,15 +593,36 @@ end
 
 function _QuestieInit.StartStageCoroutine()
     for i = 1, #QuestieInit.Stages do
-        QuestieInit.Stages[i]()
-        Questie:Debug(Questie.DEBUG_INFO, "[QuestieInit:StartStageCoroutine] Stage " .. i .. " done.")
+        if i == 1 and QuestieInit.stage1Done then
+            Questie:Debug(Questie.DEBUG_INFO, "[QuestieInit:StartStageCoroutine] Stage 1 already done, skipping.")
+        else
+            if i == 1 then QuestieInit.stage1Done = true end
+            QuestieInit.Stages[i]()
+            Questie:Debug(Questie.DEBUG_INFO, "[QuestieInit:StartStageCoroutine] Stage " .. i .. " done.")
+        end
     end
 end
 
 -- called by the PLAYER_LOGIN event handler
 function QuestieInit:Init()
-    ThreadLib.ThreadError(_QuestieInit.StartStageCoroutine, Questie.db.profile.initDelay or 0,
-        l10n("Error during initialization!"))
+    QuestieInit.Thread = coroutine.create(_QuestieInit.StartStageCoroutine)
+    
+    local function resumeInit()
+        if not QuestieInit.Thread or coroutine.status(QuestieInit.Thread) == "dead" then
+            return -- coroutine finished or failed
+        end
+        local ok, err = coroutine.resume(QuestieInit.Thread)
+        if not ok then
+            local stack = debugstack(QuestieInit.Thread)
+            local msg = "QuestieInit Thread CRASHED: " .. tostring(err) .. "\n" .. tostring(stack)
+            Questie:Error(msg)
+            print("|cFFFF0000" .. msg .. "|r")
+        elseif coroutine.status(QuestieInit.Thread) ~= "dead" then
+            C_Timer.After(0.02, resumeInit) -- continue yielding using the timer shim
+        end
+    end
+    
+    resumeInit()
 
     if Questie.db.profile.trackerEnabled then
         -- This needs to be called ASAP otherwise tracked Achievements in the Blizzard WatchFrame shows upon login

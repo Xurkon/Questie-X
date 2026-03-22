@@ -66,6 +66,59 @@ local migrationFunctions = {
     end,
     [5] = function()
         Questie.db.profile.enableTooltipsNextInChain = true
+    end,
+    [6] = function()
+        if Questie.dbCache and Questie.dbCache.global then
+            Questie:Debug(Questie.DEBUG_INFO, "[Migration] Offloading compiled database binary blobs to separate SavedVariable...")
+            local keys = {"npcBin", "npcPtrs", "questBin", "questPtrs", "objBin", "objPtrs", "itemBin", "itemPtrs"}
+            -- Handle standard keys
+            for _, k in ipairs(keys) do
+                if Questie.db.global[k] then
+                    Questie.dbCache.global[k] = Questie.db.global[k]
+                    Questie.db.global[k] = nil
+                end
+            end
+            -- Handle SoD keys
+            if Questie.db.global.sod then
+                Questie.dbCache.global.sod = Questie.dbCache.global.sod or {}
+                for _, k in ipairs(keys) do
+                    if Questie.db.global.sod[k] then
+                        Questie.dbCache.global.sod[k] = Questie.db.global.sod[k]
+                        Questie.db.global.sod[k] = nil
+                    end
+                end
+                -- Also move other SoD metadata
+                local sodMetadata = {"dbCompiledOnVersion", "dbCompiledLang", "dbIsCompiled", "dbCompiledCount"}
+                for _, k in ipairs(sodMetadata) do
+                    if Questie.db.global.sod[k] then
+                        Questie.dbCache.global.sod[k] = Questie.db.global.sod[k]
+                        Questie.db.global.sod[k] = nil
+                    end
+                end
+            end
+            -- Move global metadata
+            local globalMetadata = {"dbCompiledExpansion", "dbCompiledOnVersion", "dbCompiledLang", "dbIsCompiled", "dbCompiledCount"}
+            for _, k in ipairs(globalMetadata) do
+                if Questie.db.global[k] then
+                    Questie.dbCache.global[k] = Questie.db.global[k]
+                    Questie.db.global[k] = nil
+                end
+            end
+        end
+    end,
+    [7] = function()
+        -- Offload Journey history to its own SavedVariable
+        if Questie.dbJourney and Questie.dbJourney.char then
+            if Questie.db.char and Questie.db.char.journey and (table.getn(Questie.db.char.journey) > 0) then
+                Questie:Debug(Questie.DEBUG_INFO, "[Migration] Offloading Journey history to separate SavedVariable...")
+                Questie.dbJourney.char.journey = Questie.db.char.journey
+                Questie.db.char.journey = nil
+            end
+        end
+        -- Final cleanup of old learnedData from main config if still present
+        if Questie.db and Questie.db.global and Questie.db.global.learnedData then
+             Questie.db.global.learnedData = nil
+        end
     end
 }
 

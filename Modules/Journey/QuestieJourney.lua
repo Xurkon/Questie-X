@@ -155,7 +155,7 @@ function QuestieJourney:PlayerLevelUp(level)
         Timestamp = time()
     }
 
-    tinsert(Questie.db.char.journey, entry)
+    tinsert(Questie.dbJourney.char.journey, entry)
 end
 
 function QuestieJourney:AcceptQuest(questId)
@@ -169,16 +169,15 @@ function QuestieJourney:AcceptQuest(questId)
         Timestamp = time()
     }
 
-    tinsert(Questie.db.char.journey, entry)
+    tinsert(Questie.dbJourney.char.journey, entry)
 end
 
 function QuestieJourney:AbandonQuest(questId)
     -- Abandon Quest added to Journey
     -- first check to see if the quest has been completed already or not
     local skipAbandon = false
-    for i in ipairs(Questie.db.char.journey) do
-
-        local entry = Questie.db.char.journey[i]
+    for i in ipairs(Questie.dbJourney.char.journey) do
+        local entry = Questie.dbJourney.char.journey[i]
         if entry.Event == "Quest" then
             if entry.Quest == questId then
                 if entry.SubType == "Complete" then
@@ -198,7 +197,7 @@ function QuestieJourney:AbandonQuest(questId)
             Timestamp = time()
         }
 
-        tinsert(Questie.db.char.journey, entry)
+        tinsert(Questie.dbJourney.char.journey, entry)
     end
 end
 
@@ -213,5 +212,5 @@ function QuestieJourney:CompleteQuest(questId)
         Timestamp = time()
     }
 
-    tinsert(Questie.db.char.journey, entry)
+    tinsert(Questie.dbJourney.char.journey, entry)
 end

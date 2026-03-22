@@ -348,6 +348,17 @@
     </div>
 
     <div class="container">
+        <h2 id="v146">v1.4.6 &mdash; Saved Variables &amp; Texture Fixes</h2>
+        <ul>
+            <li><strong>[Fix]</strong> Resolved issue where Questie would not save options or show the Welcome screen repeatedly.</li>
+            <li><strong>[Fix]</strong> Synchronized AceAddon registration name to "Questie-X" to match folder structure.</li>
+            <li><strong>[Fix]</strong> Patched AceGUI-3.0 widgets to use string texture paths instead of FileDataIDs for WotLK 3.3.5a.</li>
+            <li><strong>[Cleanup]</strong> Removed all QX debug print statements.</li>
+            <li><strong>[Version]</strong> Bumped version to 1.4.6 across the codebase.</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v145">v1.4.5 &mdash; Network &amp; Taint Stability Update</h2>
         <ul>
             <li><strong>[Network Fix]</strong> Resolved a critical crash ("<code>Usage: AceSerializer:Deserialize(str): str must be a string, got table</code>") occurring in QuestieLearnerComms and Export functions. This was caused by a lightweight, customized <code>AceSerializer-3.0.lua</code> implementation in Questie-X that lacked proper <code>self</code> parameter handling for standard colon-syntax method calls (<code>:</code>). As a result, method calls were serializing/deserializing the library table itself instead of the intended payload string. We patched <code>AceSerializer</code> natively to dynamically support both dot (<code>.</code>) and colon (<code>:</code>) syntax seamlessly without dropping arguments, while ensuring <code>Deserialize</code> correctly yields <code>(success, result)</code> tuples expected by the calling functions.</li>

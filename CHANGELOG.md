@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.4.7 (2026-03-22)
+- **[Database Plugin Architecture]** Refactored the WotLK database plugin to avoid monolithic global arrays. Database tables are now populated safely within a localized `addonTable` rather than injecting payloads directly into `_G.QuestieDB`.
+- **[Taint Resolution]** By avoiding the creation of large `_G` variables during database chunk loading, the `Questie-X-WotLKDB` module is now clean of taint vectors. This definitively resolves the `ADDON_ACTION_BLOCKED` errors that occurred when utilizing secure actions, such as `UseAction()` or `CastSpellByName()`, with `Questie-X-WotLKDB` enabled.
+- **[Database Initialization]** Fixed a capitalization issue in the WotLK database plugin export globals that prevented `QuestieInit` from correctly finding and absorbing the loaded database statistics and payloads.
+
 ## v1.4.6 (2026-03-22)
 - **[Fix]** Resolved issue where Questie would not save options or show the Welcome screen repeatedly. This was caused by version mismatches in `.toc` files and an initialization race condition.
 - **[Fix]** Synchronized AceAddon registration name to `"Questie-X"` to match the folder name, ensuring proper `ADDON_LOADED` event handling and database initialization.

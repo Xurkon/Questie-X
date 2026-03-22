@@ -348,6 +348,15 @@
     </div>
 
     <div class="container">
+        <h2 id="v147">v1.4.7 &mdash; Taint Resolution &amp; WotLKDB Restructure</h2>
+        <ul>
+            <li><strong>[Architecture]</strong> Refactored <code>Questie-X-WotLKDB</code> database files from monolithic global definitions into smaller, manageable chunks using <code>addonTable</code> to prevent memory allocation failures during <code>LoadAddOn()</code> and eliminate global namespace pollution.</li>
+            <li><strong>[Taint Fix]</strong> <code>Loader.lua</code> now explicitly exports WotLKDB data to <code>_G.QuestieX_WotLKDB_*</code> with proper capitalization (<code>npc</code>, <code>object</code>, <code>item</code>, <code>quest</code>) to match QuestieInit's expectations, fully resolving database loading failures and taint vectors.</li>
+            <li><strong>[Version]</strong> Bumped version to 1.4.7 across the codebase.</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v146">v1.4.6 &mdash; Saved Variables &amp; Texture Fixes</h2>
         <ul>
             <li><strong>[Fix]</strong> Resolved issue where Questie would not save options or show the Welcome screen repeatedly.</li>

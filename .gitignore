@@ -14,11 +14,6 @@ workflow/
 !LICENSE
 !Icons/MIT.txt
 
-# Build/tool artifacts
-__pycache__/
-.agents/
-
-# Local dev files
 coords.lua
 debug.lua
 debug_tooltip.lua
@@ -26,5 +21,18 @@ debug_tooltip.lua
 Research/
 Tools/
 tests/
+Tests/
 docs/
 !docs/changelog.html
+tmp_*.py
+release_notes.txt
+workflow/
+__pycache__/
+.agents/
+.idea/
+.vscode/
+*.zip
+*.log
+*.tmp
+*.bak
+*.old

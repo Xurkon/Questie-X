@@ -77,7 +77,9 @@ local function OnQuestLogUpdate()
                     if objectiveList and objectiveList[1] then
                         local hasInvalidObjective = false
                         for _, objective in pairs(objectiveList) do
-                            if (not objective.text) or (stringByte(objective.text, 1) == 32) then
+                            -- Fix: Only fail if text is nil or empty. 
+                            -- Leading spaces (ASCII 32) are common on some servers/quests and shouldn't block initialization.
+                            if (not objective.text) or (objective.text == "") then
                                 isQuestLogGood = false
                                 hasInvalidObjective = true
                                 break

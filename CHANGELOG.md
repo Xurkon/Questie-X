@@ -1,6 +1,7 @@
 # Changelog
 
 ## v1.4.7 (2026-03-22)
+- **[Quest Cache]** Resolved the "Quest cache validation timed out!" error during initialization. Increased the validation timeout from 3 to 10 seconds and relaxed the internal validation criteria to prevent false-positives on slow servers or with custom quest data.
 - **[Database Plugin Architecture]** Refactored the WotLK database plugin to avoid monolithic global arrays. Database tables are now populated safely within a localized `addonTable` rather than injecting payloads directly into `_G.QuestieDB`.
 - **[Taint Resolution]** By avoiding the creation of large `_G` variables during database chunk loading, the `Questie-X-WotLKDB` module is now clean of taint vectors. This definitively resolves the `ADDON_ACTION_BLOCKED` errors that occurred when utilizing secure actions, such as `UseAction()` or `CastSpellByName()`, with `Questie-X-WotLKDB` enabled.
 - **[Database Initialization]** Fixed a capitalization issue in the WotLK database plugin export globals that prevented `QuestieInit` from correctly finding and absorbing the loaded database statistics and payloads.

@@ -333,10 +333,10 @@ QuestieInit.Stages[2] = function()
     local keepWaiting = true
     -- We had users reporting that a quest did not reach a valid state in the game cache.
     -- In this case we still need to continue the initialization process, even though a specific quest might be bugged
-    -- 3-second timeout for cache validation
-    C_Timer.After(3, function()
+    -- 10-second timeout for cache validation (increased from 3s for slow servers)
+    C_Timer.After(10, function()
         if keepWaiting then
-            Questie:Error("[QuestieInit:Stage2] Quest cache validation timed out! Some data may be missing.")
+            Questie:Debug(Questie.DEBUG_INFO, "[QuestieInit:Stage2] Quest cache validation timed out! Some data may still be loading.")
             keepWaiting = false
             local ok, err = coroutine.resume(QuestieInit.Thread)
             if not ok then

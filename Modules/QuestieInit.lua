@@ -107,12 +107,14 @@ end
 local function _dbStats(t)
     if type(t) ~= "table" then return "type=" .. type(t) end
     local n, minK, maxK = 0, math.huge, 0
-    for k in pairs(t) do
+    local k = next(t)
+    while k do
         n = n + 1
         if type(k) == "number" then
             if k < minK then minK = k end
             if k > maxK then maxK = k end
         end
+        k = next(t, k)
     end
     return "count=" .. n .. " minID=" .. (minK == math.huge and 0 or minK) .. " maxID=" .. maxK
 end
@@ -285,9 +287,7 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
         l10n:Initialize()
         coYield()
         QuestieCorrections:MinimalInit()
-        -- DB is cached — LoadBaseDB never runs, so count the WotLKDB globals here
-        -- and push them onto plugin.stats so the Database panel shows correct numbers.
-        QuestieInit:UpdateWotLKDBStats()
+        -- DB is cached — LoadBaseDB never runs, so the plugin loader will handle stats ingestion.
     end
 
     local dbCompiledCount = Questie.IsSoD and Questie.db.global.sod.dbCompiledCount or Questie.db.global.dbCompiledCount
@@ -310,12 +310,18 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
     Tutorial.Initialize()
 
     --? Only run the validator on recompile if debug is enabled, otherwise it's a waste of time.
+    --? Note: Validation is skipped if plugins are pending because plugins inject data after Stage 1,
+    --? so the compiled binary would be stale and validation would fail unnecessarily.
     if Questie.db.profile.debugEnabled and dbCompiled then
-        if Questie.db.profile.skipValidation ~= true then
+        local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
+        if QuestiePluginAPI:HasPendingPlugins() then
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieInit] Skipping validation - plugins are pending and will inject data after compilation")
+            print("\124cFF4DDBFF Validation skipped (plugins pending), load complete.")
+        elseif Questie.db.profile.skipValidation == true then
+            print("\124cFF4DDBFF Validation skipped, load complete.")
+        else
             runValidator()
             print("\124cFF4DDBFF Load and Validation complete.")
-        else
-            print("\124cFF4DDBFF Validation skipped, load complete.")
         end
     end
 
@@ -333,8 +339,8 @@ QuestieInit.Stages[2] = function()
     local keepWaiting = true
     -- We had users reporting that a quest did not reach a valid state in the game cache.
     -- In this case we still need to continue the initialization process, even though a specific quest might be bugged
-    -- 10-second timeout for cache validation (increased from 3s for slow servers)
-    C_Timer.After(10, function()
+    -- 30-second timeout for cache validation (increased from 10s for slow servers)
+    C_Timer.After(30, function()
         if keepWaiting then
             Questie:Debug(Questie.DEBUG_INFO, "[QuestieInit:Stage2] Quest cache validation timed out! Some data may still be loading.")
             keepWaiting = false
@@ -441,6 +447,32 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
         end
     end
 
+    -- Wait for registered plugins to finish loading (ensure data injection is complete)
+    local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
+    local waitStart = GetTime()
+    -- Give other addons/scripts a moment to fire and register if they were waiting for PLAYER_LOGIN
+    Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] Waiting for plugins to register/finish. Initial pending: " .. QuestiePluginAPI.pendingPluginsCount)
+    
+    while (GetTime() - waitStart < 2.0) do
+        coYield()
+    end
+    
+    local timeout = 10
+    local elapsed = GetTime() - waitStart
+    while QuestiePluginAPI:HasPendingPlugins() and (elapsed < timeout) do
+        if ((math.floor(elapsed * 10) % 10) == 0) then -- log every second
+            Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] Still waiting for plugins... Pending: " .. QuestiePluginAPI.pendingPluginsCount .. " Elapsed: " .. string.format("%.1f", elapsed))
+        end
+        coYield()
+        elapsed = GetTime() - waitStart
+    end
+    
+    if QuestiePluginAPI:HasPendingPlugins() then
+        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] TIMEOUT waiting for plugins! Proceeding anyway. Pending: " .. QuestiePluginAPI.pendingPluginsCount)
+    else
+        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] All registered plugins finished loading.")
+    end
+
     -- We do this last because it will run for a while and we don't want to block the rest of the init
     coYield()
     AvailableQuests.CalculateAndDrawAll()
@@ -505,85 +537,12 @@ function QuestieInit:LoadDatabase(key)
     end
 end
 
-function QuestieInit:UpdateWotLKDBStats()
-    local function _countTable(t)
-        if type(t) ~= "table" then return 0 end
-        local n = 0
-        for _ in pairs(t) do n = n + 1 end
-        return n
-    end
-    local counts = {
-        QUEST  = _countTable(_G["QuestieX_WotLKDB_quest"]),
-        NPC    = _countTable(_G["QuestieX_WotLKDB_npc"]),
-        OBJECT = _countTable(_G["QuestieX_WotLKDB_object"]),
-        ITEM   = _countTable(_G["QuestieX_WotLKDB_item"]),
-    }
-    Questie.wotlkStatsCache = counts
-    local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
-    if QuestiePluginAPI then
-        local wotlkPlugin = QuestiePluginAPI:GetPlugin("WotLKDB")
-        if wotlkPlugin then
-            wotlkPlugin.stats.QUEST  = counts.QUEST
-            wotlkPlugin.stats.NPC    = counts.NPC
-            wotlkPlugin.stats.OBJECT = counts.OBJECT
-            wotlkPlugin.stats.ITEM   = counts.ITEM
-        end
-    end
-
-    -- Fix #11: When the database is already compiled (cached), LoadBaseDB is never
-    -- run, so the global cleanup there is skipped. We MUST clean the namespace here
-    -- to prevent continuous ADDON_ACTION_BLOCKED taint errors during gameplay.
-    -- (Doing this also frees ~20MB of redundant RAM since the data is cached!)
-    _G["QuestieX_WotLKDB_quest"] = nil
-    _G["QuestieX_WotLKDB_npc"] = nil
-    _G["QuestieX_WotLKDB_object"] = nil
-    _G["QuestieX_WotLKDB_item"] = nil
-end
+-- Stats are now managed via QuestiePluginAPI directly during injection.
+-- Redundant UpdateWotLKDBStats removed to prevent duplication and inaccuracies.
 
 function QuestieInit:LoadBaseDB()
-    local function _countTable(t)
-        if type(t) ~= "table" then return 0 end
-        local n = 0
-        for _ in pairs(t) do n = n + 1 end
-        return n
-    end
-
-    local function _pullGlobal(dbKey, globalName)
-        if type(_G[globalName]) == "table" then
-            QuestieDB[dbKey] = _G[globalName]
-            _G[globalName] = nil  -- Remove tainted global from _G; data lives on through QuestieDB[dbKey]
-            return true
-        end
-        return false
-    end
-
-    -- Count BEFORE pulling so we have accurate numbers even after the globals are cleared
-    local _counts = {
-        QUEST  = _countTable(_G["QuestieX_WotLKDB_quest"]),
-        NPC    = _countTable(_G["QuestieX_WotLKDB_npc"]),
-        OBJECT = _countTable(_G["QuestieX_WotLKDB_object"]),
-        ITEM   = _countTable(_G["QuestieX_WotLKDB_item"]),
-    }
-
-    local _pulled = {
-        quest  = _pullGlobal("questData",  "QuestieX_WotLKDB_quest"),
-        npc    = _pullGlobal("npcData",    "QuestieX_WotLKDB_npc"),
-        object = _pullGlobal("objectData", "QuestieX_WotLKDB_object"),
-        item   = _pullGlobal("itemData",   "QuestieX_WotLKDB_item"),
-    }
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] WotLKDB pull: quest=" .. tostring(_pulled.quest) .. " npc=" .. tostring(_pulled.npc) .. " obj=" .. tostring(_pulled.object) .. " item=" .. tostring(_pulled.item))
-
-    Questie.wotlkStatsCache = _counts
-    local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
-    if QuestiePluginAPI then
-        local wotlkPlugin = QuestiePluginAPI:GetPlugin("WotLKDB")
-        if wotlkPlugin then
-            wotlkPlugin.stats.QUEST  = _counts.QUEST
-            wotlkPlugin.stats.NPC    = _counts.NPC
-            wotlkPlugin.stats.OBJECT = _counts.OBJECT
-            wotlkPlugin.stats.ITEM   = _counts.ITEM
-        end
-    end
+    -- Pointer compilation will look at npcDataOverrides etc, which are populated by plugins.
+    -- Base tables (Classic) are loaded here.
 
     QuestieInit:LoadDatabase("npcData")
     QuestieInit:LoadDatabase("objectData")

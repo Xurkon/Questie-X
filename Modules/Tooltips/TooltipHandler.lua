@@ -42,7 +42,7 @@ local function _WipeTable(t)
     if wipe then
         wipe(t)
     else
-        for k in pairs(t) do
+        for k in next, t do
             t[k] = nil
         end
     end
@@ -151,26 +151,26 @@ local function _TryBuildNpcQuestStarterDrops()
             local npcDrops = QuestieDB.QueryItemSingle(itemId, "npcDrops")
             if npcDrops and type(npcDrops) == "table" then
                 local itemName = QuestieDB.QueryItemSingle(itemId, "name")
-                for _, npcId in pairs(npcDrops) do
+                for _, npcId in next, npcDrops do
                     local list = _npcQuestStarterDrops[npcId]
                     if not list then
                         list = {}
                         _npcQuestStarterDrops[npcId] = list
                     end
-                    list[#list + 1] = { itemId = itemId, questId = tonumber(questId), name = itemName }
+                    list[table.getn(list) + 1] = { itemId = itemId, questId = tonumber(questId), name = itemName }
                 end
             end
         end
     end
 
     -- Iterate all items from compiled database
-    for itemId, _ in pairs(pointers) do
+    for itemId, _ in next, pointers do
         processItem(itemId)
     end
 
     -- Also iterate Ascension override items (they don't have pointers)
     if QuestieDB.itemDataOverrides and type(QuestieDB.itemDataOverrides) == "table" then
-        for itemId, _ in pairs(QuestieDB.itemDataOverrides) do
+        for itemId, _ in next, QuestieDB.itemDataOverrides do
             processItem(itemId)
         end
     end
@@ -199,7 +199,7 @@ local function _AddQuestStarterDropsToTooltip(npcId)
     if not _npcQuestStarterDrops then return end
 
     local drops = _npcQuestStarterDrops[npcId]
-    if not drops or #drops == 0 then return end
+    if not drops or table.getn(drops) == 0 then return end
 
     if _TooltipHasQuestStarterLine(GameTooltip) then
         return
@@ -207,19 +207,23 @@ local function _AddQuestStarterDropsToTooltip(npcId)
 
     -- Filter drops to only show items where player doesn't have the quest yet
     local filteredDrops = {}
-    for _, info in ipairs(drops) do
+    local dropsCount = table.getn(drops)
+    for i = 1, dropsCount do
+        local info = drops[i]
         if info.questId and (not _PlayerHasQuest(info.questId)) then
-            filteredDrops[#filteredDrops + 1] = info
+            filteredDrops[table.getn(filteredDrops) + 1] = info
         end
     end
 
-    if #filteredDrops == 0 then
+    if table.getn(filteredDrops) == 0 then
         return
     end
 
     GameTooltip:AddLine(QUEST_START_LINE)
 
-    for _, info in ipairs(filteredDrops) do
+    local filteredCount = table.getn(filteredDrops)
+    for i = 1, filteredCount do
+        local info = filteredDrops[i]
         local itemId = info.itemId
         local questId = info.questId
 
@@ -256,9 +260,8 @@ function _QuestieTooltips:AddUnitDataToTooltip()
         guid = UnitGUID("mouseover");
     end
 
-    local type, _, _, _, _, npcId, _ = strsplit("-", guid or "");
-
-    if name and (type == "Creature" or type == "Vehicle") and (
+    local guidType, _, _, _, _, npcId, _ = strsplit("-", guid or "");
+    if name and (guidType == "Creature" or guidType == "Vehicle") and (
             name ~= QuestieTooltips.lastGametooltipUnit or
             (not QuestieTooltips.lastGametooltipCount) or
             _QuestieTooltips:CountTooltip() < QuestieTooltips.lastGametooltipCount or
@@ -273,7 +276,7 @@ function _QuestieTooltips:AddUnitDataToTooltip()
             if Questie.db.profile.enableTooltipsNPCID == true then
                 GameTooltip:AddDoubleLine("NPC ID", "|cFFFFFFFF" .. npcId .. "|r")
             end
-            for _, v in pairs(tooltipData) do
+            for _, v in next, tooltipData do
                 GameTooltip:AddLine(v)
             end
         else
@@ -325,7 +328,7 @@ function _QuestieTooltips:AddItemDataToTooltip()
             if Questie.db.profile.enableTooltipsItemID == true then
                 GameTooltip:AddDoubleLine("Item ID", "|cFFFFFFFF" .. itemId .. "|r")
             end
-            for _, v in pairs(tooltipData) do
+            for _, v in next, tooltipData do
                 self:AddLine(v)
             end
         end
@@ -354,7 +357,7 @@ function _QuestieTooltips:AddObjectDataToTooltip(name)
         end
 
         local alreadyAddedObjectiveLines = {}
-        for _, gameObjectId in pairs(lookup) do
+        for _, gameObjectId in next, lookup do
             local tooltipData = QuestieTooltips:GetTooltip("o_" .. gameObjectId);
 
             if type(gameObjectId) == "number" and tooltipData then
@@ -365,7 +368,7 @@ function _QuestieTooltips:AddObjectDataToTooltip(name)
 
                 if tooltipData[2] then
                     -- Quest has objectives
-                    for index, line in pairs(tooltipData) do
+                    for index, line in next, tooltipData do
                         if index > 1 and (not alreadyAddedObjectiveLines[line]) then -- skip the first entry, it's the title
                             local _, _, acquired, needed = string.find(line, "(%d+)/(%d+)")
                             -- We need "tonumber", because acquired can contain parts of the color string

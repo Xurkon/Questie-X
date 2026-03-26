@@ -12,7 +12,7 @@ local ZOOM_MODIFIER = 1;
 
 -- All the speed we can get is worth it.
 local tinsert = table.insert
-local pairs = pairs
+local next = next
 
 function QuestieMap.utils:SetDrawOrder(frame)
     -- This is all fixes to always be on top of HandyNotes notes Let the frame level wars begin.
@@ -69,7 +69,7 @@ end
 ---@return number x, number y @Center coordinates
 function QuestieMap.utils.CenterPoint(points)
     local x, y = 0, 0
-    local count = #points
+    local count = table.getn(points)
     for i=1, count do
         local point = points[i]
         x = x + point.x
@@ -88,7 +88,7 @@ function QuestieMap.utils:CalcHotzones(points, rangeR, count)
 --    if(points == nil) then return nil; end
 
     local hotzones = {}
-    local pointsCount = #points
+    local pointsCount = table.getn(points)
 
     if pointsCount == 1 then
         -- This is execution shortcut to skip loop in case table size == 1
@@ -130,11 +130,11 @@ function QuestieMap.utils:CalcHotzones(points, rangeR, count)
                     local distance = QuestieLib:Euclid(aX, aY, point2.worldX, point2.worldY)
                     if (distance < movingRange) then
                         point2.touched = true
-                        notes[#notes+1] = point2
+                        tinsert(notes, point2)
                     end
                 end
             end
-            hotzones[#hotzones+1] = notes
+            tinsert(hotzones, notes)
         end
     end
     return hotzones
@@ -168,8 +168,8 @@ function QuestieMap.utils:IsExplored(uiMapId, x, y)
 end
 
 function QuestieMap.utils:MapExplorationUpdate()
-    for _, frameList in pairs(QuestieMap.questIdFrames) do
-        for _, frameName in pairs(frameList) do
+    for _, frameList in next, QuestieMap.questIdFrames do
+        for _, frameName in next, frameList do
             local frame = _G[frameName]
             if (frame and frame.x and frame.y and frame.UiMapID and frame.hidden) then
                 if (QuestieMap.utils:IsExplored(frame.UiMapID, frame.x, frame.y)) then

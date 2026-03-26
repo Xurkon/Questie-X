@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.4.9 (2026-03-26)
+
+- **[Fix — Quest Cache]** Resolved the "GetQuest: The quest doesn't exist in QuestLogCache" fatal error occurring during initialization on the Ascension WoW client.
+  - Implemented a robust retry mechanism in `_QuestEventHandler:InitQuestLog` to wait for the game's quest log data to become fully available before populating the local cache.
+  - Refactored `QuestLogCache.GetQuest` and `GetQuestObjectives` to fail gracefully (returning `nil` or `{}`, respectively) instead of throwing a fatal error when data is accessed prematurely during the initialization handshake.
+- **[Robustness]** Improved cache-miss handling for `questId == 0` and early-access calls from third-party addons during the login process.
+- **[Fix — Validation Crash]** Fixed crash in `DecodePointerMap` when compiled database pointer map was empty or corrupted. Added defensive check to return empty table instead of crashing.
+- **[Fix — Database Compiler]** Added skip logic in `ValidateObjects` and `ValidateQuests` when compiled binary data is missing, preventing validation failures on cached databases from incomplete previous sessions.
+- **[Fix — Initialization]** Modified `QuestieInit` to skip validation in Stage 1 when plugins are pending, since plugins inject data after compilation and validation would compare stale pre-plugin data against post-plugin data.
+- **[Fix — Quest Links]** Fixed duplicate quest links when shift-clicking quests in the quest log (e.g., "[A Boar's Vitality] [A Boar's Vitality]"). Removed redundant `ChatEdit_InsertLink` call from `QuestLogTitleButton_OnClick` hook; Blizzard's native function now handles link insertion.
+- **[Fix — Profiler]** Fixed "memory allocation error: block too big" crash in `QuestieProfiler`. Added early-exit logic in `HookTable` to skip large pure-data tables (e.g., `npcDataOverrides` spawn coordinates) that don't benefit from profiling.
+- **[Fix — Zone Mapping]** Added UiMapId overrides for 1415 (Eastern Kingdoms) and 947 (Azeroth) in `zoneDB.lua` to resolve "No AreaId found" warnings on Ascension servers.
+- **[Fix — Quest Validation]** Fixed `QuestieValidateGameCache` to silently skip "ghost quests" (removed from database but still in quest log) instead of failing validation, resolving infinite retry loops on servers with custom quest content.
+- **[Fix — AscensionDB]** Fixed syntax error in `AscensionNpcDB_2.lua` (missing closing `}` at end of NPC entry for ID 3287).
+
+## v1.4.8 (2026-03-25)
+
+- **[Plugin Synchronization]** Overhauled the Questie-X plugin loading architecture. Introduced `QuestiePluginAPI:FinishLoading()` and a registration handshake to resolve race conditions during addon initialization. By ensuring that database plugins report their data-injection status before `QuestieInit` Stage 3 completes, we eliminated "ghost maps" where pins and statistics would fail to render until a manual `/reload`.
+- **[Universal Lua 5.0 Refactor]** Executed a codebase-wide transition from `pairs()` and `ipairs()` to `next()` and numeric loops. This refactor targets the Lua 5.0 engine used by legacy clients (e.g., Turtle WoW), which can exhibit inconsistent behavior or performance degradation when using standard iterators in high-frequency database sweeps. This change guarantees stable, universal performance across all WoW versions from 1.12 to 3.3.5+.
+- **[Fix — MapIconTooltip]** Fixed a critical syntax error in `MapIconTooltip.lua` at line 239. A malformed `if` statement was trapping execution, preventing tooltips from updating when hovering over Quest objectives on the World Map.
+- **[Fix — AscensionDB]** Enhanced realm-specific logic in `AscensionLoader.lua`. The loader now utilizes an pattern-matching check against `GetRealmName()` to correctly identify and apply custom database overrides for all Project Ascension realms, including seasonal and specialized rule-set servers.
+- **[Performance]** Refined the background loading throttler in `QuestieInit`. The initialization sequence now yields more efficiently to the main UI thread during massive database injections, reducing "frame-stutter" during the initial login sequence while strictly maintaining loading priority for essential UI modules.
+
 ## v1.4.7 (2026-03-22)
 - **[Quest Cache]** Resolved the "Quest cache validation timed out!" error during initialization. Increased the validation timeout from 3 to 10 seconds and relaxed the internal validation criteria to prevent false-positives on slow servers or with custom quest data.
 - **[Database Plugin Architecture]** Refactored the WotLK database plugin to avoid monolithic global arrays. Database tables are now populated safely within a localized `addonTable` rather than injecting payloads directly into `_G.QuestieDB`.

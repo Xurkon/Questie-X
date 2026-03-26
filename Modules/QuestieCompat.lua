@@ -90,10 +90,25 @@ if not GetCurrentRegionName then
     end
 end
 
--- addon is running on 3.3.5 WotLK client
+-- Addon is running on a client without WOW_PROJECT_ID defined (e.g. 3.3.5 WotLK)
 do
     local _, _, _, build = GetBuildInfo()
     QuestieCompat.Is335 = (build == 30300)
+
+    -- Polyfill WOW_PROJECT_ID and constants if missing
+    if WOW_PROJECT_ID == nil then
+        _G.WOW_PROJECT_CLASSIC = _G.WOW_PROJECT_CLASSIC or 2
+        _G.WOW_PROJECT_BURNING_CRUSADE_CLASSIC = _G.WOW_PROJECT_BURNING_CRUSADE_CLASSIC or 5
+        _G.WOW_PROJECT_WRATH_CLASSIC = _G.WOW_PROJECT_WRATH_CLASSIC or 11
+
+        if build >= 30000 and build < 40000 then
+            _G.WOW_PROJECT_ID = _G.WOW_PROJECT_WRATH_CLASSIC
+        elseif build >= 20000 and build < 30000 then
+            _G.WOW_PROJECT_ID = _G.WOW_PROJECT_BURNING_CRUSADE_CLASSIC
+        elseif build < 20000 then
+            _G.WOW_PROJECT_ID = _G.WOW_PROJECT_CLASSIC
+        end
+    end
 end
 
 local errorMsg = "Questie tried to call a blizzard API function that does not exist..."

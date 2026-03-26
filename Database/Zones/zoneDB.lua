@@ -43,7 +43,9 @@ ZoneDB.zoneIDs = ZoneDB.private.zoneIDs or {}
 
 -- Overrides for UiMapId to AreaId
 local UiMapIdOverrides = {
-    [246] = 3713
+    [246] = 3713,
+    [1415] = 668, -- Eastern Kingdoms (matches Undercity on Ascension)
+    [947] = 668,  -- Azeroth (matches Undercity on Ascension)
 }
 local parentZoneToSubZone = {} -- Generated
 local zoneMap = {}             -- Generated

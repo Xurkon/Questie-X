@@ -3,12 +3,22 @@ local QuestiePluginAPI = QuestieLoader:CreateModule("QuestiePluginAPI")
 
 QuestiePluginAPI.registeredPlugins = {}
 QuestiePluginAPI.loadedDBFlavor    = nil   -- set by the first DB plugin that calls FinishLoading
+QuestiePluginAPI.pendingPluginsCount = 0   -- count of plugins that have registered but not yet FinishedLoading
 
 --- Returns true if at least one DB plugin has fully loaded.
 ---@return boolean
 function QuestiePluginAPI:IsAnyPluginLoaded()
-    for _ in pairs(self.registeredPlugins) do return true end
+    local name, _ = next(self.registeredPlugins)
+    while name do
+        return true
+    end
     return false
+end
+
+--- Returns true if there are plugins that have registered but not yet finished loading.
+---@return boolean
+function QuestiePluginAPI:HasPendingPlugins()
+    return self.pendingPluginsCount > 0
 end
 
 --- Returns the flavor key of the loaded DB plugin ("WotLK", "Classic", "TBC", "Turtle", "Ascension", etc.)
@@ -46,15 +56,8 @@ function QuestiePluginAPI:RegisterPlugin(pluginName)
     }, QuestiePlugin)
 
     self.registeredPlugins[pluginName] = plugin
-    Questie:Debug(Questie.DEBUG_INFO, "[QuestiePluginAPI] Successfully registered plugin: " .. pluginName)
-
-    if pluginName == "WotLKDB" and Questie.wotlkStatsCache then
-        Questie:Debug(Questie.DEBUG_INFO, "[QuestiePluginAPI] Applying cached WotLK stats...")
-        plugin.stats.QUEST  = Questie.wotlkStatsCache.QUEST  or 0
-        plugin.stats.NPC    = Questie.wotlkStatsCache.NPC    or 0
-        plugin.stats.OBJECT = Questie.wotlkStatsCache.OBJECT or 0
-        plugin.stats.ITEM   = Questie.wotlkStatsCache.ITEM   or 0
-    end
+    self.pendingPluginsCount = self.pendingPluginsCount + 1
+    Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestiePluginAPI] Successfully registered plugin: " .. pluginName .. ". Total pending: " .. self.pendingPluginsCount)
 
     return plugin
 end
@@ -85,32 +88,30 @@ function QuestiePlugin:InjectDatabase(dbType, data)
     QuestieDB.questDataOverrides = QuestieDB.questDataOverrides or {}
 
     local count = 0
+    local targetOverride
     if dbType == "QUEST" then
-        for id, entry in pairs(data) do
-            QuestieDB.questDataOverrides[id] = entry
-            if type(id) == "number" then count = count + 1 end
-        end
+        targetOverride = QuestieDB.questDataOverrides
     elseif dbType == "NPC" then
-        for id, entry in pairs(data) do
-            QuestieDB.npcDataOverrides[id] = entry
-            if type(id) == "number" then count = count + 1 end
-        end
+        targetOverride = QuestieDB.npcDataOverrides
     elseif dbType == "OBJECT" then
-        for id, entry in pairs(data) do
-            QuestieDB.objectDataOverrides[id] = entry
-            if type(id) == "number" then count = count + 1 end
-        end
+        targetOverride = QuestieDB.objectDataOverrides
     elseif dbType == "ITEM" then
-        for id, entry in pairs(data) do
-            QuestieDB.itemDataOverrides[id] = entry
-            if type(id) == "number" then count = count + 1 end
-        end
+        targetOverride = QuestieDB.itemDataOverrides
     else
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestiePluginAPI] Plugin '" .. self.name .. "' passed unknown DB type to InjectDatabase: '" .. tostring(dbType) .. "'. Expected QUEST, NPC, OBJECT, or ITEM.")
         return
     end
 
-    self.stats[dbType] = self.stats[dbType] + count
+    local qid, entry = next(data)
+    while qid do
+        targetOverride[qid] = entry
+        if type(qid) == "number" then
+            count = count + 1
+        end
+        qid, entry = next(data, qid)
+    end
+
+    self.stats[dbType] = (self.stats[dbType] or 0) + count
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestiePluginAPI] Plugin '" .. self.name .. "' injected " .. tostring(count) .. " " .. dbType .. " records.")
 end
 
@@ -130,7 +131,8 @@ function QuestiePlugin:InjectZoneTables(customZoneTables)
     ZoneDB.private.dungeonParentZones = ZoneDB.private.dungeonParentZones or {}
 
     if customZoneTables.uiMapIdToAreaId then
-        for uiMapId, areaId in pairs(customZoneTables.uiMapIdToAreaId) do
+        local uiMapId, areaId = next(customZoneTables.uiMapIdToAreaId)
+        while uiMapId do
             if uiMapId and areaId then
                 ZoneDB.private.uiMapIdToAreaId[uiMapId] = areaId
                 ZoneDB.private.areaIdToUiMapId[uiMapId] = uiMapId
@@ -143,37 +145,46 @@ function QuestiePlugin:InjectZoneTables(customZoneTables)
                     ZoneDB.private.subZoneToParentZone[uiMapId] = areaId
                 end
             end
+            uiMapId, areaId = next(customZoneTables.uiMapIdToAreaId, uiMapId)
         end
     end
 
     if type(customZoneTables.dungeons) == "table" then
-        for areaId, data in pairs(customZoneTables.dungeons) do
+        local areaId, data = next(customZoneTables.dungeons)
+        while areaId do
             if areaId and data then
                 ZoneDB.private.dungeons[areaId] = data
             end
+            areaId, data = next(customZoneTables.dungeons, areaId)
         end
     end
 
     if type(customZoneTables.dungeonLocations) == "table" then
-        for areaId, data in pairs(customZoneTables.dungeonLocations) do
+        local areaId, data = next(customZoneTables.dungeonLocations)
+        while areaId do
             if areaId and data then
                 ZoneDB.private.dungeonLocations[areaId] = data
             end
+            areaId, data = next(customZoneTables.dungeonLocations, areaId)
         end
     end
 
     if type(customZoneTables.dungeonParentZones) == "table" then
-        for subZoneId, parentZoneId in pairs(customZoneTables.dungeonParentZones) do
+        local subZoneId, parentZoneId = next(customZoneTables.dungeonParentZones)
+        while subZoneId do
             if subZoneId and parentZoneId then
                 ZoneDB.private.dungeonParentZones[subZoneId] = parentZoneId
             end
+            subZoneId, parentZoneId = next(customZoneTables.dungeonParentZones, subZoneId)
         end
     end
 
     if customZoneTables.zoneSort then
         ZoneDB.private.zoneSort = ZoneDB.private.zoneSort or {}
-        for zoneId, zoneName in pairs(customZoneTables.zoneSort) do
+        local zoneId, zoneName = next(customZoneTables.zoneSort)
+        while zoneId do
             ZoneDB.private.zoneSort[zoneId] = zoneName
+            zoneId, zoneName = next(customZoneTables.zoneSort, zoneId)
         end
     end
 
@@ -190,13 +201,15 @@ function QuestiePlugin:InjectUiMapData(customUiMapData)
     ZoneDB.private = ZoneDB.private or {}
     ZoneDB.private.areaIdToUiMapId = ZoneDB.private.areaIdToUiMapId or {}
 
-    for uiMapId, data in pairs(customUiMapData.uiMapData) do
+    local uiMapId, data = next(customUiMapData.uiMapData)
+    while uiMapId do
         if uiMapId and ZoneDB.private.areaIdToUiMapId[uiMapId] == nil then
             ZoneDB.private.areaIdToUiMapId[uiMapId] = uiMapId
         end
         if data and type(data.parentMapID) == "number" and ZoneDB.private.areaIdToUiMapId[data.parentMapID] == nil then
             ZoneDB.private.areaIdToUiMapId[data.parentMapID] = uiMapId
         end
+        uiMapId, data = next(customUiMapData.uiMapData, uiMapId)
     end
 
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestiePluginAPI] Plugin '" .. self.name .. "' injected Custom UI Map Data.")
@@ -223,6 +236,12 @@ function QuestiePlugin:FinishLoading(flavorKey)
         QuestiePluginAPI.loadedDBFlavor = flavorKey
     elseif not QuestiePluginAPI.loadedDBFlavor then
         QuestiePluginAPI.loadedDBFlavor = self.name
+    end
+
+    if not self.isFinished then
+        self.isFinished = true
+        QuestiePluginAPI.pendingPluginsCount = math.max(0, QuestiePluginAPI.pendingPluginsCount - 1)
+        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestiePluginAPI] Plugin '" .. self.name .. "' set as FINISHED. Remaining pending: " .. QuestiePluginAPI.pendingPluginsCount)
     end
 
     Questie:Debug(Questie.DEBUG_INFO, "[QuestiePluginAPI] Plugin '" .. self.name .. "' finished loading successfully.")

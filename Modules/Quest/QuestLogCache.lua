@@ -223,10 +223,12 @@ function QuestLogCache.CheckForChanges(questIdsToCheck)
 
     -- Debug / warning: ignore questId=0 and don't treat it as "missing" when the log has weird entries
     if questIdsToCheck then
-        for questId in pairs(questIdsToCheck) do
+        local questId, _ = next(questIdsToCheck)
+        while questId do
             if questId and questId > 0 and (not questIdsChecked[questId]) then
                 Questie:Warning("Please report on Github or Discord. QuestId doesn't exist in Game's quest log:", questId)
             end
+            questId, _ = next(questIdsToCheck, questId)
         end
     end
 
@@ -279,9 +281,14 @@ end
 function QuestLogCache.GetQuest(questId)
     -- Fix the issue at function caller side if this error pops up.
     if (not cache[questId]) then
+        -- Graceful degradation: return nil instead of throwing a fatal error if questId is 0 or Questie has not finished starting.
+        -- This prevents many common initialization race conditions on custom clients like Ascension.
+        if questId == 0 or (not Questie.started) then
+            return nil
+        end
         Questie:Print(debugstack(1, 20, 4))
         Questie:Error("Please report this error. GetQuest: The quest doesn't exist in QuestLogCache.", questId)
-        return
+        return nil
     end
     return cache[questId]
 end
@@ -292,9 +299,13 @@ end
 function QuestLogCache.GetQuestObjectives(questId)
     -- Fix the issue at function caller side if this error pops up.
     if (not cache[questId]) then
+        -- Graceful degradation: return an empty table instead of throwing a fatal error if questId is 0 or Questie has not finished starting.
+        if questId == 0 or (not Questie.started) then
+            return {}
+        end
         Questie:Print(debugstack(1, 20, 4))
         Questie:Error("Please report this error. GetQuestObjectives: The quest doesn't exist in QuestLogCache.", questId)
-        return
+        return {}
     end
     return cache[questId].objectives
 end
@@ -321,17 +332,21 @@ end
 function QuestLogCache.DebugPrintCache()
     print("DebugPrintCache", GetTime())
     local count = 0
-    for questId, q in pairs(cache) do
+    local questId, q = next(cache)
+    while questId do
         count = count + 1
         print("Quest: (" .. questId .. ") \"" .. q.title .. "\" questTag=" .. tostring(q.questTag),
             "isComplete=" .. tostring(q.isComplete))
         if not next(q.objectives) then
             print("  no objectives")
         else
-            for i, o in ipairs(q.objectives) do
-                DebugPrintObjective(q, i, o)
+            local i = 1
+            while q.objectives[i] do
+                DebugPrintObjective(q, i, q.objectives[i])
+                i = i + 1
             end
         end
+        questId, q = next(cache, questId)
     end
     print("Total Quests ", count)
 end
@@ -342,16 +357,21 @@ function QuestLogCache.DebugPrintCacheChanges(cacheMiss, changes)
         (cacheMiss and next(changes)) -- highlight untypical cases. they are okey, but sometimes interesting.
     print("DebugPrintCacheChanges", GetTime(), (highlight and "\124cffFF4444CacheMiss:\124r" or "CacheMiss"), cacheMiss)
 
-    for questId, objIndexes in pairs(changes) do
+    local questId, objIndexes = next(changes)
+    while questId do
         local q = cache[questId]
         print("Quest: (" .. questId .. ") \"" .. q.title .. "\" questTag=" .. tostring(q.questTag),
             "isComplete=" .. tostring(q.isComplete))
         if not next(objIndexes) then
             print("  no objectives changed (or quest doesn't have objectives)")
         else
-            for _, i in ipairs(objIndexes) do
+            local idx = 1
+            while objIndexes[idx] do
+                local i = objIndexes[idx]
                 DebugPrintObjective(q, i, q.objectives[i])
+                idx = idx + 1
             end
         end
+        questId, objIndexes = next(changes, questId)
     end
 end

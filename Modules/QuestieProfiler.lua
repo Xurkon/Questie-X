@@ -66,6 +66,27 @@ function QuestieProfiler:HookFunction(key, val, table, name)
 end
 
 function QuestieProfiler:HookTable(table, name)
+    -- Skip large pure data tables (e.g., npcDataOverrides entries with spawn coordinates)
+    -- These tables contain only numeric/indexed data and don't benefit from profiling
+    local count = 0
+    local hasFunction = false
+    for key, val in pairs(table) do
+        count = count + 1
+        if count > 1000 then -- Table is too large to be a module with functions
+            QuestieProfiler.alreadyHooked[table] = true -- Mark to prevent re-processing
+            return
+        end
+        if type(val) == "function" then
+            hasFunction = true
+            break
+        end
+    end
+    if not hasFunction and count > 0 then
+        -- Pure data table with no functions, skip profiling
+        QuestieProfiler.alreadyHooked[table] = true -- Mark to prevent re-processing
+        return
+    end
+    
     QuestieProfiler.alreadyHooked[table] = true
     for key, val in pairs(table) do
         if QuestieProfiler.alreadyHooked[val] then
@@ -101,10 +122,24 @@ function QuestieProfiler:HookTable(table, name)
                 --print("["..QuestieProfiler.finishedHookCount.."/"..QuestieProfiler.needsHookCount.."]Hooking function " .. name .. "->" .. key)
                 QuestieProfiler:HookFunction(key, val, table, name)
             elseif typ == "table" then
-                --QuestieProfiler:HookTable(val, name .. "->"..key)
-
-                tinsert(QuestieProfiler.needsHook, { val, name .. "." .. tostring(key) })
-                QuestieProfiler.needsHookCount = QuestieProfiler.needsHookCount + 1
+                -- Skip large data tables (arrays with numeric keys only - no functions)
+                -- These are data tables like npcDataOverrides that don't need profiling
+                local isDataTable = false
+                local hasFunction = false
+                for k, v in pairs(val) do
+                    if type(k) == "number" and type(v) == "number" then
+                        isDataTable = true -- Array with numeric keys
+                    end
+                    if type(v) == "function" then
+                        hasFunction = true
+                        break
+                    end
+                end
+                -- Only add tables that have functions or aren't pure data tables
+                if hasFunction or not isDataTable then
+                    tinsert(QuestieProfiler.needsHook, { val, name .. "." .. tostring(key) })
+                    QuestieProfiler.needsHookCount = QuestieProfiler.needsHookCount + 1
+                end
             end
         end
     end

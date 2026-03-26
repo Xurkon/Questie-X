@@ -13,13 +13,13 @@ local WOW_PROJECT_MAINLINE  = WOW_PROJECT_MAINLINE or 1
 
 -- Expansion detection
 Questie.IsRetail    = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
-Questie.IsWotLK     = (WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC)
+Questie.IsWotlk     = (WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC)
 Questie.IsTBC       = (WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC)
 Questie.IsClassicEra = (WOW_PROJECT_ID == WOW_PROJECT_CLASSIC)
 
 -- Try GetBuildInfo for Turtle WoW (Interface: 11200, no WOW_PROJECT globals)
 local _, _, _, tocVersion = GetBuildInfo()
-Questie.IsTurtle    = (not Questie.IsRetail and not Questie.IsWotLK and not Questie.IsTBC and
+Questie.IsTurtle    = (not Questie.IsRetail and not Questie.IsWotlk and not Questie.IsTBC and
                        not Questie.IsClassicEra and tocVersion and tocVersion < 20000)
 
 -- Custom server detection
@@ -42,7 +42,7 @@ local function GetExpectedPluginFlavor()
     if Questie.IsEbonhold   then return "EbonholdDB",   "Questie-X-EbonholdDB"   end
     if Questie.IsValanior   then return "ValaniorDB",   "Questie-X-ValaniorDB"   end
     if Questie.IsTurtle     then return "TurtleDB",     "Questie-X-TurtleDB"     end
-    if Questie.IsWotLK      then return "WotLKDB",      "Questie-X-WotLKDB"      end
+    if Questie.IsWotlk      then return "WotLKDB",      "Questie-X-WotLKDB"      end
     if Questie.IsTBC        then return "TBCDB",        "Questie-X-TBCDB"        end
     if Questie.IsClassicEra then return "ClassicDB",    "Questie-X-ClassicDB"    end
     if Questie.IsRetail     then return "RetailDB",     "Questie-X-RetailDB"     end
@@ -52,7 +52,7 @@ end
 function QuestieServer:Init()
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieServer] Realm:", realmName)
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieServer] WOW_PROJECT_ID:", tostring(WOW_PROJECT_ID))
-    Questie:Debug(Questie.DEBUG_INFO, "[QuestieServer] IsWotLK:", tostring(Questie.IsWotLK), "IsTBC:", tostring(Questie.IsTBC),
+    Questie:Debug(Questie.DEBUG_INFO, "[QuestieServer] IsWotlk:", tostring(Questie.IsWotlk), "IsTBC:", tostring(Questie.IsTBC),
         "IsClassicEra:", tostring(Questie.IsClassicEra), "IsTurtle:", tostring(Questie.IsTurtle),
         "IsAscension:", tostring(Questie.IsAscension), "IsEbonhold:", tostring(Questie.IsEbonhold))
 end

@@ -2,7 +2,7 @@
 
 <img src="docs/QuestieXlogo.png" alt="Questie-X Logo" width="320" />
 
-![Version](https://img.shields.io/badge/Questie--X-v1.4.4-blue.svg?style=for-the-badge)
+![Version](https://img.shields.io/badge/Questie--X-v1.4.8-blue.svg?style=for-the-badge)
 [![Downloads](https://img.shields.io/github/downloads/Xurkon/Questie-X/total?style=for-the-badge&color=e67e22)](https://github.com/Xurkon/Questie-X/releases)
 [![Documentation](https://img.shields.io/badge/Documentation-View%20Docs-58a6ff?style=for-the-badge)](https://xurkon.github.io/Questie-X/)
 [![Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/Xurkon)

@@ -22,8 +22,10 @@ QuestieDB.itemKeys = {
 }
 
 QuestieDB.itemKeysReversed = {}
-for key, id in pairs(QuestieDB.itemKeys) do
+local key, id = next(QuestieDB.itemKeys)
+while key do
     QuestieDB.itemKeysReversed[id] = key
+    key, id = next(QuestieDB.itemKeys, key)
 end
 
 -- item class/subClass combinations
@@ -119,8 +121,10 @@ QuestieDB.itemCompilerOrder = { -- order easily skipable data first for efficien
 
 -- temporary, until we remove the old db funcitons
 QuestieDB._itemAdapterQueryOrder = {}
-for key, id in pairs(QuestieDB.itemKeys) do
+local key, id = next(QuestieDB.itemKeys)
+while key do
     QuestieDB._itemAdapterQueryOrder[id] = key
+    key, id = next(QuestieDB.itemKeys, key)
 end
 
 -- itemData is nil until a DB plugin sets it

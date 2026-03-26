@@ -170,188 +170,43 @@
         <p class="subtitle">Complete history of changes, fixes, and additions.</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
             <a href="index.html"
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Questie-X - Developer Documentation</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #0d1117;
-            --bg-secondary: #161b22;
-            --bg-tertiary: #21262d;
-            --text-primary: #c9d1d9;
-            --text-secondary: #8b949e;
-            --accent-green: #3fb950;
-            --accent-blue: #58a6ff;
-            --accent-purple: #a371f7;
-            --accent-orange: #d29922;
-            --border-color: #30363d;
-            --code-bg: #1b1f23;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-        }
-
-        .hero {
-            background: linear-gradient(135deg, #1c2128 0%, #0d1117 100%);
-            padding: 80px 20px;
-            text-align: center;
-            border-bottom: 1px solid var(--border-color);
-            position: relative;
-        }
-
-        .hero h1 {
-            font-size: 3rem;
-            font-weight: 700;
-            margin-bottom: 15px;
-            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .hero .subtitle {
-            font-size: 1.2rem;
-            color: var(--text-secondary);
-            max-width: 800px;
-            margin: 0 auto 30px;
-        }
-
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 60px 20px;
-        }
-
-        section {
-            margin-bottom: 80px;
-        }
-
-        h2 {
-            font-size: 1.8rem;
-            margin-bottom: 30px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid var(--border-color);
-            color: var(--accent-blue);
-        }
-
-        h3 {
-            font-size: 1.3rem;
-            margin: 30px 0 15px;
-            color: var(--text-primary);
-        }
-
-        p {
-            margin-bottom: 15px;
-            color: var(--text-secondary);
-        }
-
-        code {
-            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-            background: var(--bg-tertiary);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-
-        pre {
-            background: var(--code-bg);
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            overflow-x: auto;
-            margin: 20px 0;
-        }
-
-        pre code {
-            background: none;
-            padding: 0;
-            color: #e6edf3;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin: 30px 0;
-        }
-
-        .card {
-            background: var(--bg-secondary);
-            padding: 30px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-        }
-
-        .card h4 {
-            color: var(--accent-green);
-            margin-bottom: 10px;
-            font-size: 1.1rem;
-        }
-
-        .important {
-            background: rgba(210, 153, 34, 0.1);
-            border-left: 4px solid var(--accent-orange);
-            padding: 15px 20px;
-            margin: 20px 0;
-            border-radius: 0 4px 4px 0;
-        }
-
-        footer {
-            text-align: center;
-            padding: 40px;
-            border-top: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-
-        .file-path {
-            color: var(--accent-purple);
-            font-weight: 600;
-        }
-
-        @media (max-width: 768px) {
-            .grid {
-                grid-template-columns: 1fr;
-            }
-
-            .hero h1 {
-                font-size: 2.2rem;
-            }
-        }
-    </style>
-</head>
-
-<body>
-    <div class="hero">
-        <img src="QuestieXlogo.png" alt="Questie-X Logo" width="400" />
-        <p class="subtitle">Complete history of changes, fixes, and additions.</p>
-        <div style="display: flex; justify-content: center; gap: 10px;">
-            <a href="index.html"
                 style="color: var(--accent-blue); text-decoration: none; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;">&larr;
                 Back to Documentation</a>
         </div>
     </div>
 
     <div class="container">
+        <h2 id="v149">v1.4.9 &mdash; Validation, Profiler &amp; Quest Link Fixes</h2>
+        <ul>
+            <li><strong>[Fix &mdash; Quest Cache]</strong> Resolved the "GetQuest: The quest doesn't exist in QuestLogCache" fatal error occurring during initialization on the Ascension WoW client. Implemented a robust retry mechanism in <code>_QuestEventHandler:InitQuestLog</code> and refactored <code>QuestLogCache.GetQuest</code> and <code>GetQuestObjectives</code> to fail gracefully.</li>
+            <li><strong>[Fix &mdash; Validation Crash]</strong> Fixed crash in <code>DecodePointerMap</code> when compiled database pointer map was empty or corrupted. Added defensive check to return empty table instead of crashing.</li>
+            <li><strong>[Fix &mdash; Database Compiler]</strong> Added skip logic in <code>ValidateObjects</code> and <code>ValidateQuests</code> when compiled binary data is missing, preventing validation failures on cached databases from incomplete previous sessions.</li>
+            <li><strong>[Fix &mdash; Initialization]</strong> Modified <code>QuestieInit</code> to skip validation in Stage 1 when plugins are pending, since plugins inject data after compilation and validation would compare stale pre-plugin data against post-plugin data.</li>
+            <li><strong>[Fix &mdash; Quest Links]</strong> Fixed duplicate quest links when shift-clicking quests in the quest log (e.g., "[A Boar's Vitality] [A Boar's Vitality]"). Removed redundant <code>ChatEdit_InsertLink</code> call from <code>QuestLogTitleButton_OnClick</code> hook.</li>
+            <li><strong>[Fix &mdash; Profiler]</strong> Fixed "memory allocation error: block too big" crash in <code>QuestieProfiler</code>. Added early-exit logic in <code>HookTable</code> to skip large pure-data tables that don't benefit from profiling.</li>
+            <li><strong>[Fix &mdash; Zone Mapping]</strong> Added UiMapId overrides for 1415 (Eastern Kingdoms) and 947 (Azeroth) to resolve "No AreaId found" warnings on Ascension servers.</li>
+            <li><strong>[Fix &mdash; Quest Validation]</strong> Fixed <code>QuestieValidateGameCache</code> to silently skip "ghost quests" instead of failing validation, resolving infinite retry loops on servers with custom quest content.</li>
+            <li><strong>[Fix &mdash; AscensionDB]</strong> Fixed syntax error in <code>AscensionNpcDB_2.lua</code> (missing closing <code>}</code> at end of NPC entry for ID 3287).</li>
+        </ul>
+
+        <hr>
+
+        <h2 id="v148">v1.4.8 &mdash; Plugin Synchronization &amp; Lua 5.0 Refactor</h2>
+        <ul>
+            <li><strong>[Plugin Synchronization]</strong> Overhauled the Questie-X plugin loading architecture. Introduced <code>QuestiePluginAPI:FinishLoading()</code> and a registration handshake to resolve race conditions during addon initialization. By ensuring that database plugins report their data-injection status before <code>QuestieInit</code> Stage 3 completes, we eliminated "ghost maps" where pins and statistics would fail to render until a manual <code>/reload</code>.</li>
+            <li><strong>[Universal Lua 5.0 Refactor]</strong> Executed a codebase-wide transition from <code>pairs()</code> and <code>ipairs()</code> to <code>next()</code> and numeric loops. This refactor targets the Lua 5.0 engine used by legacy clients (e.g., Turtle WoW), which can exhibit inconsistent behavior or performance degradation when using standard iterators in high-frequency database sweeps. This change guarantees stable, universal performance across all WoW versions from 1.12 to 3.3.5+.</li>
+            <li><strong>[Fix &mdash; MapIconTooltip]</strong> Fixed a critical syntax error in <code>MapIconTooltip.lua</code> at line 239. A malformed <code>if</code> statement was trapping execution, preventing tooltips from updating when hovering over Quest objectives on the World Map.</li>
+            <li><strong>[Fix &mdash; AscensionDB]</strong> Enhanced realm-specific logic in <code>AscensionLoader.lua</code>. The loader now utilizes an pattern-matching check against <code>GetRealmName()</code> to correctly identify and apply custom database overrides for all Project Ascension realms, including seasonal and specialized rule-set servers.</li>
+            <li><strong>[Performance]</strong> Refined the background loading throttler in <code>QuestieInit</code>. The initialization sequence now yields more efficiently to the main UI thread during massive database injections, reducing "frame-stutter" during the initial login sequence while strictly maintaining loading priority for essential UI modules.</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v147">v1.4.7 &mdash; Taint Resolution &amp; WotLKDB Restructure</h2>
         <ul>
+            <li><strong>[Quest Cache]</strong> Resolved requested "Quest cache validation timed out!" errors during initialization. Increased validation timeout to 10 seconds and relaxed internal criteria to support slower server response times.</li>
             <li><strong>[Architecture]</strong> Refactored <code>Questie-X-WotLKDB</code> database files from monolithic global definitions into smaller, manageable chunks using <code>addonTable</code> to prevent memory allocation failures during <code>LoadAddOn()</code> and eliminate global namespace pollution.</li>
-            <li><strong>[Taint Fix]</strong> <code>Loader.lua</code> now explicitly exports WotLKDB data to <code>_G.QuestieX_WotLKDB_*</code> with proper capitalization (<code>npc</code>, <code>object</code>, <code>item</code>, <code>quest</code>) to match QuestieInit's expectations, fully resolving database loading failures and taint vectors.</li>
+            <li><strong>[Taint Fix]</strong> <code>Loader.lua</code> now explicitly exports WotLKDB data to <code>_G.QuestieX_WotLKDB_*</code> with proper capitalization to match <code>QuestieInit</code> expectations, fully resolving database loading failures and taint vectors.</li>
             <li><strong>[Version]</strong> Bumped version to 1.4.7 across the codebase.</li>
         </ul>
 

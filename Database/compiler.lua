@@ -918,10 +918,18 @@ function QuestieDBCompiler:EncodePointerMap(stream, pointerMap)
     end
     stream._pointer = 1
     stream:WriteShort(count)
-    return stream:Save()
+    local result = stream:Save()
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[EncodePointerMap] Encoded", count, "entries, result length:", #result)
+    return result
 end
 
 function QuestieDBCompiler:DecodePointerMap(stream)
+    -- Defensive check: ensure the stream has data before reading
+    local bin = stream._bin
+    if not bin or #bin < 2 then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[DecodePointerMap] Warning: empty or corrupted pointer map, returning empty table")
+        return {}
+    end
     local count = stream:ReadShort()
     local ret = {}
     local i = 0
@@ -1156,6 +1164,12 @@ function QuestieDBCompiler:ValidateObjects()
         objBin = Questie.db.global.objBin
         objPtrs = Questie.db.global.objPtrs
     end
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[ValidateObjects] objBin type:", type(objBin), "objPtrs type:", type(objPtrs), "objPtrs length:", objPtrs and #objPtrs or "nil")
+    -- Skip validation if compiled data is missing (DB was cached without proper compilation)
+    if not objBin or not objPtrs or #objPtrs < 2 then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[ValidateObjects] Skipping - compiled object data not available (likely cached from incomplete previous session)")
+        return
+    end
     local validator = QuestieDBCompiler:GetDBHandle(objBin, objPtrs, QuestieDBCompiler:BuildSkipMap(QuestieDB.objectCompilerTypes, QuestieDB.objectCompilerOrder))
 
     local count = 0
@@ -1317,6 +1331,12 @@ function QuestieDBCompiler:ValidateQuests()
         questBin = Questie.db.global.questBin
         questPtrs = Questie.db.global.questPtrs
     end
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[ValidateQuests] questBin type:", type(questBin), "questPtrs type:", type(questPtrs), "questPtrs length:", questPtrs and #questPtrs or "nil")
+    -- Skip validation if compiled data is missing (DB was cached without proper compilation)
+    if not questBin or not questPtrs or #questPtrs < 2 then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[ValidateQuests] Skipping - compiled quest data not available (likely cached from incomplete previous session)")
+        return
+    end
     local validator = QuestieDBCompiler:GetDBHandle(questBin, questPtrs, QuestieDBCompiler:BuildSkipMap(QuestieDB.questCompilerTypes, QuestieDB.questCompilerOrder))
 
     local playerLevel = UnitLevel("player")
@@ -1405,6 +1425,7 @@ function QuestieDBCompiler:GetDBHandle(data, pointers, skipMap, keyToRootIndex, 
 
     local stream = QuestieStream:GetStream("raw")
     safeYield()
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[GetDBHandle] pointers type:", type(pointers), "length:", pointers and #pointers or "nil")
     stream:Load(pointers)
     safeYield()
     pointers = QuestieDBCompiler:DecodePointerMap(stream)

@@ -79,8 +79,8 @@ local function OnQuestLogUpdate()
                         for _, objective in pairs(objectiveList) do
                             -- Fix: Only fail if text is nil or empty. 
                             -- Leading spaces (ASCII 32) are common on some servers/quests and shouldn't block initialization.
+                            -- Ghost quests (removed from DB but still in log) may have no text - skip those silently.
                             if (not objective.text) or (objective.text == "") then
-                                isQuestLogGood = false
                                 hasInvalidObjective = true
                                 break
                             end
@@ -88,8 +88,10 @@ local function OnQuestLogUpdate()
                         if not hasInvalidObjective then
                             goodQuestsCount = goodQuestsCount + 1
                         end
+                        -- Don't fail validation for ghost quests with empty text, just skip them
                     else
-                        isQuestLogGood = false
+                        -- Quest has objectives according to game but GetQuestObjectives returns nothing
+                        -- This is likely a ghost quest, skip it
                     end
                 else
                     goodQuestsCount = goodQuestsCount + 1

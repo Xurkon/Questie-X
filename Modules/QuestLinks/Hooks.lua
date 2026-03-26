@@ -32,15 +32,11 @@ function Hooks:HookQuestLogTitle()
         end
 
         -- Handle Shift+Click quest linking
+        -- NOTE: On WotLK/Era/Ascension, Blizzard's original function already handles
+        -- shift-click quest linking. We removed the duplicate ChatEdit_InsertLink call
+        -- that was causing "[Quest Name] [Quest Name]" duplicates.
         if (IsModifiedClick("CHATLINK") and ChatEdit_GetActiveWindow()) then
-            -- Follow Ascension's exact native pattern
-            local questLink = GetQuestLink(questLogLineIndex)
-            if questLink then
-                ChatEdit_InsertLink(questLink)
-            end
             QuestLog_SetSelection(questLogLineIndex)
-            -- We can't return here to stop the execution of the original function in hooksecurefunc,
-            -- but for chat links the original function usually just selects the quest anyway.
         end
 
 

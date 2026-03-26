@@ -106,7 +106,7 @@ function MapIconTooltip:Show()
 
     local r, g, b, a = unpack(QuestieMap.zoneWaypointHoverColorOverrides[self.AreaID] or DEFAULT_WAYPOINT_HOVER_COLOR)
     --Highlight waypoints if they exist.
-    for _, lineFrame in pairs(self.data.lineFrames or {}) do
+    for _, lineFrame in next, self.data.lineFrames or {} do
         lineFrame.line:SetColorTexture(r, g, b, a)
     end
 
@@ -167,8 +167,8 @@ function MapIconTooltip:Show()
 
                         -- We need to check for duplicates.
                         local add = true;
-                        for _, data in pairs(questOrder[key]) do
-                            for text, _ in pairs(data) do
+                        for _, data in next, questOrder[key] do
+                            for text, _ in next, data do
                                 if (text == iconData.ObjectiveData.Description) then
                                     add = false;
                                     break;
@@ -180,10 +180,10 @@ function MapIconTooltip:Show()
                         end
                     else
                         local tooltips = _MapIconTooltip:GetObjectiveTooltip(icon)
-                        for _, tip in pairs(tooltips) do
+                        for _, tip in next, tooltips do
                             tinsert(orderedTooltips, 1, tip);
                         end
-                        for _, tip in pairs(orderedTooltips) do
+                        for _, tip in next, orderedTooltips do
                             local questData = questOrder[key]
                             _MapIconTooltip:AddTooltipsForQuest(icon, tip, questData, usedText)
                         end
@@ -212,7 +212,7 @@ function MapIconTooltip:Show()
     end
 
     if self.miniMapIcon then
-        for icon, _ in pairs(HBDPins.activeMinimapPins) do
+        for icon, _ in next, HBDPins.activeMinimapPins do
             handleMapIcon(icon)
         end
     else
@@ -235,7 +235,8 @@ function MapIconTooltip:Show()
         local playerIsHonoredWithShaTar = (not QuestieReputation:HasReputation(nil, { 935, 8999 }))
 
         -- tooltips for quest icons on the map
-        for questTitleKey, data in pairs(self.npcAndObjectOrder) do -- this logic really needs to be improved
+        -- tooltips for quest icons on the map
+        for questTitleKey, data in next, self.npcAndObjectOrder do -- this logic really needs to be improved
             haveGiver = true
             if shift and (not firstLine) then
                 -- Spacer between NPCs
@@ -244,7 +245,7 @@ function MapIconTooltip:Show()
 
             -- Display all NPC names for this quest group
             local names = {}
-            for name, _ in pairs(data.npcNames) do
+            for name, _ in next, data.npcNames do
                 tinsert(names, name)
             end
             table.sort(names)
@@ -262,7 +263,7 @@ function MapIconTooltip:Show()
 
             local quests = data.quests
 
-            for _, questData in pairs(quests) do
+            for _, questData in next, quests do
                 local reputationReward = QuestieDB.QueryQuestSingle(questData.questId, "reputationReward")
 
                 if questData.title ~= nil then
@@ -302,17 +303,17 @@ function MapIconTooltip:Show()
                 if questData.subData and shift then
                     local dataType = type(questData.subData)
                     if dataType == "table" then
-                        for _, rawLine in pairs(questData.subData) do
+                        for _, rawLine in next, questData.subData do
                             local lines = QuestieLib:TextWrap(rawLine, "  ", false, math.max(375, Tooltip:GetWidth()),
                                 questData.questId)                                                                                        --275 is the default questlog width
-                            for _, line in pairs(lines) do
+                            for _, line in next, lines do
                                 self:AddLine(line, 0.86, 0.86, 0.86);
                             end
                         end
                     elseif dataType == "string" then
                         local lines = QuestieLib:TextWrap(questData.subData, "  ", false,
                             math.max(375, Tooltip:GetWidth()))                                                               --275 is the default questlog width
-                        for _, line in pairs(lines) do
+                        for _, line in next, lines do
                             self:AddLine(line, 0.86, 0.86, 0.86);
                         end
                     end
@@ -384,7 +385,7 @@ function MapIconTooltip:Show()
                     local factionId, factionName
                     local rewardValue
                     local aldorPenalty, scryersPenalty
-                    for _, rewardPair in pairs(reputationReward) do
+                    for _, rewardPair in next, reputationReward do
                         factionId = rewardPair[1]
 
                         if factionId == 935 and playerIsHonoredWithShaTar and (scryersPenalty or aldorPenalty) then
@@ -408,17 +409,17 @@ function MapIconTooltip:Show()
                                 aldorPenalty = 0 - math.floor(rewardValue * 1.1)
                             end
 
-                            rewardTable[#rewardTable + 1] = (rewardValue > 0 and "+" or "") ..
-                            rewardValue .. " " .. factionName
+                            tinsert(rewardTable, (rewardValue > 0 and "+" or "") ..
+                            rewardValue .. " " .. factionName)
                         end
                     end
 
                     if aldorPenalty then
                         factionName = select(1, GetFactionInfoByID(932))
-                        rewardTable[#rewardTable + 1] = aldorPenalty .. " " .. factionName
+                        tinsert(rewardTable, aldorPenalty .. " " .. factionName)
                     elseif scryersPenalty then
                         factionName = select(1, GetFactionInfoByID(934))
-                        rewardTable[#rewardTable + 1] = scryersPenalty .. " " .. factionName
+                        tinsert(rewardTable, scryersPenalty .. " " .. factionName)
                     end
 
                     self:AddLine(
@@ -430,7 +431,7 @@ function MapIconTooltip:Show()
 
         -- tooltips for objectives of active quests
         ---@param questId number
-        for questId, textList in pairs(self.questOrder) do -- this logic really needs to be improved
+        for questId, textList in next, self.questOrder do -- this logic really needs to be improved
             if type(questId) ~= "number" then
                 -- Skip non-quest keys if any somehow ended up here
                 break
@@ -508,11 +509,11 @@ function MapIconTooltip:Show()
 
             local hasRare = false
             if not shift then
-                for _, textData in pairs(textList) do
-                    for textLine, nameData in pairs(textData) do
+                for _, textData in next, textList do
+                    for textLine, nameData in next, textData do
                         local dataType = type(nameData)
                         if dataType == "table" then
-                            for name in pairs(nameData) do
+                            for name in next, nameData do
                                 if creatureLevels[name] and (creatureLevels[name][3] == 2 or creatureLevels[name][3] == 4) then
                                     hasRare = true
                                     break
@@ -530,12 +531,12 @@ function MapIconTooltip:Show()
             end
 
             local addedCreatureNames = {}
-            for _, textData in pairs(textList) do
-                for textLine, nameData in pairs(textData) do
+            for _, textData in next, textList do
+                for textLine, nameData in next, textData do
                     local dataType = type(nameData)
                     local hasName = false
                     if dataType == "table" then
-                        for name in pairs(nameData) do
+                        for name in next, nameData do
                             if (not addedCreatureNames[name]) then
                                 addedCreatureNames[name] = true
                                 name = _GetLevelString(creatureLevels, name)
@@ -565,7 +566,7 @@ function MapIconTooltip:Show()
                 local factionId, factionName
                 local rewardValue
                 local aldorPenalty, scryersPenalty
-                for _, rewardPair in pairs(reputationReward) do
+                for _, rewardPair in next, reputationReward do
                     factionId = rewardPair[1]
 
                     if factionId == 935 and playerIsHonoredWithShaTar and (scryersPenalty or aldorPenalty) then
@@ -589,17 +590,17 @@ function MapIconTooltip:Show()
                             aldorPenalty = 0 - math.floor(rewardValue * 1.1)
                         end
 
-                        rewardTable[#rewardTable + 1] = (rewardValue > 0 and "+" or "") ..
-                        rewardValue .. " " .. factionName
+                        tinsert(rewardTable, (rewardValue > 0 and "+" or "") ..
+                        rewardValue .. " " .. factionName)
                     end
                 end
 
                 if aldorPenalty then
                     factionName = select(1, GetFactionInfoByID(932))
-                    rewardTable[#rewardTable + 1] = aldorPenalty .. " " .. factionName
+                    tinsert(rewardTable, aldorPenalty .. " " .. factionName)
                 elseif scryersPenalty then
                     factionName = select(1, GetFactionInfoByID(934))
-                    rewardTable[#rewardTable + 1] = scryersPenalty .. " " .. factionName
+                    tinsert(rewardTable, scryersPenalty .. " " .. factionName)
                 end
 
                 self:AddLine(
@@ -674,16 +675,19 @@ function MapIconTooltip:Show()
             self:AddLine("             ")
         end
 
-        for title, data in pairs(self.manualOrder) do
+        for title, data in next, self.manualOrder do
             local body = data.Body
             self:AddLine(title)
-            for _, stringOrTable in ipairs(body) do
+            local bIndex = 1
+            while body[bIndex] do
+                local stringOrTable = body[bIndex]
                 local dataType = type(stringOrTable)
                 if dataType == "string" then
                     self:AddLine(stringOrTable)
                 elseif dataType == "table" then
                     self:AddDoubleLine(stringOrTable[1], '|cFFffffff' .. stringOrTable[2] .. '|r') --normal, white
                 end
+                bIndex = bIndex + 1
             end
             if self.miniMapIcon == false and not data.disableShiftToRemove then
                 self:AddLine('|cFFa6a6a6Shift-click to hide|r') -- grey

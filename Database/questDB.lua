@@ -47,8 +47,10 @@ QuestieDB.questKeys = {
 }
 
 QuestieDB.questKeysReversed = {}
-for key, id in pairs(QuestieDB.questKeys) do
+local key, id = next(QuestieDB.questKeys)
+while key do
     QuestieDB.questKeysReversed[id] = key
+    key, id = next(QuestieDB.questKeys, key)
 end
 
 QuestieDB.questCompilerTypes = {
@@ -123,8 +125,10 @@ QuestieDB.factionIDs = {
 
 -- temporary, until we remove the old db funcitons
 QuestieDB._questAdapterQueryOrder = {}
-for key, id in pairs(QuestieDB.questKeys) do
+local key, id = next(QuestieDB.questKeys)
+while key do
     QuestieDB._questAdapterQueryOrder[id] = key
+    key, id = next(QuestieDB.questKeys, key)
 end
 
 -- questData is nil until a DB plugin sets it (e.g. Questie-X-WotLKDB)

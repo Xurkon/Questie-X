@@ -241,9 +241,10 @@ end
 -- https://wowpedia.fandom.com/wiki/API_GetMapContinents
 -- https://wowpedia.fandom.com/wiki/API_GetMapZones
 local mapIdToCZ = {}
-for C in ipairs({ GetMapContinents() }) do
+local continents = { GetMapContinents() }
+for C=1, #continents do
     local zones = { GetMapZones(C) }
-    for Z in ipairs(zones) do
+    for Z=1, #zones do
         SetMapZoom(C, Z)
         local mapId = GetCurrentMapAreaID()
         mapIdToCZ[mapId] = Z + C / 10
@@ -354,7 +355,7 @@ QuestieCompat.WorldMapFrame = {
         end
     end,
     EnumeratePinsByTemplate = function(self, template)
-        return pairs(QuestieCompat.HBDPins.worldmapPins)
+        return next, QuestieCompat.HBDPins.worldmapPins
     end,
 }
 
@@ -594,9 +595,11 @@ function QuestieCompat.ResetDailyQuests(reset)
     local currentTime = QuestieCompat.GetServerTime()
 
     if reset or (currentTime > Questie.db.profile.dailyResetTime) then
-        for questId in pairs(Questie.db.char.daily) do
+        local questId = next(Questie.db.char.daily)
+        while questId do
             Questie.db.char.daily[questId] = nil
             Questie.db.char.complete[questId] = nil
+            questId = next(Questie.db.char.daily, questId)
         end
         Questie.db.profile.dailyResetTime = nil
         QuestieCompat.CalculateNextResetTime()
@@ -617,9 +620,11 @@ function QuestieCompat.ResetWeeklyQuests()
         end
 
         weeklyResetTimer = weeklyResetTimer or QuestieCompat.C_Timer.After(timeUntilReset, function()
-            for questId in pairs(Questie.db.char.weekly) do
+            local questId = next(Questie.db.char.weekly)
+            while questId do
                 Questie.db.char.weekly[questId] = nil
                 Questie.db.char.complete[questId] = nil
+                questId = next(Questie.db.char.weekly, questId)
             end
             Questie.db.profile.weeklyResetTime = nil
             QuestieCompat.CalculateNextResetTime()
@@ -664,10 +669,12 @@ end
 function QuestieCompat:QUEST_QUERY_COMPLETE(event)
     GetQuestsCompleted(Questie.db.char.complete)
 
-    for questId in pairs(Questie.db.char.complete) do
+    local questId = next(Questie.db.char.complete)
+    while questId do
         if QuestieDB.IsRepeatable(questId) then
             Questie.db.char.complete[questId] = nil
         end
+        questId = next(Questie.db.char.complete, questId)
     end
 
     if Questie.db.profile.resetDailyQuests then
@@ -880,7 +887,8 @@ end
 -- Gets a list of the auction house item classes.
 -- https://wowpedia.fandom.com/wiki/API_GetAuctionItemClasses?oldid=1835520
 local itemClass = { GetAuctionItemClasses() }
-for classId, className in ipairs(itemClass) do
+for classId=1, #itemClass do
+    local className = itemClass[classId]
     itemClass[className] = classId
     itemClass[classId] = nil
 end
@@ -1103,8 +1111,10 @@ function QuestieCompat.CreateLine(self)
     line:SetTexture(QuestieLib.AddonPath .. "Compat\\Icons\\Waypoint-Line.blp")
     line.SetColorTexture = line.SetVertexColor
 
-    for k, v in pairs(LineMixin) do
+    local k, v = next(LineMixin)
+    while k do
         line[k] = v
+        k, v = next(LineMixin, k)
     end
 
     self:SetScript("OnShow", drawLineOnShow)
@@ -1283,7 +1293,8 @@ function QuestieCompat.NameplateCreated(frame)
 end
 
 function QuestieCompat.UpdateNameplate()
-    for frame in pairs(npFrames) do
+    local frame = next(npFrames)
+    while frame do
         local name = npFrames[frame]:GetText()
         local key = npActiveQuestNPCs[name]
 
@@ -1300,6 +1311,7 @@ function QuestieCompat.UpdateNameplate()
             -- tooltip removed but we still have the frame active, remove it
             _QuestieNameplate.RemoveFrame(frame)
         end
+        frame = next(npFrames, frame)
     end
 end
 
@@ -1333,7 +1345,8 @@ local chatMessagePattern = {
 
 -- parse chat message for quest related info
 function QuestieCompat.UiInfoMessage(event, message)
-    for _, pattern in pairs(chatMessagePattern.questInfo) do
+    local _, pattern = next(chatMessagePattern.questInfo)
+    while _ do
         if string.find(message, pattern) then
             local objectiveName, numFulfilled = parseQuestObjective(message)
             if objectiveName and numFulfilled then
@@ -1341,6 +1354,7 @@ function QuestieCompat.UiInfoMessage(event, message)
             end
             MinimapIcon:UpdateText(message)
         end
+        _, pattern = next(chatMessagePattern.questInfo, _)
     end
 end
 
@@ -1348,10 +1362,12 @@ end
 local playerName = UnitName("player")
 local emptyName = ""
 function QuestieCompat.ChatMessageLoot(message)
-    for _, pattern in pairs(chatMessagePattern.playerLoot) do
+    local _, pattern = next(chatMessagePattern.playerLoot)
+    while _ do
         if string.find(message, pattern) then
             return playerName
         end
+        _, pattern = next(chatMessagePattern.playerLoot, _)
     end
     return emptyName
 end
@@ -1469,7 +1485,7 @@ function QuestieCompat.QuestEventHandler_RegisterEvents()
 
     -- https://wowpedia.fandom.com/wiki/PLAYER_INTERACTION_MANAGER_FRAME_HIDE
     QuestieQuestEventFrame:UnregisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
-    for _, event in pairs({
+    local closeEvents = {
         "TRADE_CLOSED",
         "MERCHANT_CLOSED",
         "BANKFRAME_CLOSED",
@@ -1477,7 +1493,9 @@ function QuestieCompat.QuestEventHandler_RegisterEvents()
         "VENDOR_CLOSED",
         "MAIL_CLOSED",
         "AUCTION_HOUSE_CLOSED",
-    }) do
+    }
+    for i=1, #closeEvents do
+        local event = closeEvents[i]
         QuestieCompat.frame:RegisterEvent(event)
         QuestieCompat[event] = _QuestEventHandler.QuestRelatedFrameClosed
     end
@@ -1536,10 +1554,12 @@ end
 
 -- prevents the override of existing global variables with the same name(e.g., WorldMapButton)
 function QuestieCompat.PopulateGlobals(self)
-    for name, module in pairs(QuestieLoader._modules) do
+    local name, module = next(QuestieLoader._modules)
+    while name do
         if not _G[name] then
             _G[name] = module
         end
+        name, module = next(QuestieLoader._modules, name)
     end
 end
 
@@ -1592,13 +1612,7 @@ function QuestieCompat.QuestieOptions_Initialize()
     local optionsTable = LibStub("AceConfigRegistry-3.0"):GetOptionsTable("Questie", "dialog", "MyLib-1.0")
 
     -- revert instant quest text to old cvar
-    optionsTable.args.general_tab.args.interface_options_group.args.instantQuest.get = function()
-        return GetCVar("questFadingDisable") == '1' and true or false
-    end
-    optionsTable.args.general_tab.args.interface_options_group.args.instantQuest.set = function(info, value)
-        QUEST_FADING_DISABLE = tostring(value and 1 or 0)
-        SetCVar("questFadingDisable", tostring(value and 1 or 0))
-    end
+    -- (Removed because it was causing UI relocation issues and used wrong CVar for 3.3.5)
 
     optionsTable.args.nameplate_tab.args.nameplate_options_group.args.nameplateEnabled.set = function(info, value)
         QuestieOptions:SetProfileValue(info, value)
@@ -1610,72 +1624,7 @@ function QuestieCompat.QuestieOptions_Initialize()
     optionsTable.args.icons_tab.args.map_settings_group.args.hideUnexploredMapIconsToggle.disabled = true
 
     -- 3.3.5 section
-    optionsTable.args.advanced_tab.args.compat_header = {
-        type = "header",
-        order = 6,
-        name = "3.3.5 Compatibility Settings",
-    }
-
-    optionsTable.args.advanced_tab.args.useWotlkMapData = {
-        type = "toggle",
-        order = 6.1,
-        name = "Use WotLK map data",
-        desc = "Use WotLK map data",
-        width = 1.65,
-        disabled = function() return QuestieCompat.WOW_PROJECT_ID == QuestieCompat.WOW_PROJECT_WRATH_CLASSIC end,
-        get = function(info) return QuestieOptions:GetProfileValue(info); end,
-        set = function(info, value)
-            QuestieOptions:SetProfileValue(info, value)
-            StaticPopup_Show("QUESTIE_RELOAD")
-        end,
-    }
-
-    optionsTable.args.advanced_tab.args.initDelay = {
-        type = "range",
-        order = 6.2,
-        name = "Init rate delay",
-        desc = "Init rate delay",
-        width = 1.65,
-        min = 0.1,
-        max = 1,
-        step = 0.01,
-        hidden = function() return not Questie.db.profile.debugEnabled; end,
-        get = function(info) return QuestieOptions:GetProfileValue(info) * 10; end,
-        set = function(info, value)
-            QuestieOptions:SetProfileValue(info, value / 10)
-        end,
-    }
-
-    optionsTable.args.advanced_tab.args.resetDailyQuests = {
-        type = "toggle",
-        order = 6.2,
-        name = "Reset Daily Quests",
-        desc = "Reset Daily Quests",
-        width = 1.65,
-        get = function(info) return QuestieOptions:GetProfileValue(info); end,
-        set = function(info, value)
-            QuestieOptions:SetProfileValue(info, value)
-            Questie.db.profile.dailyResetTime = nil
-            StaticPopup_Show("QUESTIE_RELOAD")
-        end,
-    }
-
-    optionsTable.args.advanced_tab.args.weeklyResetDay = {
-        type = "select",
-        order = 6.3,
-        values = QuestieCompat.CALENDAR_WEEKDAY_NAMES,
-        style = 'dropdown',
-        disabled = function() return not Questie.db.profile.resetDailyQuests end,
-        name = "Weekly Reset Day",
-        desc = "Weekly Reset Day",
-        width = 1.6,
-        get = function(info) return QuestieOptions:GetProfileValue(info) end,
-        set = function(info, value)
-            QuestieOptions:SetProfileValue(info, value)
-            Questie.db.profile.weeklyResetTime = nil
-            StaticPopup_Show("QUESTIE_RELOAD")
-        end,
-    }
+    -- (Removed: natively handled in QuestieOptionsAdvanced now)
 end
 
 local correctionsRegistry = {}
@@ -1686,11 +1635,14 @@ function QuestieCompat.RegisterCorrection(dbName, corrections)
 end
 
 function QuestieCompat.LoadCorrections(_LoadCorrections, validationTables)
-    for dbName in pairs(correctionsRegistry) do
+    local dbName, correctionsList = next(correctionsRegistry)
+    while dbName do
         local dbKeysReversed = QuestieDB[string.sub(dbName, 1, -5) .. "KeysReversed"]
-        for i, corrections in ipairs(correctionsRegistry[dbName]) do
+        for i=1, #correctionsList do
+            local corrections = correctionsList[i]
             _LoadCorrections(dbName, corrections(), dbKeysReversed, validationTables)
         end
+        dbName, correctionsList = next(correctionsRegistry, dbName)
     end
 end
 
@@ -1702,21 +1654,26 @@ function QuestieCompat.RegisterBlacklist(blName, blacklist)
 end
 
 function QuestieCompat.LoadBlacklists()
-    for blName in pairs(blacklistRegistry) do
-        for _, blacklist in ipairs(blacklistRegistry[blName]) do
+    local blName, blacklistList = next(blacklistRegistry)
+    while blName do
+        for i=1, #blacklistList do
+            local blacklist = blacklistList[i]
             QuestieCompat.Merge(QuestieCorrections[blName], blacklist(), true)
         end
+        blName, blacklistList = next(blacklistRegistry, blName)
     end
 end
 
 function QuestieCompat.Merge(target, source, override)
     if type(target) ~= "table" then target = {} end
-    for k, v in pairs(source) do
+    local k, v = next(source)
+    while k do
         if type(v) == "table" then
             target[k] = QuestieCompat.Merge(target[k], v, override)
         elseif target[k] == nil or override then
             target[k] = v
         end
+        k, v = next(source, k)
     end
     return target
 end
@@ -1739,26 +1696,36 @@ function QuestieCompat:ADDON_LOADED(event, addon)
 
     QuestieCompat.LoadUiMapData(Questie.db.profile.useWotlkMapData and QuestieCompat.WOW_PROJECT_WRATH_CLASSIC)
 
-    for uiMapId, data in pairs(QuestieCompat.UiMapData) do
+    local uiMapId, data = next(QuestieCompat.UiMapData)
+    while uiMapId do
         mapIdToUiMapId[data.mapID] = uiMapId
+        uiMapId, data = next(QuestieCompat.UiMapData, uiMapId)
     end
 
-    for k, patterns in pairs(chatMessagePattern) do
-        for i, str in pairs(patterns) do
+    local k, patterns = next(chatMessagePattern)
+    while k do
+        local i, str = next(patterns)
+        while i do
             chatMessagePattern[k][i] = QuestieLib:SanitizePattern(str)
+            i, str = next(patterns, i)
         end
+        k, patterns = next(chatMessagePattern, k)
     end
 
-    for name, path in pairs(townsfolk_texturemap) do
+    local name, path = next(townsfolk_texturemap)
+    while name do
         QuestieMenu.private.townsfolk_texturemap[name] = path
+        name, path = next(townsfolk_texturemap, name)
     end
 
-    for _, moduleName in pairs({
+    local modulesToNoop = {
         "HBDHooks",
         "QuestieDebugOffer",
         "SeasonOfDiscovery",
         "QuestieDBMIntegration",
-    }) do
+    }
+    for i=1, #modulesToNoop do
+        local moduleName = modulesToNoop[i]
         local module = QuestieLoader:ImportModule(moduleName)
         setmetatable(module, QuestieCompat.NOOP_MT)
     end

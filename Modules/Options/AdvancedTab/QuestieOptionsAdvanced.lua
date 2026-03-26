@@ -1,6 +1,8 @@
 -------------------------
 --Import modules.
 -------------------------
+---@type Questie
+local Questie = QuestieLoader:ImportModule("Questie");
 ---@type QuestieQuest
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest");
 ---@type QuestieOptions
@@ -15,8 +17,10 @@ local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker");
 local IsleOfQuelDanas = QuestieLoader:ImportModule("IsleOfQuelDanas");
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
+---@type QuestieCompat
+local QuestieCompat = QuestieLoader:ImportModule("QuestieCompat")
 
-QuestieOptions.tabs.advanced = {...}
+QuestieOptions.tabs.advanced = {}
 local optionsDefaults = QuestieOptionsDefaults:Load()
 local _GetLanguages
 
@@ -419,7 +423,71 @@ function QuestieOptions.tabs.advanced:Initialize()
             compat_header = {
                 type = "header",
                 order = 6,
-                name = l10n('3.3.5 Compatibility Settings'),
+                name = "3.3.5 Compatibility Settings",
+                hidden = function() return not (Questie.IsWotlk or (QuestieCompat and QuestieCompat.Is335)) end,
+            },
+            useWotlkMapData = {
+                type = "toggle",
+                order = 6.1,
+                name = "Use WotLK map data",
+                desc = "Use WotLK map data for exploration and coordinates.",
+                width = 1.65,
+                hidden = function() return not (Questie.IsWotlk or (QuestieCompat and QuestieCompat.Is335)) end,
+                get = function(info) return QuestieOptions:GetProfileValue(info); end,
+                set = function(info, value)
+                    QuestieOptions:SetProfileValue(info, value)
+                    StaticPopup_Show("QUESTIE_RELOAD")
+                end,
+            },
+            initDelay = {
+                type = "range",
+                order = 6.2,
+                name = "Init rate delay",
+                desc = "Adjust the initialization rate delay (seconds) for slower systems.",
+                width = 1.65,
+                min = 0.01,
+                max = 0.5,
+                step = 0.01,
+                hidden = function() return not (Questie.IsWotlk or (QuestieCompat and QuestieCompat.Is335)) or not Questie.db.profile.debugEnabled end,
+                get = function(info) return Questie.db.profile.initDelay or 0.05; end,
+                set = function(info, value)
+                    Questie.db.profile.initDelay = value
+                end,
+            },
+            resetDailyQuests = {
+                type = "toggle",
+                order = 6.3,
+                name = "Reset Daily Quests",
+                desc = "Force a daily quest reset check.",
+                width = 1.65,
+                hidden = function() return not (Questie.IsWotlk or (QuestieCompat and QuestieCompat.Is335)) end,
+                get = function(info) return QuestieOptions:GetProfileValue(info); end,
+                set = function(info, value)
+                    QuestieOptions:SetProfileValue(info, value)
+                    Questie.db.profile.dailyResetTime = nil
+                    StaticPopup_Show("QUESTIE_RELOAD")
+                end,
+            },
+            weeklyResetDay = {
+                type = "select",
+                order = 6.4,
+                values = {
+                    [1] = "Sunday",
+                    [2] = "Monday",
+                    [3] = "Tuesday",
+                    [4] = "Wednesday",
+                    [5] = "Thursday",
+                    [6] = "Friday",
+                    [7] = "Saturday",
+                },
+                style = 'dropdown',
+                name = "Weekly Reset Day",
+                disabled = function() return not Questie.db.profile.resetDailyQuests end,
+                hidden = function() return not (Questie.IsWotlk or (QuestieCompat and QuestieCompat.Is335)) end,
+                get = function(info) return QuestieOptions:GetProfileValue(info) or 3; end,
+                set = function(info, value)
+                    QuestieOptions:SetProfileValue(info, value)
+                end,
             },
 
         },

@@ -22,8 +22,10 @@ QuestieDB.npcKeys = {
 }
 
 QuestieDB.npcKeysReversed = {}
-for key, id in pairs(QuestieDB.npcKeys) do
+local key, id = next(QuestieDB.npcKeys)
+while key do
     QuestieDB.npcKeysReversed[id] = key
+    key, id = next(QuestieDB.npcKeys, key)
 end
 
 
@@ -92,8 +94,10 @@ QuestieDB.npcFlags = (Questie.IsTBC or Questie.IsWotlk) and {
 
 -- temporary, until we remove the old db funcitons
 QuestieDB._npcAdapterQueryOrder = {}
-for key, id in pairs(QuestieDB.npcKeys) do
+local key, id = next(QuestieDB.npcKeys)
+while key do
     QuestieDB._npcAdapterQueryOrder[id] = key
+    key, id = next(QuestieDB.npcKeys, key)
 end
 
 -- npcData is nil until a DB plugin sets it

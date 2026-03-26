@@ -35,7 +35,7 @@ local function GetLearnedCounts()
     if not bucket then return none end
     local function Count(t)
         if not t then return 0 end
-        local n = 0; for _ in pairs(t) do n = n + 1 end; return n
+        local n = 0; local k, _ = next(t); while k do n = n + 1; k, _ = next(t, k) end; return n
     end
     local s = {
         npcs    = Count(bucket.npcs),
@@ -448,6 +448,7 @@ function QuestieOptions.tabs.database:Initialize()
                 name  = function() return l10n("Contribute") end,
             },
 
+
             submit_desc = {
                 type     = "description",
                 order    = 6.1,
@@ -501,7 +502,8 @@ function QuestieOptions.tabs.database:Initialize()
                     local output = ""
                     local hasPlugins = false
 
-                    for pluginName, plugin in pairs(QuestiePluginAPI.registeredPlugins) do
+                    local pluginName, plugin = next(QuestiePluginAPI.registeredPlugins)
+                    while pluginName do
                         hasPlugins = true
                         local q, n, o, i = GetPluginCounts(pluginName, plugin.stats or {})
                         output = output .. "|cFF5EBAF3[Questie-" .. pluginName .. "]|r"
@@ -509,6 +511,7 @@ function QuestieOptions.tabs.database:Initialize()
                         output = output .. "  NPCs: |cFFFFD700"   .. tostring(n) .. "|r"
                         output = output .. "  Objects: |cFFFFD700" .. tostring(o) .. "|r"
                         output = output .. "  Items: |cFFFFD700"  .. tostring(i) .. "|r\n"
+                        pluginName, plugin = next(QuestiePluginAPI.registeredPlugins, pluginName)
                     end
 
                     if not hasPlugins then

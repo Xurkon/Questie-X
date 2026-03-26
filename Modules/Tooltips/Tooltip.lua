@@ -90,13 +90,13 @@ function QuestieTooltips:RemoveQuest(questId)
     local quest = QuestieDB.GetQuest(questId)
 
     if quest then
-        for _, objective in pairs(quest.Objectives) do
+        for _, objective in next, quest.Objectives do
             objective.AlreadySpawned = {}
             objective.hasRegisteredTooltips = false
             objective.registeredItemTooltips = false
         end
 
-        for _, objective in pairs(quest.SpecialObjectives) do
+        for _, objective in next, quest.SpecialObjectives do
             objective.AlreadySpawned = {}
             objective.hasRegisteredTooltips = false
             objective.registeredItemTooltips = false
@@ -105,11 +105,11 @@ function QuestieTooltips:RemoveQuest(questId)
 
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTooltips:RemoveQuest]", questId)
 
-    for _, key in pairs(QuestieTooltips.lookupKeysByQuestId[questId] or {}) do
+    for _, key in next, QuestieTooltips.lookupKeysByQuestId[questId] or {} do
         --Count to see if we should remove the main object
         local totalCount = 0
         local totalRemoved = 0
-        for _, tooltipData in pairs(QuestieTooltips.lookupByKey[key] or {}) do
+        for _, tooltipData in next, QuestieTooltips.lookupByKey[key] or {} do
             --Remove specific quest
             if (tooltipData.questId == questId and tooltipData.objective) then
                 QuestieTooltips.lookupByKey[key][tostring(tooltipData.questId) .. " " .. tooltipData.objective.Index] = nil
@@ -135,13 +135,13 @@ local function _FetchTooltipsForGroupMembers(key, tooltipData)
     if QuestieComms and QuestieComms.data:KeyExists(key) then
         ---@tooltipData @tooltipData[questId][playerName][objectiveIndex].text
         local tooltipDataExternal = QuestieComms.data:GetTooltip(key);
-        for questId, playerList in pairs(tooltipDataExternal) do
+        for questId, playerList in next, tooltipDataExternal do
             if (not tooltipData[questId]) then
                 tooltipData[questId] = {
                     title = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.enableTooltipsQuestLevel, true, true)
                 }
             end
-            for playerName, _ in pairs(playerList) do
+            for playerName, _ in next, playerList do
                 local playerInfo = QuestiePlayer:GetPartyMemberByName(playerName);
                 if playerInfo or QuestieComms.remotePlayerEnabled[playerName] then
                     anotherPlayer = true
@@ -157,17 +157,17 @@ local function _FetchTooltipsForGroupMembers(key, tooltipData)
     if QuestieComms.data:KeyExists(key) and anotherPlayer then
         ---@tooltipData @tooltipData[questId][playerName][objectiveIndex].text
         local tooltipDataExternal = QuestieComms.data:GetTooltip(key);
-        for questId, playerList in pairs(tooltipDataExternal) do
+        for questId, playerList in next, tooltipDataExternal do
             if (not tooltipData[questId]) then
                 tooltipData[questId] = {
                     title = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.enableTooltipsQuestLevel, true, true)
                 }
             end
-            for playerName, objectives in pairs(playerList) do
+            for playerName, objectives in next, playerList do
                 local playerInfo = QuestiePlayer:GetPartyMemberByName(playerName);
                 if playerInfo or QuestieComms.remotePlayerEnabled[playerName] then
                     anotherPlayer = true;
-                    for objectiveIndex, objective in pairs(objectives) do
+                    for objectiveIndex, objective in next, objectives do
                         if (not objective) then
                             objective = {}
                         end
@@ -229,12 +229,14 @@ function QuestieTooltips:GetTooltip(key)
                  if key:sub(1,2) == "m_" then
                      local learnedNpc = QuestieLearner.data.npcs[id]
                      if learnedNpc and learnedNpc[10] then -- check questObjectives
-                         for questId, objList in pairs(learnedNpc[10]) do
-                             for _, objText in ipairs(objList) do
+                         for questId, objList in next, learnedNpc[10] do
+                            local oIndex = 1
+                            while objList[oIndex] do
+                                 local objText = objList[oIndex]
                                  local needed, collected
                                  local objectives = QuestLogCache.GetQuestObjectives(questId)
                                  if objectives then
-                                     for _, obj in pairs(objectives) do
+                                     for _, obj in next, objectives do
                                          if obj.text and objText and (obj.text == objText or string.find(obj.text, objText, 1, true) or string.find(objText, obj.text, 1, true)) then
                                              needed = obj.numRequired
                                              collected = obj.numFulfilled
@@ -250,7 +252,7 @@ function QuestieTooltips:GetTooltip(key)
                                      Update = function(self)
                                          local objs = QuestLogCache.GetQuestObjectives(questId)
                                          if objs then
-                                             for _, o in pairs(objs) do
+                                             for _, o in next, objs do
                                                  if o.text and self.Description and (o.text == self.Description or string.find(o.text, self.Description, 1, true) or string.find(self.Description, o.text, 1, true)) then
                                                      self.Needed = o.numRequired
                                                      self.Collected = o.numFulfilled
@@ -260,6 +262,7 @@ function QuestieTooltips:GetTooltip(key)
                                          end
                                      end 
                                  })
+                                 oIndex = oIndex + 1
                              end
                          end
                          if learnedNpc.mc then
@@ -269,12 +272,14 @@ function QuestieTooltips:GetTooltip(key)
                  elseif key:sub(1,2) == "o_" then
                      local learnedObj = QuestieLearner.data.objects[id]
                      if learnedObj and learnedObj[10] then
-                         for questId, objList in pairs(learnedObj[10]) do
-                             for _, objText in ipairs(objList) do
+                         for questId, objList in next, learnedObj[10] do
+                            local oIndex = 1
+                            while objList[oIndex] do
+                                 local objText = objList[oIndex]
                                  local needed, collected
                                  local objectives = QuestLogCache.GetQuestObjectives(questId)
                                  if objectives then
-                                     for _, obj in pairs(objectives) do
+                                     for _, obj in next, objectives do
                                          if obj.text and objText and (obj.text == objText or string.find(obj.text, objText, 1, true) or string.find(objText, obj.text, 1, true)) then
                                              needed = obj.numRequired
                                              collected = obj.numFulfilled
@@ -290,7 +295,7 @@ function QuestieTooltips:GetTooltip(key)
                                      Update = function(self)
                                          local objs = QuestLogCache.GetQuestObjectives(questId)
                                          if objs then
-                                             for _, o in pairs(objs) do
+                                             for _, o in next, objs do
                                                  if o.text and self.Description and (o.text == self.Description or string.find(o.text, self.Description, 1, true) or string.find(self.Description, o.text, 1, true)) then
                                                      self.Needed = o.numRequired
                                                      self.Collected = o.numFulfilled
@@ -300,6 +305,7 @@ function QuestieTooltips:GetTooltip(key)
                                          end
                                      end 
                                  })
+                                 oIndex = oIndex + 1
                              end
                          end
                          if learnedObj.mc then
@@ -313,7 +319,7 @@ function QuestieTooltips:GetTooltip(key)
 
     if QuestieTooltips.lookupByKey[key] then
         local playerName = UnitName("player")
-        for k, tooltip in pairs(QuestieTooltips.lookupByKey[key]) do
+        for k, tooltip in next, QuestieTooltips.lookupByKey[key] do
             if tooltip.name then
                 if Questie.db.profile.showQuestsInNpcTooltip then
                     local questString = QuestieLib:GetColoredQuestName(tooltip.questId, Questie.db.profile.enableTooltipsQuestLevel, true, true)
@@ -376,11 +382,11 @@ function QuestieTooltips:GetTooltip(key)
 
     local playerName = UnitName("player")
 
-    for questId, questData in pairs(tooltipData) do
+    for questId, questData in next, tooltipData do
         local hasObjective = false
         local tempObjectives = {}
-        for _, playerList in pairs(questData.objectivesText or {}) do
-            for objectivePlayerName, objectiveInfo in pairs(playerList) do
+        for _, playerList in next, questData.objectivesText or {} do
+            for objectivePlayerName, objectiveInfo in next, playerList do
                 local playerInfo = QuestiePlayer:GetPartyMemberByName(objectivePlayerName)
                 local playerColor
                 local playerType = ""
@@ -412,7 +418,7 @@ function QuestieTooltips:GetTooltip(key)
         end
         if hasObjective then
             tinsert(tooltipLines, questData.title);
-            for _, text in pairs(tempObjectives) do
+            for _, text in next, tempObjectives do
                 tinsert(tooltipLines, text);
             end
         end

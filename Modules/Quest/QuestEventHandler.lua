@@ -196,11 +196,14 @@ end
 function _QuestEventHandler:InitQuestLog()
     -- Fill the QuestLogCache for first time
     local cacheMiss, changes = QuestLogCache.CheckForChanges(nil)
-    -- if cacheMiss then
-    -- TODO actually can happen in rare edge case if player accepts new quest during questie init. *cough*
-    -- or if someone managed to overflow game cache already at this point.
-    --Questie:Error("Did you accept a quest during InitQuestLog? Please report on Github or Discord. Game's quest log cache is not ok. This shouldn't happen. Questie may malfunction.")
-    -- end
+    
+    if cacheMiss and (not Questie.started) then
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestEventHandler:InitQuestLog] Cache miss during init, retrying in 0.5s...")
+        C_Timer.After(0.5, function()
+            _QuestEventHandler:InitQuestLog()
+        end)
+        return
+    end
 
     for questId, _ in pairs(changes) do
         questLog[questId] = {

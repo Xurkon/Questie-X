@@ -358,8 +358,10 @@ function QuestieDB:GetObject(objectId)
         type = "object"
     }
 
-    for stringKey, intKey in pairs(QuestieDB.objectKeys) do
+    local stringKey, intKey = next(QuestieDB.objectKeys)
+    while stringKey do
         obj[stringKey] = rawdata[intKey]
+        stringKey, intKey = next(QuestieDB.objectKeys, stringKey)
     end
     --_QuestieDB.objectCache[objectId] = obj;
     return obj;
@@ -386,36 +388,44 @@ function QuestieDB:GetItem(itemId)
         Hidden = QuestieCorrections.questItemBlacklist[itemId]
     }
 
-    for stringKey, intKey in pairs(QuestieDB.itemKeys) do
+    local stringKey, intKey = next(QuestieDB.itemKeys)
+    while stringKey do
         item[stringKey] = rawdata[intKey]
+        stringKey, intKey = next(QuestieDB.itemKeys, stringKey)
     end
 
     local sources = item.Sources
 
     if rawdata[QuestieDB.itemKeys.npcDrops] then
-        for _, npcId in pairs(rawdata[QuestieDB.itemKeys.npcDrops]) do
-            sources[#sources+1] = {
+        local _npcId, npcId = next(rawdata[QuestieDB.itemKeys.npcDrops])
+        while _npcId do
+            table.insert(sources, {
                 Id = npcId,
                 Type = "monster",
-            }
+            })
+            _npcId, npcId = next(rawdata[QuestieDB.itemKeys.npcDrops], _npcId)
         end
     end
 
     if rawdata[QuestieDB.itemKeys.vendors] then
-        for _, npcId in pairs(rawdata[QuestieDB.itemKeys.vendors]) do
-            sources[#sources+1] = {
+        local _npcId, npcId = next(rawdata[QuestieDB.itemKeys.vendors])
+        while _npcId do
+            table.insert(sources, {
                 Id = npcId,
                 Type = "monster",
-            }
+            })
+            _npcId, npcId = next(rawdata[QuestieDB.itemKeys.vendors], _npcId)
         end
     end
 
     if rawdata[QuestieDB.itemKeys.objectDrops] then
-        for _, v in pairs(rawdata[QuestieDB.itemKeys.objectDrops]) do
-            sources[#sources+1] = {
+        local _k, v = next(rawdata[QuestieDB.itemKeys.objectDrops])
+        while _k do
+            table.insert(sources, {
                 Id = v,
                 Type = "object",
-            }
+            })
+            _k, v = next(rawdata[QuestieDB.itemKeys.objectDrops], _k)
         end
     end
 
@@ -514,10 +524,12 @@ function QuestieDB:IsExclusiveQuestInQuestLogOrComplete(exclusiveTo)
         return false
     end
 
-    for _, exId in pairs(exclusiveTo) do
+    local _exId, exId = next(exclusiveTo)
+    while _exId do
         if Questie.db.char.complete[exId] then
             return true
         end
+        _exId, exId = next(exclusiveTo, _exId)
     end
     return false
 end
@@ -598,10 +610,12 @@ function QuestieDB.GetSuppressedNPCs(zoneId)
     local ld = Questie.dbLearner.global
     if ld and ld.settings and ld.settings.prioritizeMyData and ld.npcs then
         local threshold = ld.settings.minConfidencePins or 2
-        for npcId, entry in pairs(ld.npcs) do
+        local npcId, entry = next(ld.npcs)
+        while npcId do
             if entry.mc and entry.mc >= threshold and entry[7] and entry[7][zoneId] then
                 suppressed[npcId] = true
             end
+            npcId, entry = next(ld.npcs, npcId)
         end
     end
     return suppressed
@@ -616,10 +630,12 @@ function QuestieDB.GetSuppressedObjects(zoneId)
     local ld = Questie.dbLearner.global
     if ld and ld.settings and ld.settings.prioritizeMyData and ld.objects then
         local threshold = ld.settings.minConfidencePins or 2
-        for objId, entry in pairs(ld.objects) do
+        local objId, entry = next(ld.objects)
+        while objId do
             if entry.mc and entry.mc >= threshold and entry[4] and entry[4][zoneId] then
                 suppressed[objId] = true
             end
+            objId, entry = next(ld.objects, objId)
         end
     end
     return suppressed
@@ -631,7 +647,7 @@ function QuestieDB:IsPreQuestGroupFulfilled(preQuestGroup)
     if not preQuestGroup then
         return true
     end
-    for preQuestIndex=1, #preQuestGroup do
+    for preQuestIndex=1, table.getn(preQuestGroup) do
         -- If a quest is not complete and no exlusive quest is complete, the requirement is not fulfilled
         if not Questie.db.char.complete[preQuestGroup[preQuestIndex]] then
             local preQuest = QuestieDB.QueryQuestSingle(preQuestGroup[preQuestIndex], "exclusiveTo")
@@ -640,7 +656,7 @@ function QuestieDB:IsPreQuestGroupFulfilled(preQuestGroup)
             end
 
             local anyExlusiveFinished = false
-            for i=1, #preQuest do
+            for i=1, table.getn(preQuest) do
                 if Questie.db.char.complete[preQuest[i]] then
                     anyExlusiveFinished = true
                 end
@@ -660,7 +676,7 @@ function QuestieDB:IsPreQuestSingleFulfilled(preQuestSingle)
     if (not preQuestSingle) then
         return true
     end
-    for preQuestIndex=1, #preQuestSingle do
+    for preQuestIndex=1, table.getn(preQuestSingle) do
         -- If a quest is complete the requirement is fulfilled
         if Questie.db.char.complete[preQuestSingle[preQuestIndex]] then
             return true
@@ -798,11 +814,13 @@ function QuestieDB.IsDoable(questId, debugPrint)
     -- If yes the current quest can't be accepted
     local ExclusiveQuestGroup = QuestieDB.QueryQuestSingle(questId, "exclusiveTo")
     if ExclusiveQuestGroup then -- fix (DO NOT REVERT, tested thoroughly)
-        for _, v in pairs(ExclusiveQuestGroup) do
+        local _k, v = next(ExclusiveQuestGroup)
+        while _k do
             if Questie.db.char.complete[v] or QuestiePlayer.currentQuestlog[v] then
                 if debugPrint then Questie:Debug(Questie.DEBUG_SPAM, "[QuestieDB.IsDoable] Player has completed a quest exclusive with quest " .. questId) end
                 return false
             end
+            _k, v = next(ExclusiveQuestGroup, _k)
         end
     end
 
@@ -1026,7 +1044,8 @@ function QuestieDB.IsDoableVerbose(questId, debugPrint, returnText, returnBrief)
     -- If yes the current quest can't be accepted
     local ExclusiveQuestGroup = QuestieDB.QueryQuestSingle(questId, "exclusiveTo")
     if ExclusiveQuestGroup then -- fix (DO NOT REVERT, tested thoroughly)
-        for _, v in pairs(ExclusiveQuestGroup) do
+        local _v, v = next(ExclusiveQuestGroup)
+        while _v do
             if Questie.db.char.complete[v] or QuestiePlayer.currentQuestlog[v] then
                 local msg = "Player has completed a quest exclusive with quest " .. questId
                 if returnText and returnBrief then
@@ -1035,6 +1054,7 @@ function QuestieDB.IsDoableVerbose(questId, debugPrint, returnText, returnBrief)
                     return msg
                 end
             end
+            _v, v = next(ExclusiveQuestGroup, _v)
         end
     end
 
@@ -1127,12 +1147,12 @@ function QuestieDB.IsComplete(questId)
     end
 
     local objectives = questLogEntry.objectives
-    if not objectives or #objectives == 0 then
+    if not objectives or table.getn(objectives) == 0 then
         -- Before assuming an empty objective list means the quest is done, check if we *expect* objectives from the DB.
         -- On WotLK private servers, GetQuestObjectives sometimes transiently returns nil during cache rebuilds,
         -- which leads to IsComplete prematurely returning 1 and unloading map icons in the middle of a quest.
         local expectedObjectives = QuestieDB.GetQuest(questId) and QuestieDB.GetQuest(questId).ObjectiveData
-        if expectedObjectives and #expectedObjectives > 0 then
+        if expectedObjectives and table.getn(expectedObjectives) > 0 then
             return 0
         end
 
@@ -1145,7 +1165,8 @@ function QuestieDB.IsComplete(questId)
     -- for quest 12843), the key is consumed and numFulfilled/numRequired update immediately,
     -- but isComplete=1 may not arrive until the player physically visits the turn-in NPC.
     local allDone = true
-    for _, obj in ipairs(objectives) do
+    for i=1, table.getn(objectives) do
+        local obj = objectives[i]
         if obj.numRequired and obj.numRequired > 0 and obj.numFulfilled ~= obj.numRequired then
             allDone = false
             break
@@ -1267,8 +1288,10 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
 
     -- General filling of the QuestObjective with all database values
     local questKeys = QuestieDB.questKeys
-    for stringKey, intKey in pairs(questKeys) do
+    local stringKey, intKey = next(questKeys)
+    while stringKey do
         QO[stringKey] = rawdata[intKey]
+        stringKey, intKey = next(questKeys, stringKey)
     end
 
     local questLevel, requiredLevel = QuestieLib.GetTbcLevel(questId)
@@ -1293,7 +1316,8 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
     ---@type FinishedBy
     local finishedBy = QO.finishedBy
     if finishedBy and finishedBy[1] then
-        for _, id in pairs(finishedBy[1]) do
+        local _id, id = next(finishedBy[1])
+        while _id do
             if id then
                 QO.Finisher = {
                     Type = "monster",
@@ -1302,10 +1326,12 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
                     Name = QuestieDB.QueryNPCSingle(id, "name")
                 }
             end
+            _id, id = next(finishedBy[1], _id)
         end
     end
     if finishedBy and finishedBy[2] then
-        for _, id in pairs(finishedBy[2]) do
+        local _id, id = next(finishedBy[2])
+        while _id do
             if id then
                 -- Some custom servers (like Ascension) incorrectly place Item IDs in the GameObject finisher array.
                 -- We verify the object actually exists in the ObjectDB before assigning it as a Finisher, 
@@ -1321,6 +1347,7 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
                     Questie:Debug(Questie.DEBUG_INFO, "[QuestieDB:GetQuest] Ignored invalid object finisher ID:", id, "for quest:", questId)
                 end
             end
+            _id, id = next(finishedBy[2], _id)
         end
     end
 
@@ -1334,54 +1361,61 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
     local objectives = QO.objectives
     if objectives then
         if objectives[1] then
-            for _, creatureObjective in pairs(objectives[1]) do
+            local _creatureObjective, creatureObjective = next(objectives[1])
+            while _creatureObjective do
                 if creatureObjective then
                     ---@type NpcObjective
-                    QO.ObjectiveData[#QO.ObjectiveData+1] = {
+                    table.insert(QO.ObjectiveData, {
                         Type = "monster",
                         Id = creatureObjective[1],
                         Text = creatureObjective[2],
                         HideCondition = creatureObjective[3],
-                    }
+                    })
                 end
+                _creatureObjective, creatureObjective = next(objectives[1], _creatureObjective)
             end
         end
         if objectives[2] then
-            for _, objectObjective in pairs(objectives[2]) do
+            local _objectObjective, objectObjective = next(objectives[2])
+            while _objectObjective do
                 if objectObjective then
                     ---@type ObjectObjective
-                    QO.ObjectiveData[#QO.ObjectiveData+1] = {
+                    table.insert(QO.ObjectiveData, {
                         Type = "object",
                         Id = objectObjective[1],
                         Text = objectObjective[2],
                         HideCondition = objectObjective[3],
-                    }
+                    })
                 end
+                _objectObjective, objectObjective = next(objectives[2], _objectObjective)
             end
         end
         if objectives[3] then
-            for _, itemObjective in pairs(objectives[3]) do
+            local _itemObjective, itemObjective = next(objectives[3])
+            while _itemObjective do
                 if itemObjective then
                     ---@type ItemObjective
-                    QO.ObjectiveData[#QO.ObjectiveData+1] = {
+                    table.insert(QO.ObjectiveData, {
                         Type = "item",
                         Id = itemObjective[1],
                         Text = itemObjective[2],
                         HideCondition = itemObjective[3],
-                    }
+                    })
                 end
+                _itemObjective, itemObjective = next(objectives[3], _itemObjective)
             end
         end
         if objectives[4] then
             ---@type ReputationObjective
-            QO.ObjectiveData[#QO.ObjectiveData+1] = {
+            table.insert(QO.ObjectiveData, {
                 Type = "reputation",
                 Id = objectives[4][1],
                 RequiredRepValue = objectives[4][2]
-            }
+            })
         end
-        if objectives[5] and type(objectives[5]) == "table" and #objectives[5] > 0 then
-            for _, creditObjective in pairs(objectives[5]) do
+        if objectives[5] and type(objectives[5]) == "table" and table.getn(objectives[5]) > 0 then
+            local _creditObjective, creditObjective = next(objectives[5])
+            while _creditObjective do
                 ---@type KillObjective
                 local killCreditObjective = {
                     Type = "killcredit",
@@ -1398,20 +1432,23 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
                 else
                     tinsert(QO.ObjectiveData, killCreditObjective);
                 end
+                _creditObjective, creditObjective = next(objectives[5], _creditObjective)
             end
         end
         if objectives[6] then
-            for index, spellObjective in pairs(objectives[6]) do
+            local index, spellObjective = next(objectives[6])
+            while index do
                 if spellObjective then
                     ---@type SpellObjective
-                    QO.ObjectiveData[#QO.ObjectiveData+1] = {
+                    table.insert(QO.ObjectiveData, {
                         Type = "spell",
                         Id = spellObjective[1],
                         Text = spellObjective[2],
                         ItemSourceId = spellObjective[3],
-                    }
+                    })
                     QO.SpellItemId = spellObjective[3]
                 end
+                index, spellObjective = next(objectives[6], index)
             end
         end
     end
@@ -1420,11 +1457,11 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
     local triggerEnd = QO.triggerEnd
     if triggerEnd then
         ---@type TriggerEndObjective
-        QO.ObjectiveData[#QO.ObjectiveData+1] = {
+        table.insert(QO.ObjectiveData, {
             Type = "event",
             Text = triggerEnd[1],
             Coordinates = triggerEnd[2]
-        }
+        })
     end
 
     local preQuestGroup = QO.preQuestGroup
@@ -1443,18 +1480,21 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
     ---@type ItemId[]
     local requiredSourceItems = QO.requiredSourceItems
     if requiredSourceItems then
-        for _, itemId in pairs(requiredSourceItems) do
+        local _itemId, itemId = next(requiredSourceItems)
+        while _itemId do
             if itemId then
                 -- Make sure requiredSourceItems aren't already an objective
                 local itemObjPresent = false
                 if objectives[3] then
-                    for _, itemObjective in pairs(objectives[3]) do
+                    local _itemObjective, itemObjective = next(objectives[3])
+                    while _itemObjective do
                         if itemObjective then
                             if itemId == itemObjective[1] then
                                 itemObjPresent = true
                                 break
                             end
                         end
+                        _itemObjective, itemObjective = next(objectives[3], _itemObjective)
                     end
                 end
 
@@ -1468,13 +1508,15 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
                     }
                 end
             end
+            _itemId, itemId = next(requiredSourceItems, _itemId)
         end
     end
 
     ---@type ExtraObjective[]
     local extraObjectives = QO.extraObjectives
     if extraObjectives then
-        for index, o in pairs(extraObjectives) do
+        local index, o = next(extraObjectives)
+        while index do
             local specialObjective = {
                 Icon = o[2],
                 Description = o[3],
@@ -1495,21 +1537,26 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
                 specialObjective.Id = o[5][1][2]
                 local spawnList = {}
 
-                for _, ref in pairs(o[5]) do
+                local _ref, ref = next(o[5])
+                while _ref do
                     local callFn = _QuestieQuest.objectiveSpawnListCallTable[ref[1]]
                     local spawnResult = callFn and callFn(ref[2], specialObjective)
                     if spawnResult then
-                        for k, v in pairs(spawnResult) do
+                        local k, v = next(spawnResult)
+                        while k do
                             -- we want to be able to override the icon in the corrections (e.g. Questie.ICON_TYPE_OBJECT on objects instead of Questie.ICON_TYPE_LOOT)
                             v.Icon = o[2]
                             spawnList[k] = v
+                            k, v = next(spawnResult, k)
                         end
                     end
+                    _ref, ref = next(o[5], _ref)
                 end
 
                 specialObjective.spawnList = spawnList
             end
             QO.SpecialObjectives[index] = specialObjective
+            index, o = next(extraObjectives, index)
         end
     end
 
@@ -1527,36 +1574,44 @@ function QuestieDB:GetCreatureLevels(quest)
     local creatureLevels = {}
 
     local function _CollectCreatureLevels(npcIds)
-        for _, npcId in pairs(npcIds) do
+        local _npcId, npcId = next(npcIds)
+        while _npcId do
             local npc = QuestieDB:GetNPC(npcId)
             if npc and not creatureLevels[npc.name] then
                 creatureLevels[npc.name] = {npc.minLevel, npc.maxLevel, npc.rank}
             end
+            _npcId, npcId = next(npcIds, _npcId)
         end
     end
 
     if quest.objectives then
         if quest.objectives[1] then -- Killing creatures
-            for _, creatureObjective in pairs(quest.objectives[1]) do
+            local _creatureObjective, creatureObjective = next(quest.objectives[1])
+            while _creatureObjective do
                 local npcId = creatureObjective[1]
                 _CollectCreatureLevels({npcId})
+                _creatureObjective, creatureObjective = next(quest.objectives[1], _creatureObjective)
             end
         end
         if quest.objectives[3] then -- Looting items from creatures
-            for _, itemObjective in pairs(quest.objectives[3]) do
+            local _itemObjective, itemObjective = next(quest.objectives[3])
+            while _itemObjective do
                 local itemId = itemObjective[1]
                 local npcIds = QuestieDB.QueryItemSingle(itemId, "npcDrops")
                 if npcIds then
                     _CollectCreatureLevels(npcIds)
                 end
+                _itemObjective, itemObjective = next(quest.objectives[3], _itemObjective)
             end
         end
         if quest.objectives[5] then -- Kill credit objectives
-            for _, creditObjective in pairs(quest.objectives[5]) do
+            local _creditObjective, creditObjective = next(quest.objectives[5])
+            while _creditObjective do
                 local npcIds = creditObjective[1]
                 if npcIds then
                     _CollectCreatureLevels(npcIds)
                 end
+                _creditObjective, creditObjective = next(quest.objectives[5], _creditObjective)
             end
         end
     end
@@ -1702,8 +1757,10 @@ function QuestieDB:GetNPC(npcId)
         id = npcId,
         type = "monster",
     }
-    for stringKey, intKey in pairs(npcKeys) do
+    local stringKey, intKey = next(npcKeys)
+    while stringKey do
         npc[stringKey] = rawdata[intKey]
+        stringKey, intKey = next(npcKeys, stringKey)
     end
 
     local friendlyToFaction = rawdata[npcKeys.friendlyToFaction]
@@ -1733,8 +1790,11 @@ function QuestieDB:GetQuestsByZoneId(zoneId)
     end
     local zoneQuests = {};
     local alternativeZoneID = ZoneDB:GetAlternativeZoneId(zoneId)
-    -- loop over all quests to populate a zone
-    for qid, _ in pairs(QuestieDB.QuestPointers or QuestieDB.questData) do
+
+    local function processQuest(qid)
+        if zoneQuests[qid] then
+            return
+        end
         local quest = QuestieDB.GetQuest(qid);
         if quest then
             if quest.zoneOrSort > 0 then
@@ -1744,24 +1804,50 @@ function QuestieDB:GetQuestsByZoneId(zoneId)
             elseif quest.Starts.NPC and (not zoneQuests[qid]) then
                 local npc = QuestieDB:GetNPC(quest.Starts.NPC[1]);
                 if npc and npc.friendly and npc.spawns then
-                    for zone, _ in pairs(npc.spawns) do
+                    local zone, _ = next(npc.spawns)
+                    while zone do
                         if zone == zoneId  or (alternativeZoneID and zone == alternativeZoneID) then
                             zoneQuests[qid] = quest;
+                            break
                         end
+                        zone, _ = next(npc.spawns, zone)
                     end
                 end
             elseif quest.Starts.GameObject and (not zoneQuests[qid]) then
                 local obj = QuestieDB:GetObject(quest.Starts.GameObject[1]);
                 if obj and obj.spawns then
-                    for zone, _ in pairs(obj.spawns) do
+                    local zone, _ = next(obj.spawns)
+                    while zone do
                         if zone == zoneId  or (alternativeZoneID and zone == alternativeZoneID) then
                             zoneQuests[qid] = quest;
+                            break
                         end
+                        zone, _ = next(obj.spawns, zone)
                     end
                 end
             end
         end
     end
+
+    -- loop over all quests to populate a zone
+    local dataSource = QuestieDB.QuestPointers or QuestieDB.questData
+    if dataSource then
+        local qid, _ = next(dataSource)
+        while qid do
+            processQuest(qid)
+            qid, _ = next(dataSource, qid)
+        end
+    end
+
+    -- Loop over plugin-injected quest overrides
+    if QuestieDB.questDataOverrides then
+        local qid, _ = next(QuestieDB.questDataOverrides)
+        while qid do
+            processQuest(qid)
+            qid, _ = next(QuestieDB.questDataOverrides, qid)
+        end
+    end
+
     _QuestieDB.zoneCache[zoneId] = zoneQuests;
     return zoneQuests;
 end
@@ -1775,7 +1861,7 @@ function _QuestieDB:DeleteGatheringNodes()
         1731,1732,1733,1734,1735,123848,150082,175404,176643,177388,324,150079,176645,2040,123310 -- mining
     }
     local objectSpawnsKey = QuestieDB.objectKeys.spawns
-    for i=1, #prune do
+    for i=1, table.getn(prune) do
         local id = prune[i]
         if QuestieDB.objectData[id] then
             QuestieDB.objectData[id][objectSpawnsKey] = nil
@@ -1806,7 +1892,8 @@ end
 
 function _QuestieDB:HideClassAndRaceQuests()
     local questKeys = QuestieDB.questKeys
-    for _, entry in pairs(QuestieDB.questData) do
+    local _, entry = next(QuestieDB.questData)
+    while entry do
         -- check requirements, set hidden flag if not met
         local requiredClasses = entry[questKeys.requiredClasses]
         if (requiredClasses) and (requiredClasses ~= 0) then
@@ -1820,6 +1907,7 @@ function _QuestieDB:HideClassAndRaceQuests()
                 entry.hidden = true
             end
         end
+        _, entry = next(QuestieDB.questData, _)
     end
     Questie:Debug(Questie.DEBUG_DEVELOP, "Other class and race quests hidden");
 end
@@ -1851,11 +1939,13 @@ function QuestieDB.GetQuestIDFromName(name, questgiverGUID, questStarter)
         -- iterate through every questEnds entry in our questgiver's DB, and check if each quest name matches this greeting frame entry
         if questStarter == true then
             if questsStarted then
-                for _, id in pairs(questsStarted) do
+                local _id, id = next(questsStarted)
+                while _id do
                     if (name == QuestieDB.QueryQuestSingle(id, "name")) and (QuestieDB.IsDoable(id)) then
                         -- the QuestieDB.IsDoable check is important to filter out identically named quests
                         questID = id
                     end
+                    _id, id = next(questsStarted, _id)
                 end
             elseif Questie.IsSoD == false then -- don't print these errors in SoD, as we expect missing data when new quests release; debug offers will handle these scenarios instead
                 Questie:Error("Database mismatch! No entries found that match quest name. Please report this on Github or Discord!")
@@ -1865,10 +1955,12 @@ function QuestieDB.GetQuestIDFromName(name, questgiverGUID, questStarter)
             end
         else
             if questsEnded then
-                for _, id in pairs(questsEnded) do
+                local _id, id = next(questsEnded)
+                while _id do
                     if (name == QuestieDB.QueryQuestSingle(id, "name")) and (QuestieDB.IsDoable(id)) and QuestiePlayer.currentQuestlog[id] then
                         questID = id
                     end
+                    _id, id = next(questsEnded, _id)
                 end
             elseif Questie.IsSoD == false then -- don't print these errors in SoD, as we expect missing data when new quests release; debug offers will handle these scenarios instead
                 Questie:Error("Database mismatch! No entries found that match quest name. Please report this on Github or Discord!")
@@ -1914,8 +2006,10 @@ end
 
 local function _Asc_MergeInto(dst, src)
     if type(dst) ~= "table" or type(src) ~= "table" then return end
-    for id, entry in pairs(src) do
+    local id, entry = next(src)
+    while id do
         dst[id] = entry -- overwrite = true
+        id, entry = next(src, id)
     end
 end
 

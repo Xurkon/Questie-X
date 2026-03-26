@@ -61,7 +61,7 @@ function AvailableQuests.DrawAvailableQuest(quest) -- prevent recursion
 
     if quest.Starts["GameObject"] then
         local gameObjects = quest.Starts["GameObject"]
-        for i = 1, #gameObjects do
+        for i = 1, table.getn(gameObjects) do
             local objId = gameObjects[i]
             local obj = QuestieDB:GetObject(objId)
             if obj and obj.id then
@@ -72,7 +72,7 @@ function AvailableQuests.DrawAvailableQuest(quest) -- prevent recursion
 
     if quest.Starts["NPC"] then
         local npcs = quest.Starts["NPC"]
-        for i = 1, #npcs do
+        for i = 1, table.getn(npcs) do
             local starterId = npcs[i]
             local npc = QuestieDB:GetNPC(starterId)
             if npc and npc.id then
@@ -90,10 +90,12 @@ end
 
 
 function AvailableQuests.UnloadUndoable()
-    for questId, _ in pairs(availableQuests) do
+    local questId, _ = next(availableQuests)
+    while questId do
         if (not QuestieDB.IsDoable(questId)) then
             QuestieMap:UnloadQuestFrames(questId)
         end
+        questId, _ = next(availableQuests, questId)
     end
 end
 
@@ -182,7 +184,10 @@ _CalculateAvailableQuests = function()
 
         if QuestieMap.questIdFrames[questId] then
             -- We already drew this quest so we might need to update the icon (config changed/level up)
-            for _, frame in ipairs(QuestieMap:GetFramesForQuest(questId)) do
+            local frames = QuestieMap:GetFramesForQuest(questId)
+            local i = 1
+            while frames[i] do
+                local frame = frames[i]
                 if frame and frame.data and frame.data.QuestData then
                     local newIcon = _GetQuestIcon(frame.data.QuestData)
 
@@ -190,6 +195,7 @@ _CalculateAvailableQuests = function()
                         frame:UpdateTexture(Questie.usedIcons[newIcon])
                     end
                 end
+                i = i + 1
             end
             return
         end
@@ -200,7 +206,8 @@ _CalculateAvailableQuests = function()
     local questCount = 0
 
     -- 1) Base Questie DB (compiled pointers)
-    for questId in pairs(questData) do
+    local questId, _ = next(questData)
+    while questId do
         _DrawQuestIfAvailable(questId)
 
         questCount = questCount + 1
@@ -208,15 +215,15 @@ _CalculateAvailableQuests = function()
             questCount = 0
             yield()
         end
+        questId, _ = next(questData, questId)
     end
 
-    -- 2) Ascension override quests (not present in QuestPointers)
-    -- These are injected into QuestieDB.questDataOverrides by AscensionLoader.
-    local ascensionQuestIds = QuestieDB.ascensionQuestIds or QuestieDB.questDataOverrides
-    if type(ascensionQuestIds) == "table" then
-        for questId in pairs(ascensionQuestIds) do
-            if type(questId) == "number" then
-                _DrawQuestIfAvailable(questId)
+    -- 2) Plugin/Legacy/Ascension override quests (not present in QuestPointers)
+    if type(QuestieDB.questDataOverrides) == "table" then
+        local qid, _ = next(QuestieDB.questDataOverrides)
+        while qid do
+            if type(qid) == "number" then
+                _DrawQuestIfAvailable(qid)
 
                 questCount = questCount + 1
                 if questCount > QUESTS_PER_YIELD then
@@ -224,6 +231,7 @@ _CalculateAvailableQuests = function()
                     yield()
                 end
             end
+            qid, _ = next(QuestieDB.questDataOverrides, qid)
         end
     end
 end
@@ -238,16 +246,23 @@ _DrawChildQuests = function(questId, currentQuestlog, completedQuests)
         return
     end
 
-    for _, childQuestId in pairs(childQuests) do
+    local childQuestId, _ = next(childQuests or {})
+    while childQuestId do
         if (not completedQuests[childQuestId]) and (not currentQuestlog[childQuestId]) then
             local childQuestExclusiveTo = QuestieDB.QueryQuestSingle(childQuestId, "exclusiveTo")
             local blockedByExclusiveTo = false
-            for _, exclusiveToQuestId in pairs(childQuestExclusiveTo or {}) do
+            
+            local i = 1
+            local exclusiveTo = childQuestExclusiveTo or {}
+            while exclusiveTo[i] do
+                local exclusiveToQuestId = exclusiveTo[i]
                 if QuestiePlayer.currentQuestlog[exclusiveToQuestId] or completedQuests[exclusiveToQuestId] then
                     blockedByExclusiveTo = true
                     break
                 end
+                i = i + 1
             end
+
             if (not blockedByExclusiveTo) then
                 QuestieDB.activeChildQuests[childQuestId] = true
                 availableQuests[childQuestId] = true
@@ -255,6 +270,7 @@ _DrawChildQuests = function(questId, currentQuestlog, completedQuests)
                 _DrawAvailableQuest(childQuestId)
             end
         end
+        childQuestId, _ = next(childQuests, childQuestId)
     end
 end
 
@@ -311,13 +327,14 @@ _AddStarter = function(starter, quest, tooltipKey)
 
     local starterIcons = {}
     local starterLocs = {}
-    for zone, spawns in pairs(starter.spawns or {}) do
+    local zoneId, spawns = next(starter.spawns or {})
+    while zoneId do
         local alreadyAddedSpawns = {}
-        if (zone and spawns) then
-            local coords
-            for spawnIndex = 1, #spawns do
-                coords = spawns[spawnIndex]
-                if #spawns == 1 or _HasProperDistanceToAlreadyAddedSpawns(coords, alreadyAddedSpawns) then
+        if spawns then
+            local spawnIndex = 1
+            while spawns[spawnIndex] do
+                local coords = spawns[spawnIndex]
+                if table.getn(spawns) == 1 or _HasProperDistanceToAlreadyAddedSpawns(coords, alreadyAddedSpawns) then
                     local data = {
                         Id = quest.Id,
                         Icon = _GetQuestIcon(quest),
@@ -330,31 +347,37 @@ _AddStarter = function(starter, quest, tooltipKey)
                     }
 
                     if (coords[1] == -1 or coords[2] == -1) then
-                        local dungeonLocation = ZoneDB:GetDungeonLocation(zone)
+                        local dungeonLocation = ZoneDB:GetDungeonLocation(zoneId)
                         if dungeonLocation then
-                            for _, value in ipairs(dungeonLocation) do
+                            local i = 1
+                            while dungeonLocation[i] do
+                                local value = dungeonLocation[i]
                                 QuestieMap:DrawWorldIcon(data, value[1], value[2], value[3])
+                                i = i + 1
                             end
                         end
                     else
-                        local icon = QuestieMap:DrawWorldIcon(data, zone, coords[1], coords[2])
+                        local icon = QuestieMap:DrawWorldIcon(data, zoneId, coords[1], coords[2])
                         if starter.waypoints then
                             -- This is only relevant for waypoint drawing
-                            starterIcons[zone] = icon
-                            if not starterLocs[zone] then
-                                starterLocs[zone] = { coords[1], coords[2] }
+                            starterIcons[zoneId] = icon
+                            if not starterLocs[zoneId] then
+                                starterLocs[zoneId] = { coords[1], coords[2] }
                             end
                         end
                         tinsert(alreadyAddedSpawns, coords)
                     end
                 end
+                spawnIndex = spawnIndex + 1
             end
         end
+        zoneId, spawns = next(starter.spawns, zoneId)
     end
 
     -- Only for NPCs since objects do not move
     if starter.waypoints then
-        for zone, waypoints in pairs(starter.waypoints or {}) do
+        local zone, waypoints = next(starter.waypoints or {})
+        while zone do
             if not dungeons[zone] and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] then
                 if not starterIcons[zone] then
                     local data = {
@@ -372,17 +395,20 @@ _AddStarter = function(starter, quest, tooltipKey)
                 end
                 QuestieMap:DrawWaypoints(starterIcons[zone], waypoints, zone)
             end
+            zone, waypoints = next(starter.waypoints, zone)
         end
     end
 end
 
 _HasProperDistanceToAlreadyAddedSpawns = function(coords, alreadyAddedSpawns)
-    for _, alreadyAdded in pairs(alreadyAddedSpawns) do
+    local idx, alreadyAdded = next(alreadyAddedSpawns)
+    while idx do
         local distance = QuestieLib.GetSpawnDistance(alreadyAdded, coords)
         -- 29 seems like a good distance. The "Undying Laborer" in Westfall shows both spawns for the "Horn of Lordaeron" rune
         if distance < 29 then
             return false
         end
+        idx, alreadyAdded = next(alreadyAddedSpawns, idx)
     end
     return true
 end
@@ -404,19 +430,21 @@ local function StartPeriodicCleanup()
     -- Check every 5 seconds
     cleanupTimer = C_Timer.NewTicker(5, function()
         -- Only run if Questie isn't busy
-        if QuestieMap._mapDrawQueue and #QuestieMap._mapDrawQueue == 0 and 
-           QuestieMap._minimapDrawQueue and #QuestieMap._minimapDrawQueue == 0 then
+        if QuestieMap._mapDrawQueue and table.getn(QuestieMap._mapDrawQueue) == 0 and 
+           QuestieMap._minimapDrawQueue and table.getn(QuestieMap._minimapDrawQueue) == 0 then
             
             local completedQuests = Questie.db.char.complete
             if not completedQuests then return end
             
-            for questId, frameList in pairs(QuestieMap.questIdFrames) do
+            local questId, frameList = next(QuestieMap.questIdFrames)
+            while questId do
                 if completedQuests[questId] then
                     -- This quest is complete but still has frames on the map
                     Questie:Debug(Questie.DEBUG_INFO, "[AvailableQuests] Cleanup: Removing lingering frames for completed quest:", questId)
                     QuestieMap:UnloadQuestFrames(questId)
                     QuestieTooltips:RemoveQuest(questId)
                 end
+                questId, frameList = next(QuestieMap.questIdFrames, questId)
             end
         end
     end)

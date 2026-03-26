@@ -193,15 +193,23 @@ function MapIconTooltip:Show()
                     if not npcAndObjectOrder["default"] then
                         npcAndObjectOrder["default"] = {npcNames = {}, quests = {}};
                     end
-                    npcAndObjectOrder["default"].npcNames[iconData.Name] = true
-                    npcAndObjectOrder["default"].quests[tip.title] = tip
+                    if iconData.Name then
+                        npcAndObjectOrder["default"].npcNames[iconData.Name] = true
+                    end
+                    if tip and tip.title then
+                        npcAndObjectOrder["default"].quests[tip.title] = tip
+                    end
                 elseif iconData.Type == "monster" or iconData.Type == "killcredit" or iconData.Type == "spell" or iconData.Type == "object" or iconData.Type == "event" or iconData.Type == "item" then
                     local tip = _MapIconTooltip:GetAvailableOrCompleteTooltip(icon)
                     if not npcAndObjectOrder["default"] then
                         npcAndObjectOrder["default"] = {npcNames = {}, quests = {}};
                     end
-                    npcAndObjectOrder["default"].npcNames[iconData.Name] = true
-                    npcAndObjectOrder["default"].quests[tip.title] = tip
+                    if iconData.Name then
+                        npcAndObjectOrder["default"].npcNames[iconData.Name] = true
+                    end
+                    if tip and tip.title then
+                        npcAndObjectOrder["default"].quests[tip.title] = tip
+                    end
                 elseif iconData.CustomTooltipData then
                     manualOrder[iconData.CustomTooltipData.Title] = { Body = { iconData.CustomTooltipData.Body or "" } }
                 elseif iconData.ManualTooltipData then

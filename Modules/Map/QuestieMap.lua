@@ -609,6 +609,9 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
         else
             areaID = parentMapId
             uiMapId = ZoneDB:GetUiMapIdByAreaId(areaID)
+            if not uiMapId then
+                return nil, nil
+            end
         end
     end
 

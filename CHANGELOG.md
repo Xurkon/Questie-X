@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.5.1 (2026-03-28)
+
+- **[Fix — Minimap Icons]** Prevented external "minimap button grabber" addons (e.g., Leatrix Plus, MBB) from incorrectly hiding Questie-X quest pins. Minimap icons now use a protected `QuestieFrameGroup` container that is ignored by these addons while maintaining correct spatial anchoring via `HereBeDragons`.
+
 ## v1.5.0 (2026-03-28)
 
 - **[Fix — Database Robustness]** Added strict guards against invalid or zero IDs in `QuestieDB` lookup functions (`GetNPC`, `GetObject`, `GetItem`). This prevents the "rawdata is nil" debug spam that occurred when custom plugins attempted to access uninitialized or malformed entity data.

@@ -20,7 +20,8 @@ function QuestieMap.utils:SetDrawOrder(frame)
     if frame.miniMapIcon then
         local frameLevel = Minimap:GetFrameLevel() + 7
         local frameStrata = Minimap:GetFrameStrata()
-        frame:SetParent(Minimap)
+        local parent = _G["QuestieFrameGroup"] or Minimap
+        frame:SetParent(parent)
         frame:SetFrameStrata(frameStrata)
         frame:SetFrameLevel(frameLevel)
     else

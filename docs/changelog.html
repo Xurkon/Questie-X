@@ -176,6 +176,13 @@
     </div>
 
     <div class="container">
+        <h2 id="v151">v1.5.1 &mdash; Minimap Icon Visibility Fix</h2>
+        <ul>
+            <li><strong>[Fix &mdash; Minimap Icons]</strong> Prevented external "minimap button grabber" addons (e.g., Leatrix Plus, MBB) from incorrectly hiding Questie-X quest pins. Minimap icons now use a protected <code>QuestieFrameGroup</code> container that is ignored by these addons while maintaining correct spatial anchoring via <code>HereBeDragons</code>.</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v150">v1.5.0 &mdash; Universal Stability &amp; Zone Mapping</h2>
         <ul>
             <li><strong>[Fix &mdash; Database Robustness]</strong> Added strict guards against invalid or zero IDs in <code>QuestieDB</code> lookup functions (<code>GetNPC</code>, <code>GetObject</code>, <code>GetItem</code>). This prevents the "rawdata is nil" debug spam that occurred when custom plugins attempted to access uninitialized or malformed entity data.</li>

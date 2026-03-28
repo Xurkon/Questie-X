@@ -33,6 +33,31 @@ local l10n = QuestieLoader:ImportModule("l10n")
 ---@type QuestLogCache
 local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
 
+-- Dummy handles to prevent Stage 2 crashes during deferred initialization
+local _dummyHandle = {
+    QuerySingle = function() return nil end,
+    Query = function() return nil end,
+    pointers = {}
+}
+QuestieDB.QueryNPC = _dummyHandle.Query
+QuestieDB.QueryQuest = _dummyHandle.Query
+QuestieDB.QueryObject = _dummyHandle.Query
+QuestieDB.QueryItem = _dummyHandle.Query
+QuestieDB.QueryQuestSingle = _dummyHandle.QuerySingle
+QuestieDB.QueryNPCSingle = _dummyHandle.QuerySingle
+QuestieDB.QueryObjectSingle = _dummyHandle.QuerySingle
+QuestieDB.QueryItemSingle = _dummyHandle.QuerySingle
+QuestieDB._QueryQuestSingle = _dummyHandle.QuerySingle
+QuestieDB._QueryNPCSingle = _dummyHandle.QuerySingle
+QuestieDB._QueryObjectSingle = _dummyHandle.QuerySingle
+QuestieDB._QueryItemSingle = _dummyHandle.QuerySingle
+
+-- Initialize pointers to empty tables to prevent Stage 2 crashes during deferred initialization
+QuestieDB.QuestPointers = _dummyHandle.pointers
+QuestieDB.NPCPointers = _dummyHandle.pointers
+QuestieDB.ObjectPointers = _dummyHandle.pointers
+QuestieDB.ItemPointers = _dummyHandle.pointers
+
 ---@type QuestieQuest
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
 ---@type QuestieQuestPrivate
@@ -338,6 +363,10 @@ function QuestieDB:Initialize()
 end
 
 function QuestieDB:GetObject(objectId)
+    if self ~= QuestieDB then
+        objectId = self
+    end
+    objectId = tonumber(objectId)
     if not objectId then
         return nil
     end
@@ -347,6 +376,10 @@ function QuestieDB:GetObject(objectId)
 
     --local rawdata = QuestieDB.objectData[objectId];
     local rawdata = QuestieDB.QueryObject(objectId, QuestieDB._objectAdapterQueryOrder)
+
+    if not rawdata and QuestieDB.objectDataOverrides then
+        rawdata = QuestieDB.objectDataOverrides[objectId] or QuestieDB.objectDataOverrides[tostring(objectId)]
+    end
 
     if not rawdata then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetObject] rawdata is nil for objectID:", objectId)
@@ -368,6 +401,10 @@ function QuestieDB:GetObject(objectId)
 end
 
 function QuestieDB:GetItem(itemId)
+    if self ~= QuestieDB then
+        itemId = self
+    end
+    itemId = tonumber(itemId)
     if (not itemId) or (itemId == 0) then
         return nil
     end
@@ -376,6 +413,10 @@ function QuestieDB:GetItem(itemId)
     end
 
     local rawdata = QuestieDB.QueryItem(itemId, QuestieDB._itemAdapterQueryOrder)
+
+    if not rawdata and QuestieDB.itemDataOverrides then
+        rawdata = QuestieDB.itemDataOverrides[itemId] or QuestieDB.itemDataOverrides[tostring(itemId)]
+    end
 
     if not rawdata then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetItem] rawdata is nil for itemID:", itemId)
@@ -1210,7 +1251,16 @@ end
 
 ---@param questId QuestId
 ---@return Quest|nil @The quest object or nil if the quest is missing
-function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
+function QuestieDB.GetQuest(questId, ...) -- /dump QuestieDB.GetQuest(867)
+    -- Handle colon calling QuestieDB:GetQuest(questId)
+    if type(questId) == "table" and questId == QuestieDB then
+        questId = select(1, ...)
+    end
+    -- Handle string input from console or other sources
+    if type(questId) == "string" then
+        questId = tonumber(questId)
+    end
+
     if not questId then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB.GetQuest] No questId.")
         return nil
@@ -1220,11 +1270,15 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
     end
 
     local rawdata = QuestieDB.QueryQuest(questId, QuestieDB._questAdapterQueryOrder)
+    local overrideData = QuestieDB.questDataOverrides and (QuestieDB.questDataOverrides[questId] or QuestieDB.questDataOverrides[tostring(questId)])
 
     if (not rawdata) then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB.GetQuest] rawdata is nil for questID:", questId)
-        if questId == 0 then
-            Questie:Error("[QuestieDB.GetQuest] rawdata is nil for questID:", questId)
+        rawdata = overrideData
+        if (not rawdata) then
+            Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB.GetQuest] rawdata is nil for questID:", questId)
+            if questId == 0 then
+                Questie:Error("[QuestieDB.GetQuest] rawdata is nil for questID:", questId)
+            end
             print(debugstack())
             return nil
         end
@@ -1294,6 +1348,39 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
         stringKey, intKey = next(questKeys, stringKey)
     end
 
+    -- Support for index-aware objective mapping (QuestieLearner & custom overrides)
+    if rawdata.objIndex then QO.objIndex = rawdata.objIndex end
+
+
+    -- Apply overrides to QO directly (merging objectives if needed)
+    if overrideData and rawdata ~= overrideData then
+        local _sKey, _iKey = next(questKeys)
+        while _sKey do
+            if overrideData[_iKey] then
+                if _sKey == "objectives" and QO.objectives then
+                    -- Merge objectives (index 10)
+                    local _objIdx, _objList = next(overrideData[_iKey])
+                    while _objIdx do
+                        if not QO.objectives[_objIdx] then
+                            QO.objectives[_objIdx] = _objList
+                        else
+                            local _id, _data = next(_objList)
+                            while _id do
+                                QO.objectives[_objIdx][_id] = _data
+                                _id, _data = next(_objList, _id)
+                            end
+                        end
+                        _objIdx, _objList = next(overrideData[_iKey], _objIdx)
+                    end
+                else
+                    QO[_sKey] = overrideData[_iKey]
+                end
+            end
+            _sKey, _iKey = next(questKeys, _sKey)
+        end
+        if overrideData.objIndex then QO.objIndex = overrideData.objIndex end
+    end
+
     local questLevel, requiredLevel = QuestieLib.GetTbcLevel(questId)
     QO.level = questLevel
     QO.requiredLevel = requiredLevel
@@ -1357,6 +1444,25 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
     ---@type Objective[]
     QO.ObjectiveData = {}
 
+    -- Support for index-aware objective mapping (QuestieLearner & custom overrides)
+    -- This handles "kill-credit" scenarios and prevents "UI swapping" by pinning
+    -- entities to the specific quest log objective index 'j'.
+    if QO.objIndex then
+        local _index, _data = next(QO.objIndex)
+        while _index do
+            if _data and _data.id then
+                QO.ObjectiveData[_index] = {
+                    Type = _data.type or "monster",
+                    Id = _data.id,
+                    Text = _data.text or "",
+                    -- Store original mapping for reference
+                    _isIndexMapped = true,
+                }
+            end
+            _index, _data = next(QO.objIndex, _index)
+        end
+    end
+
     ---@type RawObjectives
     local objectives = QO.objectives
     if objectives then
@@ -1364,13 +1470,26 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
             local _creatureObjective, creatureObjective = next(objectives[1])
             while _creatureObjective do
                 if creatureObjective then
-                    ---@type NpcObjective
-                    table.insert(QO.ObjectiveData, {
-                        Type = "monster",
-                        Id = creatureObjective[1],
-                        Text = creatureObjective[2],
-                        HideCondition = creatureObjective[3],
-                    })
+                    -- Only insert if not already mapped via objIndex
+                    local alreadyMapped = false
+                    if QO.objIndex then
+                        for _, existing in pairs(QO.ObjectiveData) do
+                            if existing.Id == creatureObjective[1] then
+                                alreadyMapped = true
+                                break
+                            end
+                        end
+                    end
+
+                    if not alreadyMapped then
+                        ---@type NpcObjective
+                        table.insert(QO.ObjectiveData, {
+                            Type = "monster",
+                            Id = creatureObjective[1],
+                            Text = creatureObjective[2],
+                            HideCondition = creatureObjective[3],
+                        })
+                    end
                 end
                 _creatureObjective, creatureObjective = next(objectives[1], _creatureObjective)
             end
@@ -1739,7 +1858,11 @@ local a = {
 ---@param npcId number
 ---@return table
 function QuestieDB:GetNPC(npcId)
-    if not npcId then
+    if self ~= QuestieDB then
+        npcId = self
+    end
+    npcId = tonumber(npcId)
+    if not npcId or npcId == 0 then
         return nil
     end
     if _QuestieDB.npcCache[npcId] then
@@ -1747,6 +1870,11 @@ function QuestieDB:GetNPC(npcId)
     end
 
     local rawdata = QuestieDB.QueryNPC(npcId, QuestieDB._npcAdapterQueryOrder)
+
+    if not rawdata and QuestieDB.npcDataOverrides then
+        rawdata = QuestieDB.npcDataOverrides[npcId] or QuestieDB.npcDataOverrides[tostring(npcId)]
+    end
+
     if (not rawdata) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetNPC] rawdata is nil for npcID:", npcId)
         return nil

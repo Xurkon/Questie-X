@@ -166,16 +166,31 @@
 
 <body>
     <div class="hero">
-        <img src="QuestieXlogo.png" alt="Questie-X Logo" width="400" />
+        <h1>Questie-X Documentation</h1>
         <p class="subtitle">Complete history of changes, fixes, and additions.</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
+            <code>Version: v1.5.0</code>
             <a href="index.html"
-                style="color: var(--accent-blue); text-decoration: none; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px;">&larr;
-                Back to Documentation</a>
+                style="background: var(--bg-tertiary); color: var(--accent-blue); text-decoration: none; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; border: 1px solid var(--border-color);">&larr; Back to Documentation</a>
         </div>
     </div>
 
     <div class="container">
+        <h2 id="v150">v1.5.0 &mdash; Universal Stability &amp; Zone Mapping</h2>
+        <ul>
+            <li><strong>[Fix &mdash; Database Robustness]</strong> Added strict guards against invalid or zero IDs in <code>QuestieDB</code> lookup functions (<code>GetNPC</code>, <code>GetObject</code>, <code>GetItem</code>). This prevents the "rawdata is nil" debug spam that occurred when custom plugins attempted to access uninitialized or malformed entity data.</li>
+            <li><strong>[Refactor &mdash; Lookup Logic]</strong> Refactored <code>QuestieDB</code> override handling to support both numeric and string keys simultaneously. This ensures that custom server data (e.g., Ascension, Ebonhold) is correctly resolved regardless of how the third-party plugin formats its internal IDs.</li>
+            <li><strong>[Refactor &mdash; Data Injection]</strong> Updated <code>QuestieLearner:InjectLearnedData</code> to enforce numeric key normalization. All dynamically learned spawn data is now strictly indexed by numeric IDs, preventing type-mismatch collisions during database merging.</li>
+            <li><strong>[Feature &mdash; Enhanced Logging]</strong> Improved Stage 3 initialization logging to provide detailed reporting on custom data injection. Developers can now verify the exact number of NPCs, Objects, and Items injected by plugins directly from the <code>DEVELOP</code> log.</li>
+            <li><strong>[Fix &mdash; Ascension Zone Mapping]</strong> Fixed a regression in <code>QuestieCompat</code> where <code>uiMapData</code> for Ascension-specific zones was not correctly propagating to the global mapping table, restoring map pin functionality for seasonal and custom zones.</li>
+            <li><strong>[Fix &mdash; QuestieLearner]</strong> Centralized zone/area ID lookup in <code>l10n</code> module to prevent <code>GetAreaIdByLocalName</code> nil errors (Fixes Project Ebonhold runtime crash).</li>
+            <li><strong>[Feature &mdash; Session Export]</strong> Added <code>session_export</code> skill for standardized documentation and session artifact exports.</li>
+            <li><strong>[Fix &mdash; Custom Server Compilation]</strong> Fixed database compilation not running on custom servers (Ascension, Ebonhold, Turtle WoW, etc.) where plugins inject data after initial load.</li>
+            <li><strong>[Fix &mdash; Zone Mapping Bug]</strong> Fixed incorrect key assignment in <code>QuestiePluginAPI:InjectZoneTables()</code>. This caused zone lookups to fail, resulting in "No UiMapID or fitting parentAreaId" errors for custom zone IDs.</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v149">v1.4.9 &mdash; Validation, Profiler &amp; Quest Link Fixes</h2>
         <ul>
             <li><strong>[Fix &mdash; Quest Cache]</strong> Resolved the "GetQuest: The quest doesn't exist in QuestLogCache" fatal error occurring during initialization on the Ascension WoW client. Implemented a robust retry mechanism in <code>_QuestEventHandler:InitQuestLog</code> and refactored <code>QuestLogCache.GetQuest</code> and <code>GetQuestObjectives</code> to fail gracefully.</li>

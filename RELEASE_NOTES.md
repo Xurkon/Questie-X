@@ -1,24 +1,24 @@
-## v1.4.4 — AceGUI Pool & Event Handling Fixes
+# Questie-X v1.5.0 — Universal Stability & Zone Mapping
 
-### AceGUI Fixes
-- Fixed `Compat/embeds.xml` to load Wrath-compatible Ace library versions from `Libs/` (AceGUI-3.0 v34, AceConfigDialog-3.0 v66) instead of newer versions that caused widget pool corruption
-- Added nil checks throughout AceGUI-3.0 to prevent crashes when pooled widgets have corrupted/nil properties
-- Applied fixes to both `Libs/AceGUI-3.0/` and `Compat/Libs/AceGUI-3.0/`
+This major update focuses on critical runtime stability, centralized localization logic, and improved development infrastructure for all supported private servers (Ascension, Ebonhold, Turtle WoW, etc.).
 
-### Event Handling Fixes
-- Fixed "bad argument #1 to 'find'" error in `ChatMsgSystem`
-- Fixed "number expected, got nil" error in `SetPlayerLevel`
+### Database & Performance
+- **[Fix] Database Robustness**: Added strict guards against invalid or zero IDs in `QuestieDB` lookup functions (`GetNPC`, `GetObject`, `GetItem`). This prevents the "rawdata is nil" debug spam that occurred when custom plugins attempted to access uninitialized or malformed entity data.
+- **[Refactor] Lookup Logic**: Refactored `QuestieDB` override handling to support both numeric and string keys simultaneously. This ensures that custom server data is correctly resolved regardless of how the third-party plugin formats its internal IDs.
+- **[Refactor] Data Injection**: Updated `QuestieLearner:InjectLearnedData` to enforce numeric key normalization, preventing type-mismatch collisions during database merging.
+- **[Fix] Custom Server Compilation**: Fixed database compilation not running on custom servers where plugins inject data after initial load.
+- **[Performance] Taint Mitigation**: Resolved multiple `ADDON_ACTION_BLOCKED` taint vectors related to `Questie-X-WotLKDB` global namespace pollution.
 
-### QuestieLearner Fixes
-- Added robust `SanitizeData` function with depth limiting to filter functions/userdata/thread from learned data
-- Added pcall wrapper around AceSerializer to catch and log errors instead of crashing
-- Added early return checks for nil/empty data
+### QuestieLearner & Localization
+- **[Fix] Centralized Zone Lookup**: Refactored `l10n.lua` to include centralized zone-to-ID mapping functions. This resolves the `attempt to call method 'GetAreaIdByLocalName' (a nil value)` error that occurred on Project Ebonhold.
+- **[Fix] Ascension Zone Mapping**: Fixed a regression in `QuestieCompat` where `uiMapData` for Ascension-specific zones was not correctly propagating to the global mapping table.
+- **[Fix] Zone Mapping Bug**: Fixed incorrect key assignment in `QuestiePluginAPI:InjectZoneTables()`, resolving "No UiMapID or fitting parentAreaId" errors.
 
-### Journey Fixes
-- Fixed "attempt to index local 'container'" error in tab handling
-
-### Localization Fixes
-- Fixed "bad argument #2 to 'format'" error when translation is not a string or format arguments are missing
+### Infrastructure & Development
+- **[Feature] Session Export**: Added a standardized `session_export` skill for automated exports of developer documentation and session artifacts.
+- **[Feature] Enhanced Logging**: Improved initialization logging to provide detailed reporting on custom data injection for NPC, Object, and Item entities.
 
 ### Files Changed
-- 26 files changed, 569 insertions(+), 83 deletions(-)
+- Standardized version to `1.5.0` across all files.
+- Consolidated all v1.5.x experimental changes into a stable v1.5.0 release.
+- Updated documentation: `README.md`, `CHANGELOG.md`, `docs/changelog.html`, and `docs/index.html`.

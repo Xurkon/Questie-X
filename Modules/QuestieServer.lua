@@ -1,8 +1,8 @@
 ---@class QuestieServer
 local QuestieServer = QuestieLoader:CreateModule("QuestieServer")
 
----@type string
-local realmName = GetRealmName() or ""
+local realmName = GetRealmName() or (GetCVar and GetCVar("realmName")) or ""
+local lRealmName = realmName:lower()
 
 -- Client flavor detection from WoW globals
 local WOW_PROJECT_ID        = WOW_PROJECT_ID or -1
@@ -27,12 +27,12 @@ Questie.IsEbonhold  = false
 Questie.IsAscension = false
 Questie.IsValanior  = false
 
-if _G.IsAscensionServer or realmName:find("Ascension") or realmName:find("Area 52") or
-   realmName:find("Al'ar") or realmName:find("Thrall") then
+if _G.IsAscensionServer or lRealmName:find("ascension") or lRealmName:find("area 52") or
+   lRealmName:find("al'ar") or lRealmName:find("thrall") or lRealmName:find("bronzebeard") or lRealmName:find("warcraft reborn") then
     Questie.IsAscension = true
-elseif realmName == "Ebonhold" or realmName == "Test Ebonhold" then
+elseif lRealmName:find("ebonhold") then
     Questie.IsEbonhold = true
-elseif realmName == "Valanior" then
+elseif lRealmName:find("valanior") then
     Questie.IsValanior = true
 end
 
@@ -55,6 +55,31 @@ function QuestieServer:Init()
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieServer] IsWotlk:", tostring(Questie.IsWotlk), "IsTBC:", tostring(Questie.IsTBC),
         "IsClassicEra:", tostring(Questie.IsClassicEra), "IsTurtle:", tostring(Questie.IsTurtle),
         "IsAscension:", tostring(Questie.IsAscension), "IsEbonhold:", tostring(Questie.IsEbonhold))
+end
+
+--- Returns true if any Questie-X Database plugin addon is present and enabled.
+--- This check is used to defer compilation even if server detection fails.
+function QuestieServer:IsAnyDBPluginEnabled()
+    local dbPlugins = {
+        "Questie-X-WotLKDB",
+        "Questie-X-ClassicDB",
+        "Questie-X-TBCDB",
+        "Questie-X-TurtleDB",
+        "Questie-X-AscensionDB",
+        "Questie-X-EbonholdDB",
+        "Questie-X-ValaniorDB",
+        "Questie-X-RetailDB"
+    }
+    
+    for _, addonName in ipairs(dbPlugins) do
+        -- GetAddOnInfo(index or name)
+        -- returns name, title, notes, loadable, reason, security
+        local name, title, notes, loadable, reason, security = GetAddOnInfo(addonName)
+        if name and loadable then
+            return true
+        end
+    end
+    return false
 end
 
 --- Checks if the correct DB plugin is loaded for the detected client/server.

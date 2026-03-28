@@ -649,6 +649,8 @@ function QuestieLearner:LearnQuest(questId, data)
         Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] LearnQuest blocked: learner not enabled")
         return
     end
+    questId = tonumber(questId)
+    if not questId or questId <= 0 then return end
     if not Questie.dbLearner.global.settings.learnQuests then
         Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] LearnQuest blocked: learnQuests=", tostring(Questie.dbLearner.global.settings.learnQuests))
         return
@@ -695,6 +697,7 @@ end
 function QuestieLearner:LearnQuestGiver(questId, entityId, entityType, isStart)
     if not self:IsEnabled() then return end
     if not Questie.dbLearner.global.settings.learnQuests then return end
+    questId, entityId = tonumber(questId), tonumber(entityId)
     if not questId or questId <= 0 or not entityId or entityId <= 0 then return end
 
     local existing = Questie.dbLearner.global.quests[questId]
@@ -740,9 +743,11 @@ end
 -- Adds npcId as a creatureObjective for questId ([10][1] in questKeys schema).
 -- If the NPC already exists in the base DB the spawn data is already there;
 -- we only need the quest to reference it so tooltips/map-pins get registered.
-function QuestieLearner:LearnQuestObjectiveNPC(questId, npcId, objText)
+function QuestieLearner:LearnQuestObjectiveNPC(questId, npcId, objText, objectiveIndex)
     if not self:IsEnabled() then return end
     if not Questie.dbLearner.global.settings.learnQuests then return end
+    questId, npcId = tonumber(questId), tonumber(npcId)
+    objectiveIndex = tonumber(objectiveIndex)
     if not questId or questId <= 0 or not npcId or npcId <= 0 then return end
 
     -- 1. Persist to SavedVariables
@@ -758,6 +763,27 @@ function QuestieLearner:LearnQuestObjectiveNPC(questId, npcId, objText)
         table.insert(existing[10][1], { npcId, objText or "" })
     end
 
+    -- 1.1 Persist exact objective index mapping
+    if objectiveIndex then
+        existing.objIndex = existing.objIndex or {}
+        local entry = existing.objIndex[objectiveIndex]
+        if not entry then
+            existing.objIndex[objectiveIndex] = { type = "monster", id = npcId, text = objText or "" }
+        elseif entry.id ~= npcId then
+            -- Handle Kill Credit (multiple NPCs for one objective)
+            if type(entry.id) == "number" then
+                entry.id = { entry.id, npcId }
+                entry.type = "killcredit"
+            else
+                local found = false
+                for _, id in ipairs(entry.id) do
+                    if id == npcId then found = true; break end
+                end
+                if not found then table.insert(entry.id, npcId) end
+            end
+        end
+    end
+
     -- 2. Apply to live questDataOverrides immediately (no reload needed)
     if QuestieDB and QuestieDB.questDataOverrides then
         local ovr = QuestieDB.questDataOverrides[questId] or {}
@@ -770,6 +796,12 @@ function QuestieLearner:LearnQuestObjectiveNPC(questId, npcId, objText)
         end
         if not alreadyPresent then
             table.insert(ovr[10][1], { npcId, objText or "" })
+        end
+
+        -- Update live objIndex override
+        if objectiveIndex then
+            ovr.objIndex = ovr.objIndex or {}
+            ovr.objIndex[objectiveIndex] = existing.objIndex[objectiveIndex]
         end
     end
 
@@ -797,6 +829,7 @@ end
 function QuestieLearner:LearnItem(itemId, name, itemLevel, requiredLevel, itemClass, itemSubClass)
     if not self:IsEnabled() then return end
     if not Questie.dbLearner.global.settings.learnItems then return end
+    itemId = tonumber(itemId)
     if not itemId or itemId <= 0 then return end
 
     local existing = Questie.dbLearner.global.items[itemId]
@@ -836,6 +869,7 @@ end
 function QuestieLearner:LearnItemDrop(itemId, npcId)
     if not self:IsEnabled() then return end
     if not Questie.dbLearner.global.settings.learnItems then return end
+    itemId, npcId = tonumber(itemId), tonumber(npcId)
     if not itemId or itemId <= 0 or not npcId or npcId <= 0 then return end
 
     local existing = Questie.dbLearner.global.items[itemId]
@@ -875,6 +909,7 @@ end
 function QuestieLearner:LearnObject(objectId, name)
     if not self:IsEnabled() then return end
     if not Questie.dbLearner.global.settings.learnObjects then return end
+    objectId = tonumber(objectId)
     if not objectId or objectId <= 0 then return end
 
     local zoneId = GetZoneId()
@@ -970,13 +1005,18 @@ function QuestieLearner:InjectLearnedData()
     local npcCount, questCount, itemCount, objectCount = 0, 0, 0, 0
 
     -- 1. NPCs
+    local npcIdsToFix = {}
     for npcId, data in pairs(learned.npcs) do
+        local nid = tonumber(npcId)
+        if type(npcId) == "string" and nid then
+            npcIdsToFix[npcId] = nid
+        end
         self:Sanitize(data)
-        if not QuestieDB.npcDataOverrides[npcId] then
-            QuestieDB.npcDataOverrides[npcId] = data
+        if not QuestieDB.npcDataOverrides[nid or npcId] then
+            QuestieDB.npcDataOverrides[nid or npcId] = data
             npcCount = npcCount + 1
         else
-            local existing = QuestieDB.npcDataOverrides[npcId]
+            local existing = QuestieDB.npcDataOverrides[nid or npcId]
             if data[7] then
                 existing[7] = existing[7] or {}
                 for zoneId, coords in pairs(data[7]) do
@@ -994,9 +1034,18 @@ function QuestieLearner:InjectLearnedData()
             end
         end
     end
+    for old, new in pairs(npcIdsToFix) do
+        learned.npcs[new] = learned.npcs[old]
+        learned.npcs[old] = nil
+    end
 
     -- 2. Quests
+    local questIdsToFix = {}
     for questId, data in pairs(learned.quests) do
+        local qid = tonumber(questId)
+        if type(questId) == "string" and qid then
+            questIdsToFix[questId] = qid
+        end
         self:Sanitize(data)
         -- Legacy cleanup for malformed objective data
         if data[10] ~= nil then
@@ -1012,11 +1061,11 @@ function QuestieLearner:InjectLearnedData()
             data[8] = nil
         end
 
-        if not QuestieDB.questDataOverrides[questId] then
-            QuestieDB.questDataOverrides[questId] = data
+        if not QuestieDB.questDataOverrides[qid or questId] then
+            QuestieDB.questDataOverrides[qid or questId] = data
             questCount = questCount + 1
         else
-            local existing = QuestieDB.questDataOverrides[questId]
+            local existing = QuestieDB.questDataOverrides[qid or questId]
             for k, v in pairs(data) do
                 if k ~= "mc" then
                     if k == 10 then
@@ -1041,23 +1090,41 @@ function QuestieLearner:InjectLearnedData()
             end
         end
     end
+    for old, new in pairs(questIdsToFix) do
+        learned.quests[new] = learned.quests[old]
+        learned.quests[old] = nil
+    end
 
     -- 3. Items
+    local itemIdsToFix = {}
     for itemId, data in pairs(learned.items) do
-        if not QuestieDB.itemDataOverrides[itemId] then
-            QuestieDB.itemDataOverrides[itemId] = data
+        local iid = tonumber(itemId)
+        if type(itemId) == "string" and iid then
+            itemIdsToFix[itemId] = iid
+        end
+        if not QuestieDB.itemDataOverrides[iid or itemId] then
+            QuestieDB.itemDataOverrides[iid or itemId] = data
             itemCount = itemCount + 1
         end
     end
+    for old, new in pairs(itemIdsToFix) do
+        learned.items[new] = learned.items[old]
+        learned.items[old] = nil
+    end
 
     -- 4. Objects
+    local objectIdsToFix = {}
     for objectId, data in pairs(learned.objects) do
+        local oid = tonumber(objectId)
+        if type(objectId) == "string" and oid then
+            objectIdsToFix[objectId] = oid
+        end
         self:Sanitize(data)
-        if not QuestieDB.objectDataOverrides[objectId] then
-            QuestieDB.objectDataOverrides[objectId] = data
+        if not QuestieDB.objectDataOverrides[oid or objectId] then
+            QuestieDB.objectDataOverrides[oid or objectId] = data
             objectCount = objectCount + 1
         else
-            local existing = QuestieDB.objectDataOverrides[objectId]
+            local existing = QuestieDB.objectDataOverrides[oid or objectId]
             if data[4] then
                 existing[4] = existing[4] or {}
                 for zoneId, coords in pairs(data[4]) do
@@ -1074,6 +1141,10 @@ function QuestieLearner:InjectLearnedData()
                 end
             end
         end
+    end
+    for old, new in pairs(objectIdsToFix) do
+        learned.objects[new] = learned.objects[old]
+        learned.objects[old] = nil
     end
 
     if npcCount > 0 or questCount > 0 or itemCount > 0 or objectCount > 0 then
@@ -1377,9 +1448,33 @@ function QuestieLearner:OnQuestComplete()
     end
 end
 
+-- Helper to find an NPC ID by name (case-insensitive substring match)
+-- Used for proactive objective mapping when a quest is first accepted.
+function QuestieLearner:GetNPCIdByName(npcName)
+    if not npcName or npcName == "" then return nil end
+    local lowerName = string.lower(npcName)
+    
+    -- Check overrides first (most likely for custom servers)
+    if QuestieDB.npcDataOverrides then
+        for id, data in pairs(QuestieDB.npcDataOverrides) do
+            if data and data[1] and string.lower(data[1]) == lowerName then
+                return id
+            end
+        end
+    end
+
+    -- Check base NPC database
+    -- Note: QueryNPCSingle is a dummy until initialization, but we can fallback to raw access
+    local npcData = QuestieDB.npcData or {}
+    for id, data in pairs(npcData) do
+        if data and data[1] and string.lower(data[1]) == lowerName then
+            return id
+        end
+    end
+    return nil
+end
+
 -- Fires when a quest is accepted.
--- Ascension 3.3.5 passes the quest log index as the first arg; some builds pass questID directly.
--- We detect which by checking if the value could be a log index and resolving via GetQuestLogTitle.
 function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
     Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] OnQuestAccepted raw args: first=" .. tostring(firstArg) .. " second=" .. tostring(secondArg))
     local questId
@@ -1429,18 +1524,46 @@ function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
     -- Zone: reverse-lookup from GetRealZoneText() which is always accurate on 3.3.5.
     local zoneText = GetRealZoneText()
     if zoneText and zoneText ~= "" then
-        for _, zoneTable in pairs(l10n.zoneLookup) do
-            for areaId, name in pairs(zoneTable) do
-                if name == zoneText then
-                    data[17] = areaId
-                    break
-                end
-            end
-            if data[17] then break end
+        local areaId = l10n:GetAreaIdByLocalName(zoneText)
+        if areaId and areaId > 0 then
+            data[17] = areaId
         end
     end
 
     self:LearnQuest(questId, data)
+
+    -- Proactively map objectives based on quest log text
+    local logIdx = 0
+    for i = 1, GetNumQuestLogEntries() do
+        local _, _, _, isHeader, _, _, _, id = QuestieCompat.GetQuestLogTitle(i)
+        if not isHeader and id == questId then
+            logIdx = i
+            break
+        end
+    end
+
+    if logIdx > 0 then
+        local numObj = GetNumQuestLeaderBoards and GetNumQuestLeaderBoards(logIdx) or 0
+        for j = 1, numObj do
+            local objText, objType, finished = GetQuestLogLeaderBoard(j, logIdx)
+            if objText and not finished and objType == "monster" then
+                -- Try to extract "Boar" from "0/10 Boar Slain"
+                local targetName = objText:match("^%d+/%d+%s+(.+)%s*") or objText:match("^(.+):%s*%d+/%d+")
+                if not targetName then
+                    -- Fallback: strip everything that looks like a count or punctuation
+                    targetName = objText:gsub("%d+/%d+", ""):gsub("%d+", ""):gsub("[:!?,.%(%)]", ""):gsub("^%s+", ""):gsub("%s+$", "")
+                end
+
+                if targetName and targetName ~= "" then
+                    local npcId = self:GetNPCIdByName(targetName)
+                    if npcId then
+                        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Proactively mapped objective", j, "to NPC", npcId, "(" .. targetName .. ")")
+                        self:LearnQuestObjectiveNPC(questId, npcId, objText, j)
+                    end
+                end
+            end
+        end
+    end
 
     -- Associate the quest giver: prefer live UnitGUID("npc"), fall back to last gossip entity
     -- (for Objectives Board quests, GOSSIP_CLOSED fires before QUEST_ACCEPTED so "npc" is nil)
@@ -1471,6 +1594,7 @@ end
 function QuestieLearner:OnQuestTurnedIn(questId, xpReward, moneyReward)
     if not self:IsEnabled() then return end
     if not Questie.dbLearner.global.settings.learnQuests then return end
+    questId = tonumber(questId)
     if not questId or questId <= 0 then return end
 
     local data = {}
@@ -1745,7 +1869,7 @@ function QuestieLearner:OnQuestLogUpdate()
                                 "progressed — learning kill NPC:", bestKill.npcId, bestKill.name)
                             -- Pass exact kill coordinates so spawn list reflects NPC location, not player location
                             self:LearnNPC(bestKill.npcId, bestKill.name, nil, nil, nil, nil, bestKill.x, bestKill.y, bestKill.zoneId)
-                            self:LearnQuestObjectiveNPC(questId, bestKill.npcId, cleanText)
+                            self:LearnQuestObjectiveNPC(questId, bestKill.npcId, cleanText, j)
                             _Learner.recentKills[bestGuid] = nil
                         end
                         _Learner.prevObjCounts[questId][j] = count

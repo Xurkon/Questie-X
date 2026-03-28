@@ -135,7 +135,7 @@ function QuestiePlugin:InjectZoneTables(customZoneTables)
         while uiMapId do
             if uiMapId and areaId then
                 ZoneDB.private.uiMapIdToAreaId[uiMapId] = areaId
-                ZoneDB.private.areaIdToUiMapId[uiMapId] = uiMapId
+                ZoneDB.private.areaIdToUiMapId[areaId] = uiMapId
 
                 if type(ZoneDB.private.dungeons) == "table" and ZoneDB.private.dungeons[areaId] then
                     ZoneDB.private.areaIdToUiMapId[areaId] = uiMapId

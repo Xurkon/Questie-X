@@ -701,13 +701,7 @@ TrackerUtils._fallbackQuests = TrackerUtils._fallbackQuests or {}
 
 -- Reverse-lookup: given a localized zone name string, find the area ID from l10n.zoneLookup.
 local function GetAreaIdByZoneName(zoneName)
-    if not zoneName or zoneName == "" then return 0 end
-    for _, zoneTable in pairs(l10n.zoneLookup) do
-        for areaId, name in pairs(zoneTable) do
-            if name == zoneName then return areaId end
-        end
-    end
-    return 0
+    return l10n:GetAreaIdByLocalName(zoneName)
 end
 
 -- Walk the quest log to find the zone header for a given questId.

@@ -47,49 +47,93 @@ function l10n:InitializeLocaleOverride()
     end
 end
 
+---@param zoneName string
+---@return number
+function l10n:GetAreaIdByLocalName(zoneName)
+    if not zoneName or zoneName == "" then return 0 end
+    for _, zoneTable in pairs(l10n.zoneLookup) do
+        for areaId, name in pairs(zoneTable) do
+            if name == zoneName then return areaId end
+        end
+    end
+    return 0
+end
+
+---@param areaId number
+---@return string
+function l10n:GetLocalNameByAreaId(areaId)
+    if not areaId or areaId <= 0 then return l10n("Unknown Zone") end
+    for _, zoneTable in pairs(l10n.zoneLookup) do
+        if zoneTable[areaId] then
+            return zoneTable[areaId]
+        end
+    end
+    return l10n("Unknown Zone")
+end
+
+---@param areaId number
+---@return number
+function l10n:GetContinentIdByAreaId(areaId)
+    if not areaId or areaId <= 0 then return 0 end
+    for continentId, zoneTable in pairs(l10n.zoneLookup) do
+        if zoneTable[areaId] then
+            return continentId
+        end
+    end
+    return 0
+end
+
 function l10n:Initialize()
     -- Load item locales
-    for id, name in pairs(l10n.itemLookup[locale] or {}) do
-        if QuestieDB.itemData[id] and name then
-            QuestieDB.itemData[id][QuestieDB.itemKeys.name] = name
+    if l10n.itemLookup and l10n.itemLookup[locale] then
+        for id, name in pairs(l10n.itemLookup[locale]) do
+            if QuestieDB.itemData[id] and name then
+                QuestieDB.itemData[id][QuestieDB.itemKeys.name] = name
+            end
         end
     end
 
     -- data is {<questName>, {<questDescription>,...}, {<questObjective>,...}}
     -- Load quest locales
-    for id, data in pairs(l10n.questLookup[locale] or {}) do
-        if QuestieDB.questData[id] then
-            if data[1] then
-                QuestieDB.questData[id][QuestieDB.questKeys.name] = data[1]
-            end
-            -- TODO add details text to questDB.lua (data[2])
-            if data[3] then
-                -- needs to be saved as a table for tooltips to have lines
-                if type(data[3]) == "string" then
-                    QuestieDB.questData[id][QuestieDB.questKeys.objectivesText] = {data[3]}
-                else
-                    QuestieDB.questData[id][QuestieDB.questKeys.objectivesText] = data[3]
+    if l10n.questLookup and l10n.questLookup[locale] then
+        for id, data in pairs(l10n.questLookup[locale]) do
+            if QuestieDB.questData[id] then
+                if data[1] then
+                    QuestieDB.questData[id][QuestieDB.questKeys.name] = data[1]
+                end
+                -- TODO add details text to questDB.lua (data[2])
+                if data[3] then
+                    -- needs to be saved as a table for tooltips to have lines
+                    if type(data[3]) == "string" then
+                        QuestieDB.questData[id][QuestieDB.questKeys.objectivesText] = {data[3]}
+                    else
+                        QuestieDB.questData[id][QuestieDB.questKeys.objectivesText] = data[3]
+                    end
                 end
             end
         end
     end
 
     -- Load NPC locales
-    for id, data in pairs(l10n.npcNameLookup[locale] or {}) do
-        if QuestieDB.npcData[id] and data then
-            if type(data) == "string" then
-                QuestieDB.npcData[id][QuestieDB.npcKeys.name] = data
-            else
-                QuestieDB.npcData[id][QuestieDB.npcKeys.name] = data[1]
-                QuestieDB.npcData[id][QuestieDB.npcKeys.subName] = data[2]
+    if l10n.npcNameLookup and l10n.npcNameLookup[locale] then
+        for id, data in pairs(l10n.npcNameLookup[locale]) do
+            if QuestieDB.npcData[id] and data then
+                if type(data) == "string" then
+                    QuestieDB.npcData[id][QuestieDB.npcKeys.name] = data
+                else
+                    QuestieDB.npcData[id][QuestieDB.npcKeys.name] = data[1]
+                    QuestieDB.npcData[id][QuestieDB.npcKeys.subName] = data[2]
+                end
             end
         end
     end
 
     -- Load object locales
-    for id, name in pairs(l10n.objectLookup[locale] or {}) do
-        if QuestieDB.objectData[id] and name then
-            QuestieDB.objectData[id][QuestieDB.objectKeys.name] = name
+    if l10n.objectLookup and l10n.objectLookup[locale] then
+        for id, name in pairs(l10n.objectLookup[locale]) do
+            if QuestieDB.objectData[id] and name then
+                QuestieDB.objectData[id][QuestieDB.objectKeys.name] = name
+            end
         end
     end
 end

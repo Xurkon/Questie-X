@@ -1075,7 +1075,7 @@ function QuestieDBCompiler:Compile()
                  or type(QuestieDB.questData) == "table"
                  or (type(QuestieDB.questDataOverrides) == "table" and next(QuestieDB.questDataOverrides) ~= nil)
     if not hasData then
-        Questie:Print("|cFFFF4444[Questie-X]|r No database plugin loaded. Install a DB plugin for your server — see Options \226\134\146 Database.")
+        Questie:Print("|cFFFF4444[Questie-X]|r No database plugin loaded. Install a DB plugin for your server — see Options ⌂ Database.")
         return
     end
 

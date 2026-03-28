@@ -2,6 +2,8 @@
 
 local QuestieInit = QuestieLoader:CreateModule("QuestieInit")
 local _QuestieInit = QuestieInit.private
+local compilationDeferred = false
+local needsCompilation = false
 
 ---@type ThreadLib
 local ThreadLib = QuestieLoader:ImportModule("ThreadLib")
@@ -58,6 +60,9 @@ local QuestieValidateGameCache = QuestieLoader:ImportModule("QuestieValidateGame
 local MinimapIcon = QuestieLoader:ImportModule("MinimapIcon")
 ---@type QuestieComms
 local QuestieComms = QuestieLoader:ImportModule("QuestieComms");
+
+local WOW_PROJECT_ID = QuestieCompat.WOW_PROJECT_ID
+local WOW_PROJECT_CLASSIC = QuestieCompat.WOW_PROJECT_CLASSIC
 ---@type QuestieCompat
 local QuestieCompat = QuestieLoader:ImportModule("QuestieCompat")
 ---@type QuestieOptions
@@ -196,7 +201,6 @@ end
 
 -- ********************************************************************************
 -- Start of QuestieInit.Stages ******************************************************
-
 -- stage worker functions. Most are coroutines.
 QuestieInit.Stages = {}
 
@@ -268,12 +272,19 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
     end
 
     -- Check if the DB needs to be recompiled
-    do
-        local addonV = QuestieLib:GetAddonVersionString()
-        local uiLoc = l10n:GetUILocale()
-        local storedExp = Questie.db.global.dbCompiledExpansion
-    end
-    if (not dbIsCompiled) or (QuestieLib:GetAddonVersionString() ~= dbCompiledOnVersion) or (l10n:GetUILocale() ~= dbCompiledLang) or (Questie.db.global.dbCompiledExpansion ~= WOW_PROJECT_ID) then
+    local dbCompiledOnVersion = Questie.db.global.dbCompiledOnVersion
+    local dbCompiledLang      = Questie.db.global.dbCompiledLang
+    local dbIsCompiled        = Questie.db.global.dbIsCompiled
+
+    needsCompilation = (not dbIsCompiled) or (QuestieLib:GetAddonVersionString() ~= dbCompiledOnVersion) or (l10n:GetUILocale() ~= dbCompiledLang) or (Questie.db.global.dbCompiledExpansion ~= WOW_PROJECT_ID)
+
+    -- Custom servers or presence of DB plugins: always defer to Stage3 to wait for plugin data injection
+    if Questie.IsAscension or Questie.IsEbonhold or Questie.IsValanior or Questie.IsTurtle or QuestieServer:IsAnyDBPluginEnabled() then
+        compilationDeferred = true
+        l10n:Initialize()
+        coYield()
+        QuestieCorrections:MinimalInit() -- Needed for Stage2 which runs before Stage3
+    elseif needsCompilation then
         print("|cFFAAEEFF" ..
         l10n("Questie DB has updated!") ..
         "|r|cFFFF6F22 " .. l10n("Data is being processed, this may take a few moments and cause some lag..."))
@@ -287,7 +298,6 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
         l10n:Initialize()
         coYield()
         QuestieCorrections:MinimalInit()
-        -- DB is cached — LoadBaseDB never runs, so the plugin loader will handle stats ingestion.
     end
 
     local dbCompiledCount = Questie.IsSoD and Questie.db.global.sod.dbCompiledCount or Questie.db.global.dbCompiledCount
@@ -361,8 +371,38 @@ end
 QuestieInit.Stages[3] = function() -- run as a coroutine
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieInit:Stage3] Stage 3 start.")
 
+    -- Wait for registered plugins to finish loading (ensure data injection is complete)
+    local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
+    local waitStart = GetTime()
+    Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] Waiting for plugins to register/finish. Initial pending: " .. QuestiePluginAPI.pendingPluginsCount)
+
+    -- Give other addons/scripts a moment to fire and register if they were waiting for PLAYER_LOGIN
+    while (GetTime() - waitStart < 1.0) do
+        coYield()
+    end
+
+    local timeout = 10
+    local elapsed = GetTime() - waitStart
+    while QuestiePluginAPI:HasPendingPlugins() and (elapsed < timeout) do
+        coYield()
+        elapsed = GetTime() - waitStart
+    end
+
+    -- Always re-compile on custom servers to pick up QuestieLearner changes from SavedVariables,
+    -- or if compilation was explicitly deferred/needed.
+    local isCustomServer = Questie.IsAscension or Questie.IsEbonhold or Questie.IsValanior or Questie.IsTurtle or QuestieServer:IsAnyDBPluginEnabled()
+    if isCustomServer or needsCompilation or (not Questie.db.global.dbIsCompiled) then
+        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] Starting compilation (Server=" .. tostring(isCustomServer) .. ", Needed=" .. tostring(needsCompilation) .. ")")
+        if not QuestieDB.questData then
+            loadFullDatabase()
+        end
+        QuestieDBCompiler:Compile()
+        QuestieDB:Initialize()
+    end
+
     -- register events that rely on questie being initialized
     QuestieEventHandler:RegisterLateEvents()
+
 
     -- ** OLD ** Questie:ContinueInit() ** START **
     QuestieTooltips:Initialize()
@@ -447,31 +487,7 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
         end
     end
 
-    -- Wait for registered plugins to finish loading (ensure data injection is complete)
-    local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
-    local waitStart = GetTime()
-    -- Give other addons/scripts a moment to fire and register if they were waiting for PLAYER_LOGIN
-    Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] Waiting for plugins to register/finish. Initial pending: " .. QuestiePluginAPI.pendingPluginsCount)
-    
-    while (GetTime() - waitStart < 2.0) do
-        coYield()
-    end
-    
-    local timeout = 10
-    local elapsed = GetTime() - waitStart
-    while QuestiePluginAPI:HasPendingPlugins() and (elapsed < timeout) do
-        if ((math.floor(elapsed * 10) % 10) == 0) then -- log every second
-            Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] Still waiting for plugins... Pending: " .. QuestiePluginAPI.pendingPluginsCount .. " Elapsed: " .. string.format("%.1f", elapsed))
-        end
-        coYield()
-        elapsed = GetTime() - waitStart
-    end
-    
-    if QuestiePluginAPI:HasPendingPlugins() then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] TIMEOUT waiting for plugins! Proceeding anyway. Pending: " .. QuestiePluginAPI.pendingPluginsCount)
-    else
-        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] All registered plugins finished loading.")
-    end
+
 
     -- We do this last because it will run for a while and we don't want to block the rest of the init
     coYield()
@@ -565,7 +581,7 @@ end
 -- called by the PLAYER_LOGIN event handler
 function QuestieInit:Init()
     QuestieInit.Thread = coroutine.create(_QuestieInit.StartStageCoroutine)
-    
+
     local function resumeInit()
         if not QuestieInit.Thread or coroutine.status(QuestieInit.Thread) == "dead" then
             return -- coroutine finished or failed
@@ -580,7 +596,7 @@ function QuestieInit:Init()
             C_Timer.After(0.02, resumeInit) -- continue yielding using the timer shim
         end
     end
-    
+
     resumeInit()
 
     if Questie.db.profile.trackerEnabled then

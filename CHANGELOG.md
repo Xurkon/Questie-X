@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.5.0 (2026-03-28)
+
+- **[Fix — Database Robustness]** Added strict guards against invalid or zero IDs in `QuestieDB` lookup functions (`GetNPC`, `GetObject`, `GetItem`). This prevents the "rawdata is nil" debug spam that occurred when custom plugins attempted to access uninitialized or malformed entity data.
+- **[Refactor — Lookup Logic]** Refactored `QuestieDB` override handling to support both numeric and string keys simultaneously. This ensures that custom server data (e.g., Ascension, Ebonhold) is correctly resolved regardless of how the third-party plugin formats its internal IDs.
+- **[Refactor — Data Injection]** Updated `QuestieLearner:InjectLearnedData` to enforce numeric key normalization. All dynamically learned spawn data is now strictly indexed by numeric IDs, preventing type-mismatch collisions during database merging.
+- **[Feature — Enhanced Logging]** Improved Stage 3 initialization logging to provide detailed reporting on custom data injection. Developers can now verify the exact number of NPCs, Objects, and Items injected by plugins directly from the `DEVELOP` log.
+- **[Fix — Ascension Zone Mapping]** Fixed a regression in `QuestieCompat` where `uiMapData` for Ascension-specific zones was not correctly propagating to the global mapping table, restoring map pin functionality for seasonal and custom zones.
+- **[Fix — QuestieLearner]** Centralized zone/area ID lookup in `l10n` module to prevent `GetAreaIdByLocalName` nil errors (Fixes Project Ebonhold runtime crash).
+- **[Feature — Session Export]** Added `session_export` skill for standardized documentation and session artifact exports.
+- **[Fix — Custom Server Compilation]** Fixed database compilation not running on custom servers (Ascension, Ebonhold, Turtle WoW, etc.) where plugins inject data after initial load.
+  - Modified `Modules/QuestieInit.lua` Stage1 to defer compilation to Stage3 for custom servers, ensuring plugins finish injecting data before compilation runs.
+  - Added `l10n:Initialize()` and `QuestieCorrections:MinimalInit()` calls when deferring to Stage3, as Stage2 (`QuestieJourney:Initialize()`) requires `hiddenQuests` to be populated.
+  - Added "Bronzebeard" and "Warcraft Reborn" to Ascension realm detection patterns in `Modules/QuestieServer.lua`.
+- **[Fix — Zone Mapping Bug]** Fixed incorrect key assignment in `QuestiePluginAPI:InjectZoneTables()`. Changed `areaIdToUiMapId[uiMapId] = uiMapId` to `areaIdToUiMapId[areaId] = uiMapId` at line 138. This caused zone lookups to fail, resulting in "No UiMapID or fitting parentAreaId" errors for custom zone IDs.
+
+### Known Issues (v1.5.0)
+
+- **[Ebonhold Detection]** The `Questie.IsEbonhold` flag detection remains brittle. It currently relies on a substring match against `GetRealmName()`. Variations like "Test Ebonhold" or localized names may cause the flag to fail, resulting in missing Questie-X-Ebonhold features. A more robust detection pattern using `GetCVar("realmName")` or server-pushed flags is planned for a future update.
+
 ## v1.4.9 (2026-03-26)
 
 - **[Fix — Quest Cache]** Resolved the "GetQuest: The quest doesn't exist in QuestLogCache" fatal error occurring during initialization on the Ascension WoW client.
@@ -14,179 +33,6 @@
 - **[Fix — Zone Mapping]** Added UiMapId overrides for 1415 (Eastern Kingdoms) and 947 (Azeroth) in `zoneDB.lua` to resolve "No AreaId found" warnings on Ascension servers.
 - **[Fix — Quest Validation]** Fixed `QuestieValidateGameCache` to silently skip "ghost quests" (removed from database but still in quest log) instead of failing validation, resolving infinite retry loops on servers with custom quest content.
 - **[Fix — AscensionDB]** Fixed syntax error in `AscensionNpcDB_2.lua` (missing closing `}` at end of NPC entry for ID 3287).
-
-## v1.4.8 (2026-03-25)
-
-- **[Plugin Synchronization]** Overhauled the Questie-X plugin loading architecture. Introduced `QuestiePluginAPI:FinishLoading()` and a registration handshake to resolve race conditions during addon initialization. By ensuring that database plugins report their data-injection status before `QuestieInit` Stage 3 completes, we eliminated "ghost maps" where pins and statistics would fail to render until a manual `/reload`.
-- **[Universal Lua 5.0 Refactor]** Executed a codebase-wide transition from `pairs()` and `ipairs()` to `next()` and numeric loops. This refactor targets the Lua 5.0 engine used by legacy clients (e.g., Turtle WoW), which can exhibit inconsistent behavior or performance degradation when using standard iterators in high-frequency database sweeps. This change guarantees stable, universal performance across all WoW versions from 1.12 to 3.3.5+.
-- **[Fix — MapIconTooltip]** Fixed a critical syntax error in `MapIconTooltip.lua` at line 239. A malformed `if` statement was trapping execution, preventing tooltips from updating when hovering over Quest objectives on the World Map.
-- **[Fix — AscensionDB]** Enhanced realm-specific logic in `AscensionLoader.lua`. The loader now utilizes an pattern-matching check against `GetRealmName()` to correctly identify and apply custom database overrides for all Project Ascension realms, including seasonal and specialized rule-set servers.
-- **[Performance]** Refined the background loading throttler in `QuestieInit`. The initialization sequence now yields more efficiently to the main UI thread during massive database injections, reducing "frame-stutter" during the initial login sequence while strictly maintaining loading priority for essential UI modules.
-
-## v1.4.7 (2026-03-22)
-- **[Quest Cache]** Resolved the "Quest cache validation timed out!" error during initialization. Increased the validation timeout from 3 to 10 seconds and relaxed the internal validation criteria to prevent false-positives on slow servers or with custom quest data.
-- **[Database Plugin Architecture]** Refactored the WotLK database plugin to avoid monolithic global arrays. Database tables are now populated safely within a localized `addonTable` rather than injecting payloads directly into `_G.QuestieDB`.
-- **[Taint Resolution]** By avoiding the creation of large `_G` variables during database chunk loading, the `Questie-X-WotLKDB` module is now clean of taint vectors. This definitively resolves the `ADDON_ACTION_BLOCKED` errors that occurred when utilizing secure actions, such as `UseAction()` or `CastSpellByName()`, with `Questie-X-WotLKDB` enabled.
-- **[Database Initialization]** Fixed a capitalization issue in the WotLK database plugin export globals that prevented `QuestieInit` from correctly finding and absorbing the loaded database statistics and payloads.
-
-## v1.4.6 (2026-03-22)
-- **[Fix]** Resolved issue where Questie would not save options or show the Welcome screen repeatedly. This was caused by version mismatches in `.toc` files and an initialization race condition.
-- **[Fix]** Synchronized AceAddon registration name to `"Questie-X"` to match the folder name, ensuring proper `ADDON_LOADED` event handling and database initialization.
-- **[Fix]** Patched `AceGUI-3.0` widgets (`Heading`, `Frame`, `Window`, `Icon`, `DropDown-Items`, `ColorPicker`) to use string texture paths instead of numeric `FileDataIDs`, resolving "red texture" issues on WotLK 3.3.5a clients.
-- **[Cleanup]** Systematically removed all `QX:` debug print statements across the entire codebase for a cleaner production experience.
-- **[Version]** Bumped version to 1.4.6 and updated `Interface` version to 30300 across all `.toc` files.
-
-## v1.4.5 — Network & Taint Stability Update
-
-- **[Network Fix]** Resolved a critical crash ("`Usage: AceSerializer:Deserialize(str): str must be a string, got table`") occurring in QuestieLearnerComms and Export functions. This was caused by a lightweight, customized `AceSerializer-3.0.lua` implementation in Questie-X that lacked proper `self` parameter handling for standard colon-syntax method calls (`:`). As a result, method calls were serializing/deserializing the library table itself instead of the intended payload string. We patched `AceSerializer` natively to dynamically support both dot (`.`) and colon (`:`) syntax seamlessly without dropping arguments, while ensuring `Deserialize` correctly yields `(success, result)` tuples expected by the calling functions.
-- **[Network Fix]** Expanded the previous LibDeflate network crash hotfix: completely purged all 71 instances of unsafe `#` -> `table.getn` replacements injected by earlier vanilla compatibility automation throughout `LibDeflate.lua`. These have been wrapped with a custom dual-typed safe access function that flawlessly determines whether to compute properties natively via `string.len(x)` for strings or the standard `table.getn(x)` for structured tables—guaranteeing 100% stable networking cross-client from 1.12 to 3.3.5 and upwards.
-- **[Network Fix]** Fixed a critical Lua error (`bad argument #1 to 'getn' (table expected, got string)`) occurring during data-sharing via the hidden `questiecomm` addon channel. A legacy string length method (`table.getn`) was mistakenly used in `LibDeflate` string decoding; this has been restored to the universally compatible `string.len`.
-- **[Init Fix]** Fixed an issue where the database loader would silently abort on custom 3.3.5 / legacy client setups due to false-positive modern client detection. The `isModernClient` safeguard now uses a bulletproof `tocversion` range check to flawlessly differentiate between original legacy engines and modern Classic counterparts.
-- **[QuestieLearner Fix]** Resolved an `attempt to index global 'l10n' (a nil value)` error that triggered when accepting a new quest, caused by a missing module import at the top of `QuestieLearner.lua`.
-- **[Taint Fix]** Resolved lingering `ADDON_ACTION_BLOCKED` taint on `ActionButton` and `StaticPopup` that occurred when Questie loaded data from its cache rather than manually recompiling. The `_G` namespace cleanup for `Questie-X-WotLKDB` globals now runs accurately during cached loads (via `UpdateWotLKDBStats`), ensuring the taint vector is closed and additionally freeing ~20MB of redundant cached memory.
-- **[Taint Fix]** Resolved `ADDON_ACTION_BLOCKED` errors caused by `Questie-X-WotLKDB` leaving tainted global variables in `_G` after initialization. `QuestieInit._pullGlobal` now sets `_G[globalName] = nil` immediately after copying each WotLKDB table reference into `QuestieDB`, removing the taint vector while keeping all data fully accessible through `QuestieDB`.
-
-## v1.4.4 — AceGUI Pool & Event Handling Fixes
-
-- **[AceGUI Fix]** Fixed `Compat/embeds.xml` to load Wrath-compatible Ace library versions from `Libs/` (AceGUI-3.0 v34, AceConfigDialog-3.0 v66) instead of newer versions from `..\Libs/` that caused widget pool corruption.
-- **[AceGUI Fix]** Added nil checks throughout AceGUI-3.0 (`Create`, `Release`, `WidgetBase.Fire`, `WidgetContainerBase` methods) to prevent crashes when pooled widgets have corrupted/nil properties.
-- **[AceGUI Fix]** Added content nil checks to layout functions (List, Flow, Fill, Table) to prevent crashes when `content` is nil during layout.
-- **[AceGUI Fix]** Applied same nil check fixes to `Compat/Libs/AceGUI-3.0/AceGUI-3.0.lua` for consistency.
-- **[Event Fix]** Added nil check for `message` parameter in `QuestieEventHandler:ChatMsgSystem` to prevent "bad argument #1 to 'find'" errors.
-- **[Event Fix]** Added nil check for `level` parameter in `QuestiePlayer:SetPlayerLevel` to prevent "number expected, got nil" errors.
-- **[QuestieLearner Fix]** Added `SanitizeData` function with depth limiting and proper key/value filtering to remove functions, userdata, and thread values from learned data before network serialization.
-- **[QuestieLearner Fix]** Added pcall wrapper around AceSerializer:Serialize to catch and log any remaining serialization errors instead of crashing.
-- **[QuestieLearner Fix]** Added early return checks in `BroadcastLearnedData` when data is nil or sanitization produces empty results.
-- **[Journey Fix]** Added nil check for `container` in `HandleTabChange` to prevent "attempt to index local 'container'" errors.
-- **[l10n Fix]** Added type check for `translationValue` in l10n:translate to prevent "bad argument #2 to 'format'" errors when translation is not a string or when format arguments are missing.
-- **[Tracker Fix]** Removed redundant shift-click tracking toggle logic in `Hooks.lua` that was instantly reverting tracker states when shift-clicking a quest in the Quest Log.
-
-## v1.4.3 — Taint & API Compatibility Fixes
-
-- **[Taint Fix]** Deferred SetItemRef hook execution using C_Timer.After to avoid tainting protected execution contexts.
-- **[Taint Fix]** Removed redundant `_G = _G or {}` from WotLKDB data file that could contribute to namespace pollution.
-- **[Taint Fix]** Moved xpcall polyfill from bare `_G.xpcall` to `QuestieCompat.xpcall` namespace to prevent polluting the global table.
-- **[API Fix]** Added polyfills for `GetCurrentRegion` and `GetCurrentRegionName` for AceDB-3.0 compatibility on WotLK/Classic.
-- **[API Fix]** Added polyfills for `Ambiguate` and `RegisterAddonMessagePrefix` for AceComm-3.0 compatibility on WotLK/Classic.
-- **[API Fix]** Added conditional check for `DialogBorderOpaqueTemplate` and `SetFixedFrameStrata` in AceConfigDialog for WotLK/Classic.
-- **[AceGUI Fix]** Added WotLK-compatible fallback for `SetColorTexture` using `SetTexture` + `SetVertexColor`.
-
-## v1.4.2 — Quest Route Optimization
-
-- **[Feature]** Added Quest Route Optimization with three modes: Single Quest, All Tracked Quests, and TSP Approximation.
-- **[Feature]** Route mode can be selected in Tracker options under "Route Mode".
-- **[Feature]** Nearest-neighbor TSP algorithm for calculating optimal quest routes.
-- **[Feature]** Visual route lines drawn on map connecting objectives in optimized order.
-
-## v1.4.1 — Cleanup & Repository Maintenance
-
-- **[Cleanup]** Removed `.history/` and `Research/` folders from repository tracking (were already gitignored but previously committed).
-- **[Cleanup]** Removed `Tests/` folder from repository tracking.
-- **[Badge]** Updated downloads badge format in README.
-- **[Gitignore]** Added `tests/` to `.gitignore`.
-
-## v1.4.0 — Taint Resolution & Compatibility Fixes
-
-- **[C_Timer Fix]** Fixed `C_Timer` OnUpdate to use precise `(self, elapsed)` parameter instead of `1/GetFramerate()`.
-- **[Achievement Fix]** Fixed `IsAchievementCompleted` to properly check completion boolean via `select(4, GetAchievementInfo(...))`.
-- **[Map Fix]** Fixed `C_Map.GetPlayerMapPosition` to use correct legacy API (`GetPlayerMapPosition("player")`).
-- **[QuestieLearner Fix]** Fixed `GetNpcIdFromGUID` and `GetObjectIdFromGUID` being called before definition.
-- **[Taint Fix]** Added `InCombatLockdown()` guards and `pcall` wrappers to secure hooks to prevent protected function access errors.
-
-## v1.3.9 — BackdropTemplate & Tracking Reliability
-
-- **[Quest Tracking]** Significantly improved the reliability of shift-clicking to track or untrack quests.
-- **[Quest Re-tracking]** Resolved an issue where hidden quests would refuse to re-track after being manually untracked.
-- **[AceGUI Fix]** Fixed critical crash: `Couldn't find inherited node "BackdropTemplate"`.
-- **[Verification]** Performed a comprehensive syntax audit using `luaparse`.
-
-## v1.3.8 — UseAction Taint Fixes
-
-- **[Taint Resolution]** Successfully resolved the `ADDON_ACTION_BLOCKED: UseAction()` error by updating internal libraries and eliminating global namespace pollution.
-- **[Library Update]** Updated `Compat/embeds.xml` to use modern, taint-free versions of core libraries.
-- **[Addon Stability]** Audited `QuestieInit.lua` and `QuestieLoader.lua` for safe global population.
-
-## v1.3.7 — Quest Tracking & Robustness 
-
-- **[Quest Tracking]** Resolved inconsistent quest tracking/untracking by making the tracking state idempotent. This eliminates "doing nothing" results while toggling quests in the Quest Log and prevents tracking loops caused by Blizzard's auto-track feature.
-- **[Robustness]** Improved `QuestieTracker` to safely handle `nil` returns from the WoW API (`GetQuestLogTitle`), preventing potential "attempt to compare number with nil" errors during rapid quest log updates.
-- **[Internal Logic]** Refined the detection of internal Blizzard objective updates to ensure they don't accidentally untrack quests that the user intended to watch.
-- **[Linting]** Suppressed diagnostic warnings related to global namespace shimming in `QuestieCompat.lua`.
-
-## v1.3.6 — Tooltip Fixes & Enhanced Taint Workaround
-
-- **[Quest Progress]** Resolved an issue where quest tooltips would not reliably update their progress counts when dynamically learning AI spawns or during rapid kill credit updates.
-- **[Taint Workaround]** Reinforced the `WorldMapTaintWorkaround` for older WoW clients (3.3.5) by correcting the `IsAddOnLoaded` detection timing and adding explicit empty-function stubs to blocked dropdowns.
-- **[Diagnostics]** Improved error reporting for global variable collisions during module initialization.
-
-## v1.3.5 — Comprehensive Taint & Architecture Fixes
-
-*A comprehensive update resolving 13 distinct issues related to global environment taint, unsafe polyfills, and module stability across all supported Lua environments (5.0, 5.1, 5.2).*
-
-### Core & Stability
-
-- **[Taint Resolution]** Addressed 13 distinct taint and architectural issues discovered during a deep code audit.
-- **[Taint Fix]** Removed unsafe `function Questie:Warning(...)` global monkey-patching in `QuestieTracker.lua` (`_InstallMissingQuestLogWarningFilter` deleted). Ghost quest iterations now use a safe, two-phase collection and deletion pattern to prevent warning generation upfront.
-- **[Global Safety]** `hooksecurefunc` polyfill in `QuestieCompat.lua` no longer pollutes the global `_G` namespace. It runs strictly as a local fallback when the native function is absent.
-- **[Global Safety]** Removed bare `_G` writes for `C_Seasons` and `C_Timer`.
-- **[Global Safety]** Prevented `_G.QuestieX_WotLKDB_Counts` from writing to the global namespace in `QuestieInit.lua`. Counts are now cleanly stored directly on the plugin object (`plugin.stats`).
-- **[Module Safety]** The `CreateModule` function in `QuestieLoader.lua` now guards against double-registration of modules, preventing accidental aliasing and overwriting.
-- **[Code Cleanup]** Eliminated duplicate shims (`string.match`, `select`) from `QuestieCompat.lua` that were already provided canonically by `QuestieLoader.lua`.
-- **[Code Cleanup]** Replaced misleading, non-looping `while n > 0` structures in `select` polyfills with standard `do...end` blocks.
-- **[Diagnostics]** Gated `loadstring` execution in `QuestieInit:LoadDatabase`. On modern clients, it now safely blocks and logs an error instead of executing potentially tainted legacy string DBs at runtime.
-
-## v1.3.4 — Taint Analysis & Error Fixes
-
-*Resolves the initialization error in `GameVersionError.lua` and implements a version guard to support Classic-era private servers. Also confirms the integrity of the WotLKDB module after a deep taint analysis.*
-
-### Core & Stability
-
-- **[Fix]** Resolved `attempt to call local 'l10n' (a table value)` in `GameVersionError.lua` and implemented a `tocVersion` guard to prevent the "unsupported client" error on Classic-era private servers (e.g., Turtle WoW).
-- **[Fix]** Updated `GameVersionError.lua` strings to correctly identify Questie-X as supporting Classic and private servers.
-- **[Taint Analysis]** Completed a full audit of `Questie-X-WotLKDB`. No direct taint vectors or secure function overrides were found.
-- **[Version Sync]** Synchronized versions to v1.3.4 across all components.
-
-
-## v1.3.3 — Critical Taint Fix & Module Loading
-
-*Addresses the missing `WorldMapTaintWorkaround` module that was excluded from previous releases, finally enabling the intended seat-of-pants taint mitigation strategy.*
-
-### Core & Stability
-
-- **[Taint Fix]** Officially included `Modules\WorldMapTaintWorkaround.lua` in all TOC files to ensure it's loaded and executed.
-- **[Error Handling]** Included `Modules\GameVersionError.lua` in all TOC files for better unsupported client detection.
-- **[Version Sync]** Synchronized version numbers across all 4 TOC flavors.
-
----
-
-## v1.3.2 — Taint Resolution & Stability
-
-*Finalizes the Taint Resolution project, eliminating `ADDON_ACTION_BLOCKED: UseAction()` errors by refactoring internal hooks to use secure alternatives and hardening the global namespace against collisions.*
-
-### Core & Stability
-
-- **[Taint Resolution]** Refactored `Hooks.lua` to use `hooksecurefunc` instead of raw hooks for all secure functions.
-- **[Global Safety]** Enhanced `QuestieLoader.lua` with a new collision-aware `PopulateGlobals` engine that prevents overwriting existing global variables and provides diagnostic warnings.
-- **[Security]** Eliminated global namespace modifications in `QuestieInit.lua`.
-- **[Workaround Hardening]** Refactored `WorldMapTaintWorkaround.lua` to remove legacy global function reassignments that were causing secondary taint.
-
----
-
-## v1.3.8
-- **[QuestieTracker]** Resolved persistent "stuck" quest tracking/untracking by ensuring `AQW_Insert` and `RemoveQuestWatch` hooks respect manual untracking state.
-- **[QuestieTracker]** Refined watch hooks to distinguish between manual user actions (e.g. shift-clicking in Quest Log) and internal Blizzard/server objective updates.
-- **[QuestieTracker]** Added robustness for Quest IDs passed directly to Blizzard watch APIs (common on custom WoW private servers).
-- **[Global Safety]** Added lint suppressions for external frames (`VoiceOverFrame`, etc.) in `QuestieTracker.lua`.
-
-## v1.3.1
-
-- Refined data-sharing mechanism to use exclusively hidden global channels, removing guild-channel broadcasts to minimize chat traffic.
-
-## v1.3.0 — QuestieLearner Confidence, Global Sharing & Stale Data Cleanup
-
-### QuestieLearner.lua — Precision & Confidence
-- **[Coordinate Scaling Fix]** Fixed player coordinates being recorded on a 0-1 scale; now correctly scales to 0-100 for compatibility with Questie map pins.
-- **[Confidence Rating System]** Introduced a confidence system based on "Match Count" (`mc`). Data is now categorized as "Unconfirmed" (low confidence) or "Verified" (high confidence).
 - **[Map Pin Gating]** Learned map pins (sword icons) now only appear after reaching a configurable confidence threshold (default: 2).
 - **[Confidence in Tooltips]** NPC and Object tooltips now display their confidence level (e.g., `(Learned - Confidence: 2)`).
 - **[Timestamp Tracking]** Added `lastSeen` (`ls`) timestamps to all learned entries to track data freshness.
@@ -469,7 +315,7 @@
 - **[Options]** New **Credits Tab**! A dedicated tab in the options menu to acknowledge contributors and community partners.
 - **[Tutorial]** Improved tutorial flows for objective type selection.
 
-### Core & Compatibility
+### Core & Stability (v1.3.5)
 
 - **[Lua 5.0]** Globally polyfilled `string.match` and `string.gmatch` using `string.find` and `string.gfind` to ensure universal compatibility with legacy WoW clients (e.g., Turtle WoW).
 - **[AceTimer]** Patched embedded `AceTimer-3.0` instances in ElvUI and OG-RaidHelper to resolve `math.mod` errors on Lua 5.0 clients.

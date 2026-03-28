@@ -41,13 +41,7 @@ function QuestieJourneyUtils:AddLine(frame, text)
 end
 
 function QuestieJourneyUtils:GetZoneName(id)
-    local name = l10n("Unknown Zone")
-    for category, data in pairs(l10n.zoneLookup) do
-        if data[id] then
-            name = l10n.zoneLookup[category][id]
-            break
-        end
-    end
+    local name = l10n:GetLocalNameByAreaId(id)
 
     -- Ascension can use custom UiMapIds for zones/sub-zones (e.g. 1238 Northshire Valley).
     -- Those won't exist in l10n.zoneLookup (which is AreaId-based), so fallback to UiMapData / mapInfo.

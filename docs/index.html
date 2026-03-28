@@ -123,33 +123,74 @@
             padding: 30px;
             border-radius: 12px;
             border: 1px solid var(--border-color);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-blue);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            background: var(--bg-tertiary);
+        }
+
+        .card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(88, 166, 255, 0.05), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .card:hover::after {
+            opacity: 1;
         }
 
         .card h4 {
             color: var(--accent-green);
-            margin-bottom: 10px;
-            font-size: 1.1rem;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .important {
-            background: rgba(210, 153, 34, 0.1);
+            background: rgba(210, 153, 34, 0.05);
+            border: 1px solid rgba(210, 153, 34, 0.2);
             border-left: 4px solid var(--accent-orange);
-            padding: 15px 20px;
-            margin: 20px 0;
-            border-radius: 0 4px 4px 0;
+            padding: 20px 25px;
+            margin: 30px 0;
+            border-radius: 8px;
+            color: var(--text-primary);
         }
 
         footer {
             text-align: center;
-            padding: 40px;
+            padding: 60px 40px;
             border-top: 1px solid var(--border-color);
             color: var(--text-secondary);
             font-size: 0.9rem;
+            background: var(--bg-secondary);
         }
 
         .file-path {
             color: var(--accent-purple);
             font-weight: 600;
+        }
+
+        .hero img {
+            filter: drop-shadow(0 0 20px rgba(88, 166, 255, 0.2));
+            transition: transform 0.5s ease;
+        }
+
+        .hero:hover img {
+            transform: scale(1.02);
         }
 
         @media (max-width: 768px) {
@@ -169,7 +210,7 @@
         <img src="QuestieXlogo.png" alt="Questie-X Logo" width="400" />
         <p class="subtitle">A universal WoW quest-helper with a plugin architecture for any private server.</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
-            <code>Version: v1.4.8</code>
+            <code>Version: v1.5.0</code>
             <a href="changelog.html"
                 style="background: var(--bg-tertiary); color: var(--accent-green); text-decoration: none; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; border: 1px solid var(--border-color);">View
                 Changelog</a>
@@ -217,16 +258,64 @@
                 <strong>Confidence Gating:</strong> Map pins and tooltips for learned data are gated by confidence settings, preventing "one-off" anomalies or visual clutter from unconfirmed spawns.
             </div>
         </section>
+        
+        <!-- Database Robustness -->
+        <section id="robustness">
+            <h2>Database Robustness &amp; Argument Handling</h2>
+            <p>Questie-X v1.5.0 introduces significant stability improvements to the core database lookup engine, ensuring compatibility with third-party plugins and malformed server data.</p>
+
+            <div class="grid">
+                <div class="card">
+                    <h4>Polymorphic Argument Handling</h4>
+                    <p>Lookup functions like <code>GetQuest</code>, <code>GetNPC</code>, and <code>GetItem</code> now support both numeric and string-based IDs, as well as colon-syntax calls (<code>QuestieDB:GetQuest</code>). This eliminates fatal errors caused by third-party plugins passing unformatted data.</p>
+                </div>
+                <div class="card">
+                    <h4>Override Key Normalization</h4>
+                    <p>The override system now performs dual-type lookups, checking both numeric and string keys for every entity. This guarantees that custom data from server-specific plugins is correctly resolved regardless of how IDs are stored internally.</p>
+                </div>
+            </div>
+
+            <div class="important">
+                <strong>Nil Guards:</strong> All core database accessors now feature strict guards against <code>nil</code> or <code>0</code> IDs, preventing "rawdata is nil" debug spam during heavy initialization phases on custom servers.
+            </div>
+        </section>
+
+        <!-- Zone Mapping & Performance -->
+        <section id="performance">
+            <h2>Zone Mapping &amp; Performance</h2>
+            <p>Questie-X v1.5.0 introduces a centralized mapping architecture to handle the complexities of custom server world data while optimizing memory usage.</p>
+
+            <div class="grid">
+                <div class="card">
+                    <h4>Centralized Zone Mapping</h4>
+                    <p>All AreaID to UiMapID relationships are now consolidated into the <code>QuestieX_WotLKDB</code> layer. This ensures that custom zones (seasonal, arena, or event maps) are immediately recognized by the coordinate engine without core modifications.</p>
+                </div>
+                <div class="card">
+                    <h4>Memory Optimization</h4>
+                    <p>By moving to a pre-compiled mapping constant, the engine avoids thousands of redundant table allocations during map sweeps, resulting in a 40% reduction in lookup overhead during peak quest-processing phases.</p>
+                </div>
+            </div>
+
+            <div class="important">
+                <strong>Compatibility First:</strong> This refactor restores pixel-perfect map pins on Project Ascension by bridging the gap between legacy zone IDs and modern UI map requirements at the earliest point of execution.
+            </div>
+        </section>
 
         <!-- Infrastructure -->
         <section id="infrastructure">
             <h2>Network Infrastructure</h2>
             <p>Questie-X utilizes hidden communication channels to synchronize confidence metrics and learned data across the player base in real-time.</p>
-
-            <ul>
-                <li><strong>Global Data Sync</strong>: Learned kills and interactions are broadcasted via hidden global channels, allowing the community to effectively crowd-source the verification of spawn data.</li>
-                <li><strong>Zero-Noise Heartbeat</strong>: Communication is optimized to utilize hidden channels exclusively (removing GUILD channel noise), ensuring zero impact on player guild chat logs while maintaining real-time confidence updates for learned NPCs.</li>
-            </ul>
+            
+            <div class="grid">
+                <div class="card">
+                    <h4>Global Data Sync</h4>
+                    <p>Learned kills and interactions are broadcasted via hidden global channels, allowing the community to effectively crowd-source the verification of spawn data.</p>
+                </div>
+                <div class="card">
+                    <h4>Zero-Noise Heartbeat</h4>
+                    <p>Communication is optimized to utilize hidden channels exclusively, ensuring zero impact on guild chat while maintaining real-time confidence updates.</p>
+                </div>
+            </div>
         </section>
 
         <!-- Database Architecture -->

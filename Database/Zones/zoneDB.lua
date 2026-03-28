@@ -61,7 +61,7 @@ function ZoneDB:Initialize()
 end
 
 function _ZoneDB:GenerateParentZoneToStartingZoneTable()
-    for startingZone, parentZone in pairs(subZoneToParentZone) do
+    for startingZone, parentZone in next, subZoneToParentZone do
         parentZoneToSubZone[parentZone] = startingZone
     end
 end
@@ -87,49 +87,32 @@ function ZoneDB:GetAreaIdByUiMapId(uiMapId)
 
     local foundId
     -- First we look for a direct match
-    for AreaUiMapId, lAreaId in pairs(uiMapIdToAreaId) do
+    for AreaUiMapId, lAreaId in next, uiMapIdToAreaId do
         local areaId = lAreaId
         if (AreaUiMapId == uiMapId and not foundId) then
-            --Questie:Debug(Questie.DEBUG_DEVELOP, "[ZoneDB:GetAreaIdByUiMapId] : ", " AreaUiMapId: ", AreaUiMapId, " ==  uiMapId: ", uiMapId, " and areaId = ", areaId, " foundID is nil")
             foundId = areaId
         elseif AreaUiMapId == uiMapId and foundId ~= AreaUiMapId then
             -- If we find a second match that does not match the first
-            -- Print an error, but we still return the first one we found.
-
             -- Only print if debug is enabled.
             if Questie.db.profile.debugEnabled then
-                Questie:Error("[ZoneDB:GetAreaIdByUiMapId] : ", "UiMapId", uiMapId, "has multiple AreaIds:", foundId,
-                    areaId)
+                Questie:Error("[ZoneDB:GetAreaIdByUiMapId] : ", "UiMapId", uiMapId, "has multiple AreaIds:", foundId, areaId)
             end
         end
     end
-    if foundId then -- debug --TechnoHunter adding debug print to report found AreaId
-        --if Questie.db.profile.debugEnabled then
-        --local uiMapInfo = C_Map.GetMapInfo(uiMapId)
-        --local foundName = C_Map.GetAreaInfo(foundId)
-        --Questie:Debug(Questie.DEBUG_DEVELOP, "[ZoneDB:GetAreaIdByUiMapId] : ", "Found AreaId", foundName, ":", foundId, " for UiMapId", uiMapInfo.name, ":", uiMapId, "direct match")
-        --end
+    if foundId then
         return foundId
     else
         -- As a last resort we try to match AreaId and UiMapId by name
-        -- uses the original table in zoneTables as the area id's are
-        -- all in that and we dont care if the uiMapId is there or not
-        for areaId in pairs(areaIdToUiMapId) do
+        for areaId in next, areaIdToUiMapId do
             local mapInfo = C_Map.GetMapInfo(uiMapId)
             local areaName = C_Map.GetAreaInfo(areaId)
             if mapInfo and mapInfo.name == areaName then
-                Questie:Debug(Questie.DEBUG_DEVELOP, "[ZoneDB:GetAreaIdByUiMapId] : ", "Found AreaId", areaName, ":",
-                    areaId, "for UiMapId", mapInfo.name, ":", uiMapId, "by name")
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[ZoneDB:GetAreaIdByUiMapId] : ", "Found AreaId", areaName, ":", areaId, "for UiMapId", mapInfo.name, ":", uiMapId, "by name")
                 return areaId
             end
         end
         if Questie.db.profile.debugEnabled then
-            -- NOTE: On Ascension, hub cities (Stormwind, Shattrath, etc.) may return a
-            -- continent-level UiMapId from GetBestMapForUnit. This is harmless — the nil
-            -- return is handled gracefully by GetCurrentZoneId's callers.
-            Questie:Debug(Questie.DEBUG_DEVELOP,
-                "No AreaId found for UiMapId: " ..
-                uiMapId .. ":" .. (C_Map.GetMapInfo(uiMapId) and C_Map.GetMapInfo(uiMapId).name or "nil"))
+            Questie:Debug(Questie.DEBUG_DEVELOP, "No AreaId found for UiMapId: " .. uiMapId .. ":" .. (C_Map.GetMapInfo(uiMapId) and C_Map.GetMapInfo(uiMapId).name or "nil"))
         end
         return nil
     end
@@ -233,15 +216,17 @@ do
         end
 
         -- 1) Base Questie quests (QuestPointers values must be numbers; ignore anything weird)
-        for questId, ptr in pairs(QuestieDB.QuestPointers) do
-            if type(ptr) == "number" then
-                ProcessQuestId(questId)
+        if type(QuestieDB.QuestPointers) == "table" then
+            for questId, ptr in next, QuestieDB.QuestPointers do
+                if type(ptr) == "number" then
+                    ProcessQuestId(questId)
+                end
             end
         end
 
         -- 2) Ascension custom quests (from overrides list)
         if type(QuestieDB.ascensionQuestIds) == "table" then
-            for questId in pairs(QuestieDB.ascensionQuestIds) do
+            for questId in next, QuestieDB.ascensionQuestIds do
                 ProcessQuestId(questId)
             end
         end
@@ -255,7 +240,7 @@ end
 
 ---@param zoneOrSort ZoneOrSort
 function _ZoneDB:IsSpecialQuest(zoneOrSort)
-    for _, v in pairs(QuestieDB.sortKeys) do
+    for _, v in next, QuestieDB.sortKeys do
         if zoneOrSort == v then
             return true
         end
@@ -272,11 +257,11 @@ function _ZoneDB:GetZonesWithQuestsFromNPCs(zones, npcIds, questId)
         return zones
     end
 
-    for npcId in pairs(npcIds) do
+    for npcId in next, npcIds do
         local spawns = QuestieDB.QueryNPCSingle(npcId, "spawns")
         if spawns then
-            for zone in pairs(spawns) do
-                if not zones[zone] then zones[zone] = {} end
+            for zone in next, spawns do
+                if (not zones[zone]) then zones[zone] = {} end
                 zones[zone][questId] = true
             end
         end
@@ -294,11 +279,11 @@ function _ZoneDB:GetZonesWithQuestsFromObjects(zones, objectIds, questId)
         return zones
     end
 
-    for objectId in pairs(objectIds) do
+    for objectId in next, objectIds do
         local spawns = QuestieDB.QueryObjectSingle(objectId, "spawns")
         if spawns then
-            for zone in pairs(spawns) do
-                if not zones[zone] then zones[zone] = {} end
+            for zone in next, spawns do
+                if (not zones[zone]) then zones[zone] = {} end
                 zones[zone][questId] = true
             end
         end
@@ -314,7 +299,7 @@ function _ZoneDB:SplitSeasonalQuests()
     end
     local questsToSplit = zoneMap[QuestieDB.sortKeys.SEASONAL]
     -- Merging SEASONAL and SPECIAL quests to be split into real groups
-    for k, v in pairs(zoneMap[QuestieDB.sortKeys.SPECIAL]) do questsToSplit[k] = v end
+    for k, v in next, zoneMap[QuestieDB.sortKeys.SPECIAL] do questsToSplit[k] = v end
 
     local updatedZoneMap = zoneMap
     updatedZoneMap[-400] = {}
@@ -323,7 +308,7 @@ function _ZoneDB:SplitSeasonalQuests()
     updatedZoneMap[-403] = {}
     updatedZoneMap[-404] = {}
 
-    for questId, _ in pairs(questsToSplit) do
+    for questId, _ in next, questsToSplit do
         local eventName = QuestieEvent:GetEventNameFor(questId)
         if eventName == "Love is in the Air" then
             updatedZoneMap[-400][questId] = true
@@ -345,14 +330,16 @@ end
 
 function ZoneDB:GetRelevantZones()
     local zones = {}
-    for category, data in pairs(l10n.zoneCategoryLookup) do
-        zones[category] = {}
-        for id, zoneName in pairs(data) do
-            local zoneQuests = zoneMap[id]
-            if (not zoneQuests) then
-                zones[category][id] = nil
-            else
-                zones[category][id] = l10n(zoneName)
+    if type(l10n.zoneCategoryLookup) == "table" then
+        for category, data in next, l10n.zoneCategoryLookup do
+            zones[category] = {}
+            for id, zoneName in next, data do
+                local zoneQuests = zoneMap[id]
+                if (not zoneQuests) then
+                    zones[category][id] = nil
+                else
+                    zones[category][id] = l10n(zoneName)
+                end
             end
         end
     end
@@ -372,13 +359,14 @@ function _ZoneDB:RunTests()
         [308] = true, -- ScholomanceOLD
         [309] = true, -- ScholomanceOLD
     }
-    for _, map in pairs(maps) do
-        --- We don't care about World, Continent or Cosmic
-        if map.mapType ~= Enum.UIMapType.World and map.mapType ~= Enum.UIMapType.Continent and map.mapType ~= Enum.UIMapType.Cosmic then
-            local success, result = pcall(ZoneDB.GetAreaIdByUiMapId, ZoneDB, map.mapID)
-            if not success and not buggedMaps[map.mapID] then
-                Questie:Error("[ZoneDBTests] ZoneDB.GetAreaIdByUiMapId fails for " ..
-                    map.name .. " (" .. map.mapID .. "). Result: " .. result)
+    if type(maps) == "table" then
+        for _, map in next, maps do
+            --- We don't care about World, Continent or Cosmic
+            if map.mapType ~= Enum.UIMapType.World and map.mapType ~= Enum.UIMapType.Continent and map.mapType ~= Enum.UIMapType.Cosmic then
+                local success, result = pcall(ZoneDB.GetAreaIdByUiMapId, ZoneDB, map.mapID)
+                if not success and not buggedMaps[map.mapID] then
+                    Questie:Error("[ZoneDBTests] ZoneDB.GetAreaIdByUiMapId fails for " .. map.name .. " (" .. map.mapID .. "). Result: " .. result)
+                end
             end
         end
     end

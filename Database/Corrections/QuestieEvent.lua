@@ -115,6 +115,10 @@ function QuestieEvent:Load()
         end
     end
 
+    if not QuestieEvent.eventQuests then
+        return
+    end
+
     for _, questData in pairs(QuestieEvent.eventQuests) do
         local eventName = questData[1]
         local questId = questData[2]

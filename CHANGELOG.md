@@ -8,7 +8,6 @@
 - **[Feature — Enhanced Logging]** Improved Stage 3 initialization logging to provide detailed reporting on custom data injection. Developers can now verify the exact number of NPCs, Objects, and Items injected by plugins directly from the `DEVELOP` log.
 - **[Fix — Ascension Zone Mapping]** Fixed a regression in `QuestieCompat` where `uiMapData` for Ascension-specific zones was not correctly propagating to the global mapping table, restoring map pin functionality for seasonal and custom zones.
 - **[Fix — QuestieLearner]** Centralized zone/area ID lookup in `l10n` module to prevent `GetAreaIdByLocalName` nil errors (Fixes Project Ebonhold runtime crash).
-- **[Feature — Session Export]** Added `session_export` skill for standardized documentation and session artifact exports.
 - **[Fix — Custom Server Compilation]** Fixed database compilation not running on custom servers (Ascension, Ebonhold, Turtle WoW, etc.) where plugins inject data after initial load.
   - Modified `Modules/QuestieInit.lua` Stage1 to defer compilation to Stage3 for custom servers, ensuring plugins finish injecting data before compilation runs.
   - Added `l10n:Initialize()` and `QuestieCorrections:MinimalInit()` calls when deferring to Stage3, as Stage2 (`QuestieJourney:Initialize()`) requires `hiddenQuests` to be populated.

@@ -178,6 +178,8 @@
     <div class="container">
         <h2 id="unreleased">[Unreleased] &mdash; Sunstrider Isle Arrow, Tooltip Guard, QuestData String Safety</h2>
         <ul>
+            <li><strong>[Fix &mdash; MapIconTooltip _GetLevelString Guard]</strong> Resolved <code>attempt to concatenate local 'minLevel' (a nil value)</code> crash in <code>MapIconTooltip.lua:494</code> (<code>_GetLevelString</code> function). The creature name &quot;Uneasy Citizen&quot; existed in <code>creatureLevels</code> as an empty table <code>{}</code> rather than the expected <code>[1]=minLevel, [2]=maxLevel, [3]=rank</code> tuple. Added an early-return guard at the top of <code>_GetLevelString</code>: if <code>creatureLevels[name]</code> is falsy, return the name unmodified.
+            </li>
             <li><strong>[Fix &mdash; Tooltip NPC/Object Type Guard]</strong> Resolved a crash in <code>QuestieTooltips</code> when hovering over NPC or object tooltip keys (<code>m_&lt;id&gt;</code>, <code>o_&lt;id&gt;</code>) where <code>learnedNpc[10]</code> or <code>learnedObj[10]</code> was unexpectedly a string instead of a table.
                 <ul>
                     <li><strong>Root Cause</strong>: <code>InsertMissingQuestIds</code> in the WotLKDB corrections files writes directly to <code>QuestieDB.questData[questId]</code> but <code>questData</code> is stored as a loadable Lua string on Ascension. When code later tried to index into that string as a table, it threw <code>attempt to index field 'questData' (a string value)</code>.</li>

@@ -211,6 +211,7 @@ If your server uses non-standard map data, enable **Options → Advanced → Use
 - Fixed `attempt to concatenate nil` error when a quest starter or finisher has no name in the database.
 - Added support for `killcredit` and `spell` objective types in `MapIconTooltip`.
 - Tooltip now displays if an NPC drops an item that starts a quest.
+- Fixed `attempt to concatenate local 'minLevel' (a nil value)` crash in `MapIconTooltip` when hovering over creatures whose `creatureLevels` entry was an empty table instead of the expected `{minLevel, maxLevel, rank}` tuple. Added early-return guard in `_GetLevelString`.
 - Fixed tooltip crash when hovering over NPC/object keys (`m_<id>`, `o_<id>`) where `learnedNpc[10]` or `learnedObj[10]` is unexpectedly a string instead of a table. Added type guard before iterating the objective list array.
 
 ### Quest Arrow

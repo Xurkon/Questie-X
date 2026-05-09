@@ -4,6 +4,7 @@
 
 ### Bug Fixes
 
+- **[Fix — MapIconTooltip _GetLevelString Guard]** Resolved `attempt to concatenate local 'minLevel' (a nil value)` crash in `MapIconTooltip.lua:494` (`_GetLevelString` function). The creature name "Uneasy Citizen" existed in `creatureLevels` as an empty table `{}` rather than the expected `[1]=minLevel, [2]=maxLevel, [3]=rank` tuple, causing `creatureLevels[name][1]` to return nil. Added an early-return guard at the top of `_GetLevelString`: if `creatureLevels[name]` is falsy or not a table with a numeric level at index `[1]`, return the name unmodified.
 - **[Fix — Tooltip NPC/Object Type Guard]** Resolved a crash in `QuestieTooltips` when hovering over NPC or object tooltip keys (`m_<id>`, `o_<id>`) where `learnedNpc[10]` or `learnedObj[10]` was unexpectedly a string instead of a table.
   - **Root Cause**: `InsertMissingQuestIds` in the WotLKDB corrections files writes directly to `QuestieDB.questData[questId]` but `questData` is stored as a loadable Lua string on Ascension. When code later tried to index into that string as a table, it threw `attempt to index field 'questData' (a string value)`.
   - **Fix**: Added `if type(objList) ~= "table" then break end` guard in both `m_/NPC` and `o_/object` iteration paths in `Tooltip.lua` before iterating `learnedNpc[10]` / `learnedObj[10]`.

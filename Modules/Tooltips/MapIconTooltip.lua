@@ -485,6 +485,9 @@ function MapIconTooltip:Show()
             end
 
             local function _GetLevelString(creatureLevels, name)
+                if not creatureLevels[name] then
+                    return name
+                end
                 local levelString = name
                 if creatureLevels[name] then
                     local minLevel = creatureLevels[name][1]
@@ -510,7 +513,6 @@ function MapIconTooltip:Show()
                 end
                 return levelString
             end
-
             -- Used to get the white color for the quests which don't have anything to collect
             local defaultQuestColor = QuestieLib:GetRGBForObjective({})
             local creatureLevels = QuestieDB:GetCreatureLevels(quest) -- Data for min and max level

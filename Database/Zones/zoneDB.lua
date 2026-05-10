@@ -64,6 +64,9 @@ ZoneDB.private.uiMapIdToAreaId[946] = 3430  -- Ghost map for Sunstrider Isle (di
 -- Northshire Valley (areaId 668) uses uiMapId 1238.
 ZoneDB.private.areaIdToUiMapId[668] = 1238
 areaIdToUiMapId[668] = 1238
+-- Sunstrider Isle (areaId 3430) uses uiMapId 1241.
+ZoneDB.private.areaIdToUiMapId[3430] = 1241
+areaIdToUiMapId[3430] = 1241
 -- Also populate the cache so the fast path works without a lazy lookup.
 if uiMapIdToAreaIdCache[1238] == nil then
     uiMapIdToAreaIdCache[1238] = 668

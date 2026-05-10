@@ -45,13 +45,23 @@ ZoneDB.zoneIDs = ZoneDB.private.zoneIDs or {}
 
 
 -- Overrides for UiMapId to AreaId
+-- IMPORTANT: Only override specific real maps, NOT cosmic/world maps (946, 947, etc.)
+-- that span multiple zones. Overriding 946/947 to a single zone breaks all other zones.
 local UiMapIdOverrides = {
     [246] = 3713,
     [1415] = 668, -- Eastern Kingdoms (matches Undercity on Ascension)
-    [947] = 668,  -- Azeroth (matches Undercity on Ascension)
     [1241] = 3430, -- Sunstrider Isle (uiMapId 1241 → areaId 3430)
-    [946] = 3430,  -- Sunstrider Isle ghost/loading map → areaId 3430
+    [1238] = 668,  -- Northshire Valley child map (Conquest of Azeroth)
+    [946] = 668,   -- Northshire Valley zone map (Conquest of Azeroth) - GetCurrentUiMapID() returns 946, not 1238
 }
+-- Reverse mapping: areaId → uiMapId for GetUiMapIdByAreaId lookups.
+-- Northshire Valley (areaId 668) uses uiMapId 1238.
+ZoneDB.private.areaIdToUiMapId[668] = 1238
+areaIdToUiMapId[668] = 1238
+-- Also populate the cache so the fast path works without a lazy lookup.
+if uiMapIdToAreaIdCache[1238] == nil then
+    uiMapIdToAreaIdCache[1238] = 668
+end
 local parentZoneToSubZone = {} -- Generated
 local zoneMap = {}             -- Generated
 

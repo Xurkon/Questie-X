@@ -110,7 +110,8 @@ function QuestiePlayer.HasRequiredClass(requiredClasses)
 end
 
 function QuestiePlayer:GetCurrentZoneId()
-    local uiMapId = C_Map.GetBestMapForUnit("player")
+    local uiMapIdOrTable = C_Map.GetBestMapForUnit("player")
+    local uiMapId = type(uiMapIdOrTable) == "table" and uiMapIdOrTable.uiMapID or uiMapIdOrTable
     if uiMapId then
         local areaId = ZoneDB:GetAreaIdByUiMapId(uiMapId)
         if areaId then
@@ -123,7 +124,8 @@ function QuestiePlayer:GetCurrentZoneId()
 end
 
 function QuestiePlayer:GetCurrentUiMapId()
-    local uiMapId = C_Map.GetBestMapForUnit("player")
+    local uiMapIdOrTable = C_Map.GetBestMapForUnit("player")
+    local uiMapId = type(uiMapIdOrTable) == "table" and uiMapIdOrTable.uiMapID or uiMapIdOrTable
     if uiMapId then
         return uiMapId
     end

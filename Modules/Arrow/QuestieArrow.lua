@@ -657,19 +657,29 @@ sortedTargets = {}
     -- If that returns nil (map closed), fall back to C_Map.GetPlayerMapPosition +
     -- HBD:GetWorldCoordinatesFromZone which works regardless of map open/closed state.
     local playerX, playerY, playerInstance = HBD:GetPlayerWorldPosition()
-if not playerX or not playerY or not playerInstance then
+    if not playerX or not playerY or not playerInstance then
         -- Fallback: get map-relative position then convert to world coords via HBD.
         -- Use the player's current uiMapId as the map basis for the conversion.
-        -- IMPORTANT: never use 946 (ghost window/world map) — it has no world coord data.
-        -- If GetCurrentUiMapId returns 946, fall back to ZoneDB from the actual zone.
+        -- IMPORTANT: never use 946/947 (world/cosmic maps) — they have no world coord data.
+        -- If GetCurrentUiMapId returns a world map, fall back to ZoneDB from the actual zone.
         local pUiMapId = QuestiePlayer:GetCurrentUiMapId()
-        if not pUiMapId or pUiMapId == 947 or pUiMapId == 0 or pUiMapId == 946 then
+        if not pUiMapId or pUiMapId == 946 or pUiMapId == 947 or pUiMapId == 0 then
             local zoneId = QuestiePlayer:GetCurrentZoneId() or select(7, GetInstanceInfo())
             if debugArrow then
                 print(string.format("UpdateNearestTargets: pUiMapId=%s (invalid), looking up via zoneId=%s", tostring(pUiMapId), tostring(zoneId)))
             end
             if zoneId then
                 pUiMapId = ZoneDB:GetUiMapIdByAreaId(zoneId)
+            end
+        end
+        -- Additional safeguard: if pUiMapId is still a world/cosmic map, force lookup from zone
+        if not pUiMapId or pUiMapId == 946 or pUiMapId == 947 or pUiMapId == 0 then
+            local zoneId = QuestiePlayer:GetCurrentZoneId()
+            if zoneId and zoneId ~= 0 then
+                pUiMapId = ZoneDB:GetUiMapIdByAreaId(zoneId)
+                if debugArrow then
+                    print(string.format("UpdateNearestTargets: forced pUiMapId=%s via zoneId=%s", tostring(pUiMapId), tostring(zoneId)))
+                end
             end
         end
         pUiMapId = pUiMapId or 0

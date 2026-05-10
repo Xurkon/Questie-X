@@ -52,7 +52,8 @@ local UiMapIdOverrides = {
     [1415] = 668, -- Eastern Kingdoms (matches Undercity on Ascension)
     [1241] = 3430, -- Sunstrider Isle (uiMapId 1241 → areaId 3430)
     [1238] = 668,  -- Northshire Valley child map (Conquest of Azeroth)
-    [946] = 668,   -- Northshire Valley zone map (Conquest of Azeroth) - GetCurrentUiMapID() returns 946, not 1238
+    -- [946] = 668 removed: both Sunstrider Isle AND Northshire Valley use 946 as ghost/zone map,
+    -- so 946 cannot be overridden to a single zone. Instead, uiMapIdToAreaIdCache handles both.
 }
 
 -- Sunstrider Isle overrides (separate from Northshire since they're different Ascension realms)

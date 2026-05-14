@@ -232,93 +232,119 @@ function QuestieTooltips:GetTooltip(key)
              -- Try to find in learned NPCs or objects
              local id = tonumber(key:sub(3))
              if id then
-                 if key:sub(1,2) == "m_" then
-                     local learnedNpc = QuestieLearner.data.npcs[id]
-                     if learnedNpc and learnedNpc[10] then -- check questObjectives
-                         for questId, objList in next, learnedNpc[10] do
-                            local oIndex = 1
-                            while objList[oIndex] do
-                                 local objText = objList[oIndex]
-                                 local needed, collected
-                                 local objectives = QuestLogCache.GetQuestObjectives(questId)
-                                 if objectives then
-                                     for _, obj in next, objectives do
-                                         if obj.text and objText and (obj.text == objText or string.find(obj.text, objText, 1, true) or string.find(objText, obj.text, 1, true)) then
-                                             needed = obj.numRequired
-                                             collected = obj.numFulfilled
-                                             break
-                                         end
-                                     end
-                                 end
-                                 QuestieTooltips:RegisterObjectiveTooltip(questId, key, { 
-                                     Index = 0, 
-                                     Description = objText, 
-                                     Needed = needed, 
-                                     Collected = collected, 
-                                     Update = function(self)
-                                         local objs = QuestLogCache.GetQuestObjectives(questId)
-                                         if objs then
-                                             for _, o in next, objs do
-                                                 if o.text and self.Description and (o.text == self.Description or string.find(o.text, self.Description, 1, true) or string.find(self.Description, o.text, 1, true)) then
-                                                     self.Needed = o.numRequired
-                                                     self.Collected = o.numFulfilled
-                                                     break
-                                                 end
-                                             end
-                                         end
-                                     end 
-                                 })
-                                 oIndex = oIndex + 1
-                             end
-                         end
-                         if learnedNpc.mc then
-                             tinsert(tooltipLines, "|cFF5EBAF3(Learned - Confidence: " .. tostring(learnedNpc.mc) .. ")|r")
-                         end
-                     end
-                 elseif key:sub(1,2) == "o_" then
-                     local learnedObj = QuestieLearner.data.objects[id]
-                     if learnedObj and learnedObj[10] then
-                         for questId, objList in next, learnedObj[10] do
-                            local oIndex = 1
-                            while objList[oIndex] do
-                                 local objText = objList[oIndex]
-                                 local needed, collected
-                                 local objectives = QuestLogCache.GetQuestObjectives(questId)
-                                 if objectives then
-                                     for _, obj in next, objectives do
-                                         if obj.text and objText and (obj.text == objText or string.find(obj.text, objText, 1, true) or string.find(objText, obj.text, 1, true)) then
-                                             needed = obj.numRequired
-                                             collected = obj.numFulfilled
-                                             break
-                                         end
-                                     end
-                                 end
-                                 QuestieTooltips:RegisterObjectiveTooltip(questId, key, { 
-                                     Index = 0, 
-                                     Description = objText, 
-                                     Needed = needed, 
-                                     Collected = collected, 
-                                     Update = function(self)
-                                         local objs = QuestLogCache.GetQuestObjectives(questId)
-                                         if objs then
-                                             for _, o in next, objs do
-                                                 if o.text and self.Description and (o.text == self.Description or string.find(o.text, self.Description, 1, true) or string.find(self.Description, o.text, 1, true)) then
-                                                     self.Needed = o.numRequired
-                                                     self.Collected = o.numFulfilled
-                                                     break
-                                                 end
-                                             end
-                                         end
-                                     end 
-                                 })
-                                 oIndex = oIndex + 1
-                             end
-                         end
-                         if learnedObj.mc then
-                             tinsert(tooltipLines, "|cFF5EBAF3(Learned - Confidence: " .. tostring(learnedObj.mc) .. ")|r")
-                         end
-                     end
-                 end
+                if key:sub(1,2) == "m_" then
+                    local learnedNpc = QuestieLearner.data.npcs[id]
+                    -- npc[10] from _AddToArray is an array of questIds, not {questId -> objList}
+                    if learnedNpc and learnedNpc[10] then
+                        for _, questId in ipairs(learnedNpc[10]) do
+                            local qData = QuestieLearner.data.quests[questId]
+                            if qData and qData[10] then
+                                for slotIdx = 1, #qData[10] do
+                                    local objSlot = qData[10][slotIdx]
+                                    if objSlot then
+                                        for oIndex = 1, #objSlot do
+                                            local objEntry = objSlot[oIndex]
+                                            if objEntry and objEntry[2] then
+                                                local objText = objEntry[2]
+                                                local needed, collected
+                                                local objectives = QuestLogCache.GetQuestObjectives(questId)
+                                                local objectiveIcon
+                                                if objectives then
+                                                    for _, obj in next, objectives do
+                                                        if obj.text and objText and (obj.text == objText or string.find(obj.text, objText, 1, true) or string.find(objText, obj.text, 1, true)) then
+                                                            needed = obj.numRequired
+                                                            collected = obj.numFulfilled
+                                                            objectiveIcon = obj.Icon
+                                                            break
+                                                        end
+                                                    end
+                                                end
+                                                QuestieTooltips:RegisterObjectiveTooltip(questId, key, {
+                                                    Index = 0,
+                                                    Description = objText,
+                                                    Needed = needed,
+                                                    Collected = collected,
+                                                    Icon = objectiveIcon,
+                                                    Update = function(self)
+                                                        local objs = QuestLogCache.GetQuestObjectives(questId)
+                                                        if objs then
+                                                            for _, o in next, objs do
+                                                                if o.text and self.Description and (o.text == self.Description or string.find(o.text, self.Description, 1, true) or string.find(self.Description, o.text, 1, true)) then
+                                                                    self.Needed = o.numRequired
+                                                                    self.Collected = o.numFulfilled
+                                                                    break
+                                                                end
+                                                            end
+                                                        end
+                                                    end
+                                                })
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        if learnedNpc.mc then
+                            tinsert(tooltipLines, "|cFF5EBAF3(Learned - Confidence: " .. tostring(learnedNpc.mc) .. ")|r")
+                        end
+                    end
+                elseif key:sub(1,2) == "o_" then
+                    local learnedObj = QuestieLearner.data.objects[id]
+                    -- obj[2] from _AddToArray is an array of questIds (questStarts), not {questId -> objList}
+                    if learnedObj and learnedObj[2] then
+                        for _, questId in ipairs(learnedObj[2]) do
+                            local qData = QuestieLearner.data.quests[questId]
+                            if qData and qData[10] then
+                                for slotIdx = 1, #qData[10] do
+                                    local objSlot = qData[10][slotIdx]
+                                    if objSlot then
+                                        for oIndex = 1, #objSlot do
+                                            local objEntry = objSlot[oIndex]
+                                            if objEntry and objEntry[2] then
+                                                local objText = objEntry[2]
+                                                local needed, collected
+                                                local objectives = QuestLogCache.GetQuestObjectives(questId)
+                                                local objectiveIcon
+                                                if objectives then
+                                                    for _, obj in next, objectives do
+                                                        if obj.text and objText and (obj.text == objText or string.find(obj.text, objText, 1, true) or string.find(objText, obj.text, 1, true)) then
+                                                            needed = obj.numRequired
+                                                            collected = obj.numFulfilled
+                                                            objectiveIcon = obj.Icon
+                                                            break
+                                                        end
+                                                    end
+                                                end
+                                                QuestieTooltips:RegisterObjectiveTooltip(questId, key, {
+                                                    Index = 0,
+                                                    Description = objText,
+                                                    Needed = needed,
+                                                    Collected = collected,
+                                                    Icon = objectiveIcon,
+                                                    Update = function(self)
+                                                        local objs = QuestLogCache.GetQuestObjectives(questId)
+                                                        if objs then
+                                                            for _, o in next, objs do
+                                                                if o.text and self.Description and (o.text == self.Description or string.find(o.text, self.Description, 1, true) or string.find(self.Description, o.text, 1, true)) then
+                                                                    self.Needed = o.numRequired
+                                                                    self.Collected = o.numFulfilled
+                                                                    break
+                                                                end
+                                                            end
+                                                        end
+                                                    end
+                                                })
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        if learnedObj.mc then
+                            tinsert(tooltipLines, "|cFF5EBAF3(Learned - Confidence: " .. tostring(learnedObj.mc) .. ")|r")
+                        end
+                    end
+                end
              end
         end
     end

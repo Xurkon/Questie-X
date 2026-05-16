@@ -40,6 +40,7 @@ Tools/
 Tests/
 tests/
 .busted
+Makefile
 selene.toml
 wow_classic.yml
 workflow/

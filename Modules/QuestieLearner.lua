@@ -709,6 +709,10 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
                 end
             end
         end
+        -- Clear the compiled DB cache so GetNPC rebuilds with the new override data.
+        if QuestieDB.private and QuestieDB.private.npcCache then
+            QuestieDB.private.npcCache[npcId] = nil
+        end
     end
 
     if isNew then
@@ -1059,6 +1063,10 @@ function QuestieLearner:LearnObject(objectId, name)
                     end
                 end
             end
+        end
+        -- Clear compiled DB cache so GetObject rebuilds with the new override data.
+        if QuestieDB.private and QuestieDB.private.objectCache then
+            QuestieDB.private.objectCache[objectId] = nil
         end
     end
 

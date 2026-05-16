@@ -37,6 +37,11 @@ verify_*.lua
 .history/
 Research/
 Tools/
+Tests/
+tests/
+.busted
+selene.toml
+wow_classic.yml
 workflow/
 __pycache__/
 .agents/

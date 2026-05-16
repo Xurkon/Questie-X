@@ -309,8 +309,9 @@ local function _RefreshActiveQuestPins(questIdSet)
 end
 
 -- Invalidates cached objective.spawnList for any active quest whose objectives
--- reference the given npcId. This forces the map system to rebuild spawn lists
--- from QuestieDB on the next update, picking up newly learned coordinates.
+-- reference the given npcId. Unloads existing world/minimap icons, resets
+-- tooltip registration, and forces the map system to rebuild spawn lists from
+-- QuestieDB on the next update — picking up newly learned coordinates in real time.
 local function _InvalidateSpawnListsForNPC(npcId)
     if not QuestieQuest or not QuestiePlayer or not QuestiePlayer.currentQuestlog then return end
     local timer = (C_Timer) or (QuestieCompat and QuestieCompat.C_Timer)
@@ -318,6 +319,7 @@ local function _InvalidateSpawnListsForNPC(npcId)
     for questId, _ in pairs(QuestiePlayer.currentQuestlog) do
         local quest = QuestieDB.GetQuest and QuestieDB.GetQuest(questId)
         if quest and quest.Objectives then
+            local needsUnload = false
             for _, objective in pairs(quest.Objectives) do
                 local shouldInvalidate = false
                 -- Monster objectives reference NPCs directly in spawnList keys
@@ -337,11 +339,38 @@ local function _InvalidateSpawnListsForNPC(npcId)
                     shouldInvalidate = true
                 end
                 if shouldInvalidate then
+                    -- Unload existing icons manually so frames are removed from map/minimap.
+                    -- We can't call QuestieQuest's local _UnloadAlreadySpawnedIcons from here,
+                    -- so we iterate the refs directly.
+                    if objective.AlreadySpawned then
+                        for _, spawn in pairs(objective.AlreadySpawned) do
+                            if spawn then
+                                if spawn.mapRefs then
+                                    for _, mapIcon in ipairs(spawn.mapRefs) do
+                                        if mapIcon and mapIcon.Unload then mapIcon:Unload() end
+                                    end
+                                end
+                                if spawn.minimapRefs then
+                                    for _, minimapIcon in ipairs(spawn.minimapRefs) do
+                                        if minimapIcon and minimapIcon.Unload then minimapIcon:Unload() end
+                                    end
+                                end
+                            end
+                        end
+                    end
                     objective.spawnList = nil
-                    objective.AlreadySpawned = nil
-                    questsToRefresh[questId] = true
-                    break -- one invalidation per quest is enough
+                    objective.AlreadySpawned = {}  -- empty table, NOT nil (_DetermineIconsToDraw indexes this)
+                    objective.hasRegisteredTooltips = false
+                    objective.registeredItemTooltips = false
+                    needsUnload = true
                 end
+            end
+            if needsUnload then
+                -- Also purge QuestieMap's quest frame registry so no stale refs remain.
+                if QuestieMap and QuestieMap.UnloadQuestFrames then
+                    QuestieMap:UnloadQuestFrames(questId)
+                end
+                questsToRefresh[questId] = true
             end
         end
     end

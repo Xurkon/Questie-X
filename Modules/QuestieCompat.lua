@@ -604,6 +604,24 @@ QuestieCompat.IsAchievementCompleted = QuestieCompat.IsAchievementCompleted or f
     return completed or false
 end
 
+--- GetAchievementNumCriteria Shim
+-- Ascension and some custom servers have incomplete achievement databases.
+-- Blizzard's WorldMapFrame calls this with invalid IDs, causing a hard error.
+-- Wrap the global to return 0 for invalid inputs so the UI doesn't break.
+do
+    local _original = GetAchievementNumCriteria
+    GetAchievementNumCriteria = function(achievementID)
+        if type(achievementID) ~= "number" or achievementID <= 0 then
+            return 0
+        end
+        local ok, numCriteria = pcall(_original, achievementID)
+        if ok then
+            return numCriteria or 0
+        end
+        return 0
+    end
+end
+
 --- LibUIDropDownMenu Shim
 QuestieCompat.LibUIDropDownMenu = QuestieCompat.LibUIDropDownMenu or {}
 QuestieCompat.LibUIDropDownMenu.UIDropDownMenu_Menu_NewSize = function()

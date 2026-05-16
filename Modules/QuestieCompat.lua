@@ -113,6 +113,79 @@ end
 
 local errorMsg = "Questie tried to call a blizzard API function that does not exist..."
 
+local sqrt = math.sqrt
+
+local CALIBRATED_MAP_GROUPS = {
+    sunstrider = {
+        -- Use the parent Eversong map as the primary lookup surface. On this realm,
+        -- explicit child-map (1241) position queries can still return parent/ghost-map
+        -- normalized coordinates (~0.60/0.44), which recreates the 433-yard/backwards-arrow bug.
+        primaryUiMapId = 1941,
+        uiMapIds = {
+            [1241] = true,
+            [946] = true,
+            [1941] = true,
+        },
+        zoneIds = {
+            [3430] = true,
+        },
+        worldUiMapId = 1941,
+        normalizedToPseudoWorldScale = 1353,
+    },
+}
+
+local function _GetCalibratedMapGroup(uiMapId, zoneId)
+    for _, group in pairs(CALIBRATED_MAP_GROUPS) do
+        if (uiMapId and group.uiMapIds and group.uiMapIds[uiMapId]) or (zoneId and group.zoneIds and group.zoneIds[zoneId]) then
+            return group
+        end
+    end
+end
+
+function QuestieCompat.GetCalibratedMapGroup(uiMapId, zoneId)
+    return _GetCalibratedMapGroup(uiMapId, zoneId)
+end
+
+function QuestieCompat.IsCalibratedMap(uiMapId, zoneId)
+    return _GetCalibratedMapGroup(uiMapId, zoneId) ~= nil
+end
+
+function QuestieCompat.GetCalibratedWorldCoordinatesFromZone(x, y, uiMapId, zoneId)
+    local group = _GetCalibratedMapGroup(uiMapId, zoneId)
+    if group and x and y then
+        local scale = group.normalizedToPseudoWorldScale or 1000
+        return x * scale, y * scale, 0, group
+    end
+
+    if QuestieCompat.HBD and QuestieCompat.HBD.GetWorldCoordinatesFromZone and uiMapId then
+        local worldX, worldY, instanceId = QuestieCompat.HBD:GetWorldCoordinatesFromZone(x, y, uiMapId)
+        return worldX, worldY, instanceId, nil
+    end
+end
+
+function QuestieCompat.GetCalibratedPlayerPosition(uiMapId, zoneId, unitToken)
+    local group = _GetCalibratedMapGroup(uiMapId, zoneId)
+    if group then
+        local mapPos = QuestieCompat.C_Map and QuestieCompat.C_Map.GetPlayerMapPosition and QuestieCompat.C_Map.GetPlayerMapPosition(group.primaryUiMapId, unitToken or "player")
+        if type(mapPos) == "table" and mapPos.x and mapPos.y and mapPos.x > 0 and mapPos.y > 0 then
+            local worldX, worldY = QuestieCompat.GetCalibratedWorldCoordinatesFromZone(mapPos.x, mapPos.y, group.primaryUiMapId, zoneId)
+            return worldX, worldY, 0, mapPos.x, mapPos.y, group
+        end
+    end
+
+    if QuestieCompat.HBD and QuestieCompat.HBD.GetPlayerWorldPosition then
+        local worldX, worldY, instanceId = QuestieCompat.HBD:GetPlayerWorldPosition()
+        return worldX, worldY, instanceId or 0, nil, nil, group
+    end
+end
+
+function QuestieCompat.GetCalibratedDistanceScale(uiMapId, zoneId)
+    local group = _GetCalibratedMapGroup(uiMapId, zoneId)
+    if group and group.normalizedToPseudoWorldScale then
+        return group.normalizedToPseudoWorldScale / 100
+    end
+end
+
 ------------------------------------------
 -- Older client compatibility (pre 1.14.1)
 ------------------------------------------
@@ -477,9 +550,36 @@ end
 --- C_Map Shim
 QuestieCompat.C_Map = QuestieCompat.C_Map or {}
 
-function QuestieCompat.C_Map.GetPlayerMapPosition(uiMapID)
-    local x, y = GetPlayerMapPosition("player")
-    return x, y
+function QuestieCompat.C_Map.GetPlayerMapPosition(uiMapID, unitToken)
+    unitToken = unitToken or "player"
+
+    if uiMapID and QuestieCompat.UiMapData and QuestieCompat.UiMapData[uiMapID] then
+        local originalMapAreaID = GetCurrentMapAreaID()
+        local originalDungeonLevel = GetCurrentMapDungeonLevel and GetCurrentMapDungeonLevel() or 0
+        local mapID = QuestieCompat.UiMapData[uiMapID].mapID
+        local dungeonLevel = QuestieCompat.Round(math.mod(mapID, 1) * 10)
+
+        SetMapByID(math.floor(mapID) - 1)
+        if dungeonLevel > 0 and SetDungeonMapLevel then
+            SetDungeonMapLevel(dungeonLevel)
+        end
+
+        local x, y = GetPlayerMapPosition(unitToken)
+
+        if originalMapAreaID and originalMapAreaID > 0 then
+            SetMapByID(originalMapAreaID - 1)
+            if originalDungeonLevel and originalDungeonLevel > 0 and SetDungeonMapLevel then
+                SetDungeonMapLevel(originalDungeonLevel)
+            end
+        else
+            SetMapToCurrentZone()
+        end
+
+        return { uiMapID = uiMapID, x = x, y = y }, uiMapID
+    end
+
+    local playerPos, resolvedUiMapID = QuestieCompat.GetPlayerMapPosition()
+    return playerPos, resolvedUiMapID
 end
 
 function QuestieCompat.C_Map.GetBestMapForUnit(unit)

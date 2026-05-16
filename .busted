@@ -1,0 +1,15 @@
+return {
+  _all = {
+    lpath = "?.lua;Modules/?.lua;Modules/?/init.lua;Compat/?.lua;Database/?.lua",
+  },
+  default = {
+    verbose = true,
+    output = "utfTerminal",
+    ROOT = { "tests/" },
+  },
+  ci = {
+    ROOT = { "tests/" },
+    output = "TAP",
+    coverage = true,
+  },
+}

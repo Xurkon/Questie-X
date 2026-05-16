@@ -9,7 +9,10 @@
 *.log
 *.tmp
 *.bak
+*.bak*
 *.old
+luac.out
+*_HEAD.lua
 
 # Scripts
 *.py
@@ -29,12 +32,11 @@ release_notes.txt
 coords.lua
 debug.lua
 debug_tooltip.lua
+Tooltip_772ebd1.lua
 verify_*.lua
 .history/
 Research/
 Tools/
-tests/
-Tests/
 workflow/
 __pycache__/
 .agents/
@@ -48,6 +50,4 @@ skills-lock.json
 skills/
 scratch/
 workflow/
-Tests/
-Tools/
 .claude/skills/

@@ -1,0 +1,321 @@
+name: wow_classic
+
+globals:
+  UIParent:
+    property: new-fields
+  WorldFrame:
+    property: new-fields
+  GameTooltip:
+    property: new-fields
+  Minimap:
+    property: new-fields
+  WorldMapDetailFrame:
+    property: new-fields
+  StaticPopupDialogs:
+    property: new-fields
+  QuestLogFrame:
+    property: new-fields
+  DEFAULT_CHAT_FRAME:
+    property: new-fields
+  ChatFrame1:
+    property: new-fields
+  CreateFrame:
+    property: new-fields
+  GetTime:
+    property: new-fields
+  UnitName:
+    property: new-fields
+  UnitGUID:
+    property: new-fields
+  UnitLevel:
+    property: new-fields
+  UnitFactionGroup:
+    property: new-fields
+  GetMinimapZoneText:
+    property: new-fields
+  GetZoneText:
+    property: new-fields
+  GetSubZoneText:
+    property: new-fields
+  SetMapToCurrentZone:
+    property: new-fields
+  SetMapByID:
+    property: new-fields
+  GetPlayerMapPosition:
+    property: new-fields
+  GetCurrentMapAreaID:
+    property: new-fields
+  GetCurrentMapZone:
+    property: new-fields
+  C_Map:
+    property: new-fields
+  C_Timer:
+    property: new-fields
+  LibStub:
+    property: new-fields
+  HBD:
+    property: new-fields
+  HBDp:
+    property: new-fields
+  RegisterEvent:
+    property: new-fields
+  UnregisterEvent:
+    property: new-fields
+  UnregisterAllEvents:
+    property: new-fields
+  SetScript:
+    property: new-fields
+  hooksecurefunc:
+    property: new-fields
+  InCombatLockdown:
+    property: new-fields
+  RegisterStateDriver:
+    property: new-fields
+  UnregisterStateDriver:
+    property: new-fields
+  geterrorhandler:
+    property: new-fields
+  debugstack:
+    property: new-fields
+  print:
+    property: new-fields
+  wipe:
+    property: new-fields
+  select:
+    property: new-fields
+  format:
+    property: new-fields
+  strsplit:
+    property: new-fields
+  pcall:
+    property: new-fields
+  error:
+    property: new-fields
+  next:
+    property: new-fields
+  pairs:
+    property: new-fields
+  ipairs:
+    property: new-fields
+  Ambiguate:
+    property: new-fields
+  PlaySound:
+    property: new-fields
+  GetAddOnInfo:
+    property: new-fields
+  IsAddOnLoaded:
+    property: new-fields
+  GetLocale:
+    property: new-fields
+  GetRealmName:
+    property: new-fields
+  GetScreenWidth:
+    property: new-fields
+  GetScreenHeight:
+    property: new-fields
+  GetItemInfo:
+    property: new-fields
+  GetItemCount:
+    property: new-fields
+  GetQuestLogTitle:
+    property: new-fields
+  GetQuestID:
+    property: new-fields
+  SelectQuestLogEntry:
+    property: new-fields
+  AcceptQuest:
+    property: new-fields
+  CompleteQuest:
+    property: new-fields
+  GetQuestReward:
+    property: new-fields
+  CloseQuest:
+    property: new-fields
+  GetTitleText:
+    property: new-fields
+  GetGreetingText:
+    property: new-fields
+  SendChatMessage:
+    property: new-fields
+  RAID_CLASS_COLORS:
+    property: new-fields
+  Enum:
+    property: new-fields
+  arg:
+    property: new-fields
+  this:
+    property: new-fields
+  tinsert:
+    property: new-fields
+  tremove:
+    property: new-fields
+  abs:
+    property: new-fields
+  max:
+    property: new-fields
+  min:
+    property: new-fields
+  Questie:
+    property: new-fields
+  QuestieLoader:
+    property: new-fields
+  QuestieCompat:
+    property: new-fields
+  QuestieDB:
+    property: new-fields
+  Questie_SV:
+    property: new-fields
+  QuestieCompartment:
+    property: new-fields
+  QuestieArrow:
+    property: new-fields
+  AceAddon-3.0:
+    property: new-fields
+  AceConsole-3.0:
+    property: new-fields
+  AceConfig-3.0:
+    property: new-fields
+  AceDB-3.0:
+    property: new-fields
+  AceDBOptions-3.0:
+    property: new-fields
+  AceEvent-3.0:
+    property: new-fields
+  AceHook-3.0:
+    property: new-fields
+  AceLocale-3.0:
+    property: new-fields
+  AceSerializer-3.0:
+    property: new-fields
+  CallbackHandler-1.0:
+    property: new-fields
+  string:
+    property: new-fields
+  table:
+    property: new-fields
+  math:
+    property: new-fields
+  unpack:
+    property: new-fields
+  tonumber:
+    property: new-fields
+  tostring:
+    property: new-fields
+  type:
+    property: new-fields
+  setmetatable:
+    property: new-fields
+  getmetatable:
+    property: new-fields
+  rawget:
+    property: new-fields
+  rawset:
+    property: new-fields
+  rawequal:
+    property: new-fields
+  loadstring:
+    property: new-fields
+  time:
+    property: new-fields
+  date:
+    property: new-fields
+  floor:
+    property: new-fields
+  ceil:
+    property: new-fields
+  mod:
+    property: new-fields
+  gsub:
+    property: new-fields
+  gmatch:
+    property: new-fields
+  match:
+    property: new-fields
+  find:
+    property: new-fields
+  format:
+    property: new-fields
+  sub:
+    property: new-fields
+  lower:
+    property: new-fields
+  upper:
+    property: new-fields
+  len:
+    property: new-fields
+  reverse:
+    property: new-fields
+  concat:
+    property: new-fields
+  insert:
+    property: new-fields
+  remove:
+    property: new-fields
+  sort:
+    property: new-fields
+  IsShiftKeyDown:
+    property: new-fields
+  IsControlKeyDown:
+    property: new-fields
+  IsAltKeyDown:
+    property: new-fields
+  GossipFrame:
+    property: new-fields
+  GossipFrameGreetingPanel:
+    property: new-fields
+  QuestFrameGreetingPanel:
+    property: new-fields
+  QuestFrameDetailPanel:
+    property: new-fields
+  QuestFrameProgressPanel:
+    property: new-fields
+  QuestFrameRewardPanel:
+    property: new-fields
+  QuestFrameGoodbyeButton:
+    property: new-fields
+  IsQuestCompletable:
+    property: new-fields
+  SelectAvailableQuest:
+    property: new-fields
+  ConfirmAcceptQuest:
+    property: new-fields
+  GetNumActiveQuests:
+    property: new-fields
+  GetActiveTitle:
+    property: new-fields
+  SelectActiveQuest:
+    property: new-fields
+  GetNumAvailableQuests:
+    property: new-fields
+  GetNumQuestChoices:
+    property: new-fields
+  _G:
+    property: new-fields
+  GameFontHighlightLarge:
+    property: new-fields
+  GameFontHighlightSmall:
+    property: new-fields
+  GameFontHighlight:
+    property: new-fields
+  GameFontNormal:
+    property: new-fields
+  UISpecialFrames:
+    property: new-fields
+  QuestFrameCloseButton:
+    property: new-fields
+  WorldMapTooltip:
+    property: new-fields
+  IsModifierKeyDown:
+    property: new-fields
+  ChatEdit_GetActiveWindow:
+    property: new-fields
+  StaticPopup_Show:
+    property: new-fields
+  ChatEdit_InsertLink:
+    property: new-fields
+  TomTom:
+    property: new-fields
+  MBB_Ignore:
+    property: new-fields
+  coroutine:
+    property: new-fields

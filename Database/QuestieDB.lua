@@ -7,6 +7,27 @@ QuestieDB.private = QuestieDB.private or {}
 ---@class QuestieDBPrivate
 local _QuestieDB = QuestieDB.private
 
+------------------------------------------------------------------------
+-- _MergeOverride: Merge override data into a result table.
+-- Override tables from QuestieLearner and AscensionDB use numeric keys
+-- ([1]=name, [7]=spawns, ...) while the result uses string keys
+-- ("name", "spawns", ...). This helper checks both formats:
+--   1. override[stringKey]  (string-keyed, e.g. from wotlkNPCFixes)
+--   2. override[intKey]     (numeric-keyed, e.g. from QuestieLearner / AscensionDB)
+--   3. rawdata[intKey]      (fallback to compiled DB)
+------------------------------------------------------------------------
+local function _MergeOverride(result, override, rawdata, keyMap)
+    for stringKey, intKey in pairs(keyMap) do
+        if override[stringKey] ~= nil then
+            result[stringKey] = override[stringKey]
+        elseif override[intKey] ~= nil then
+            result[stringKey] = override[intKey]
+        elseif rawdata then
+            result[stringKey] = rawdata[intKey]
+        end
+    end
+end
+
 -------------------------
 --Import modules.
 -------------------------
@@ -391,16 +412,10 @@ function QuestieDB:GetObject(objectId)
     }
 
     if override then
-        -- Prefer override data (corrections)
-        for stringKey, _ in pairs(QuestieDB.objectKeys) do
-            if override[stringKey] ~= nil then
-                obj[stringKey] = override[stringKey]
-            elseif rawdata then
-                -- Fallback to DB if override is partial
-                local intKey = QuestieDB.objectKeys[stringKey]
-                obj[stringKey] = rawdata[intKey]
-            end
-        end
+        -- Prefer override data (corrections); _MergeOverride checks both
+        -- string keys (override.name) and numeric keys (override[1]) so
+        -- AscensionDB and QuestieLearner numeric-key overrides are picked up.
+        _MergeOverride(obj, override, rawdata, QuestieDB.objectKeys)
     else
         -- Use standard DB data
         local stringKey, intKey = next(QuestieDB.objectKeys)
@@ -441,16 +456,9 @@ function QuestieDB:GetItem(itemId)
     }
 
     if override then
-        -- Prefer override data (corrections)
-        for stringKey, _ in pairs(QuestieDB.itemKeys) do
-            if override[stringKey] ~= nil then
-                item[stringKey] = override[stringKey]
-            elseif rawdata then
-                -- Fallback to DB if override is partial
-                local intKey = QuestieDB.itemKeys[stringKey]
-                item[stringKey] = rawdata[intKey]
-            end
-        end
+        -- Prefer override data (corrections); _MergeOverride handles both
+        -- string-keyed and numeric-keyed override formats.
+        _MergeOverride(item, override, rawdata, QuestieDB.itemKeys)
     else
         -- Use standard DB data
         local stringKey, intKey = next(QuestieDB.itemKeys)
@@ -1909,16 +1917,10 @@ function QuestieDB:GetNPC(npcId)
     }
 
     if override then
-        -- Prefer override data (corrections)
-        for stringKey, _ in pairs(npcKeys) do
-            if override[stringKey] ~= nil then
-                npc[stringKey] = override[stringKey]
-            elseif rawdata then
-                -- Fallback to DB if override is partial
-                local intKey = npcKeys[stringKey]
-                npc[stringKey] = rawdata[intKey]
-            end
-        end
+        -- Prefer override data (corrections); _MergeOverride handles both
+        -- string-keyed and numeric-keyed override formats. This is essential
+        -- for AscensionDB and QuestieLearner data which use numeric keys.
+        _MergeOverride(npc, override, rawdata, npcKeys)
     else
         -- Use standard DB data
         local stringKey, intKey = next(npcKeys)

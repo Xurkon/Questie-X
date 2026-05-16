@@ -304,6 +304,33 @@ end
 
 QuestieCompat.C_Map = {
     GetPlayerMapPosition = function(uiMapID, unitToken)
+        unitToken = unitToken or "player"
+
+        if uiMapID and QuestieCompat.UiMapData and QuestieCompat.UiMapData[uiMapID] then
+            local originalMapAreaID = GetCurrentMapAreaID()
+            local originalDungeonLevel = GetCurrentMapDungeonLevel and GetCurrentMapDungeonLevel() or 0
+            local mapID = QuestieCompat.UiMapData[uiMapID].mapID
+            local dungeonLevel = QuestieCompat.Round(math.mod(mapID, 1) * 10)
+
+            SetMapByID(math.floor(mapID) - 1)
+            if dungeonLevel > 0 and SetDungeonMapLevel then
+                SetDungeonMapLevel(dungeonLevel)
+            end
+
+            local x, y = GetPlayerMapPosition(unitToken)
+
+            if originalMapAreaID and originalMapAreaID > 0 then
+                SetMapByID(originalMapAreaID - 1)
+                if originalDungeonLevel and originalDungeonLevel > 0 and SetDungeonMapLevel then
+                    SetDungeonMapLevel(originalDungeonLevel)
+                end
+            else
+                SetMapToCurrentZone()
+            end
+
+            return { uiMapID = uiMapID, x = x, y = y }, uiMapID
+        end
+
         return QuestieCompat.GetPlayerMapPosition()
     end,
     -- Returns map information.

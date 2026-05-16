@@ -111,6 +111,21 @@ end
 
 ---@return table<{x: number, y: number}>, number | nil
 function QuestieCoords.GetPlayerMapPosition()
+    -- If the world map is open, use the map currently being displayed instead of
+    -- GetBestMapForUnit("player"). On legacy clients our compat shim may call
+    -- SetMapToCurrentZone()/SetMapByID() while resolving the player's map, which
+    -- fights the open world map and causes the title/coordinate text to flicker.
+    if WorldMapFrame and WorldMapFrame:IsVisible() then
+        local currentMapId = WorldMapFrame:GetMapID()
+        if currentMapId and GetPlayerMapPosition then
+            local pos = GetPlayerMapPosition(currentMapId, "player")
+            if pos and pos.x and pos.y then
+                pos.uiMapID = currentMapId
+                return pos, currentMapId
+            end
+        end
+    end
+
     local mapID = GetBestMapForUnit("player")
     if (not mapID) then
         return nil, nil
@@ -142,7 +157,19 @@ function QuestieCoords:ResetMinimapText()
 end
 
 function QuestieCoords:ResetMapText()
-    GetMapTitleText():SetText(WORLD_MAP);
+    local mapTitleText = GetMapTitleText()
+    if not mapTitleText then return end
+
+    local currentMapId = WorldMapFrame and WorldMapFrame.GetMapID and WorldMapFrame:GetMapID()
+    if currentMapId then
+        local info = C_Map.GetMapInfo(currentMapId)
+        if info and info.name then
+            mapTitleText:SetText(info.name)
+            return
+        end
+    end
+
+    mapTitleText:SetText(WORLD_MAP);
 end
 
 function QuestieCoords:ResetMiniWorldMapText()

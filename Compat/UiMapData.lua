@@ -252,6 +252,30 @@ QuestieCompat.UiMapData =
 		["instance"] = 0,
 		["name"] = "Elwynn Forest",
 	},
+	[1238] =
+	{
+		[1] = 968.75,
+		[2] = 645.84,
+		[3] = 187.5,
+		[4] = -8570.83,
+		["mapType"] = 3,
+		["parentMapID"] = 10138,
+		["mapID"] = 1238,
+		["instance"] = 0,
+		["name"] = "Northshire Valley",
+	},
+	[1241] =
+	{
+		[1] = 510,
+		[2] = 500,
+		[3] = -6983.33,
+		[4] = 9766.67,
+		["mapType"] = 3,
+		["parentMapID"] = 1941,
+		["mapID"] = 1241,
+		["instance"] = 0,
+		["name"] = "Sunstrider Isle",
+	},
 	[1430] =
 	{
 		[1] = 2499.9999389648,

@@ -1,0 +1,11 @@
+std = "wow_classic"
+
+[lints]
+global_usage = "allow"
+unused_variable = "allow"
+duplicate_key = "allow"
+ambiguous_if = "allow"
+incorrect_standard_library_use = "allow"
+undefined_variable = "allow"
+if_same_then_else = "allow"
+constant_table_comparison = "allow"

@@ -11,6 +11,8 @@ local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
 local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
+---@type ZoneDB
+local ZoneDB = QuestieLoader:ImportModule("ZoneDB")
 
 local _Learner = QuestieLearner.private or {}
 QuestieLearner.private = _Learner
@@ -75,7 +77,9 @@ local MOUSEOVER_LEARN_FLAGS = NPC_FLAG_QUESTGIVER
 local COORD_GRID = 2.0
 
 -- Minimum match count (Confidence) for a learned pin to appear on the map.
-local MIN_CONFIDENCE_PINS = 2
+-- Set to 1 so that even a single kill/mouseover confirms a spawn location on
+-- Ascension, where NPC databases are incomplete and every data point matters.
+local MIN_CONFIDENCE_PINS = 1
 
 _Learner.pendingNpcs    = {}
 _Learner.pendingQuests  = {}
@@ -91,8 +95,19 @@ QuestieLearner.data = nil
 ------------------------------------------------------------------------
 
 local function GetZoneId()
-    local mapId = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
-    if mapId then return mapId end
+    -- On WotLK/Ascension, C_Map.GetBestMapForUnit returns a uiMapId (e.g. 1241 for Sunstrider).
+    -- Questie NPC spawns are keyed by areaId (e.g. 3430), so we must convert.
+    local uiMapId = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+    if uiMapId then
+        -- Try ZoneDB reverse lookup first (covers Ascension overrides like 1241→3430)
+        if ZoneDB and ZoneDB.GetAreaIdByUiMapId then
+            local areaId = ZoneDB:GetAreaIdByUiMapId(uiMapId)
+            if areaId and areaId > 0 then
+                return areaId
+            end
+        end
+        return uiMapId  -- fallback: no ZoneDB mapping available
+    end
     return select(8, GetInstanceInfo()) or 0
 end
 
@@ -170,7 +185,7 @@ local function EnsureLearnedData()
             learnQuests  = true,
             learnItems   = true,
             learnObjects = true,
-            minConfidencePins = 2,
+            minConfidencePins = 1,
             prioritizeMyData = true,
             staleThreshold   = 90,    -- days
             pruneVerified    = false, -- protect verified data by default
@@ -188,7 +203,7 @@ local function EnsureLearnedData()
         if s.learnQuests  == nil then s.learnQuests  = true end
         if s.learnItems   == nil then s.learnItems   = true end
         if s.learnObjects == nil then s.learnObjects = true end
-        if s.minConfidencePins == nil then s.minConfidencePins = 2 end
+        if s.minConfidencePins == nil then s.minConfidencePins = 1 end
         if s.prioritizeMyData == nil then s.prioritizeMyData = true end
     end
     return true
@@ -812,10 +827,28 @@ function QuestieLearner:LearnQuestObjectiveNPC(questId, npcId, objText, objectiv
         end)
     end
 
-    -- 3. Register with tooltip system immediately
+    -- 3. Register with tooltip system immediately. Preserve the objective icon so
+    -- nameplates can render the correct learned slay/loot/talk marker.
     local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips")
     if QuestieTooltips and QuestieTooltips.RegisterObjectiveTooltip then
-        QuestieTooltips:RegisterObjectiveTooltip(questId, "m_" .. npcId, { Index = 0, Description = objText or "Learned Objective", Update = function() end })
+        local objectiveIcon
+        local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
+        local objectives = QuestLogCache and QuestLogCache.GetQuestObjectives and QuestLogCache.GetQuestObjectives(questId)
+        if objectives and objText then
+            for _, obj in next, objectives do
+                if obj.text and (obj.text == objText or string.find(obj.text, objText, 1, true) or string.find(objText, obj.text, 1, true)) then
+                    objectiveIcon = obj.Icon
+                    break
+                end
+            end
+        end
+
+        QuestieTooltips:RegisterObjectiveTooltip(questId, "m_" .. npcId, {
+            Index = 0,
+            Description = objText or "Learned Objective",
+            Icon = objectiveIcon,
+            Update = function() end
+        })
     end
 
     Questie:Debug(Questie.DEBUG_LEARNER,
@@ -1003,6 +1036,68 @@ function QuestieLearner:InjectLearnedData()
 
     local learned = Questie.dbLearner.global
     local npcCount, questCount, itemCount, objectCount = 0, 0, 0, 0
+
+    -- Migration: fix spawn zone keys that were stored as uiMapId instead of areaId.
+    -- Before the GetZoneId() fix, kills on maps like Sunstrider Isle (uiMapId 1241)
+    -- were stored under key 1241 instead of the correct areaId 3430.
+    -- Convert any uiMapId keys to areaId using ZoneDB.
+    local zonesFixed = 0
+    for npcId, data in pairs(learned.npcs) do
+        if data[7] then
+            local zonesToMigrate = {}
+            for zoneKey, coords in pairs(data[7]) do
+                -- If zoneKey looks like a uiMapId (a map ID rather than an areaId),
+                -- ZoneDB:GetAreaIdByUiMapId will return the corresponding areaId.
+                -- If it returns nil, zoneKey is already an areaId — no migration needed.
+                -- Skip very common areaIds that happen to look like small numbers.
+                if ZoneDB and ZoneDB.GetAreaIdByUiMapId then
+                    local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(zoneKey)
+                    if maybeAreaId and maybeAreaId ~= zoneKey then
+                        zonesToMigrate[zoneKey] = maybeAreaId
+                    end
+                end
+            end
+            for oldKey, newKey in pairs(zonesToMigrate) do
+                local coords = data[7][oldKey]
+                if coords then
+                    data[7][newKey] = data[7][newKey] or {}
+                    for _, coord in ipairs(coords) do
+                        InsertIfNewBucket(data[7][newKey], coord[1], coord[2])
+                    end
+                    data[7][oldKey] = nil
+                    zonesFixed = zonesFixed + 1
+                end
+            end
+        end
+    end
+    -- Same migration for object spawn data (field 4)
+    for objId, data in pairs(learned.objects) do
+        if data[4] then
+            local zonesToMigrate = {}
+            for zoneKey, coords in pairs(data[4]) do
+                if ZoneDB and ZoneDB.GetAreaIdByUiMapId then
+                    local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(zoneKey)
+                    if maybeAreaId and maybeAreaId ~= zoneKey then
+                        zonesToMigrate[zoneKey] = maybeAreaId
+                    end
+                end
+            end
+            for oldKey, newKey in pairs(zonesToMigrate) do
+                local coords = data[4][oldKey]
+                if coords then
+                    data[4][newKey] = data[4][newKey] or {}
+                    for _, coord in ipairs(coords) do
+                        InsertIfNewBucket(data[4][newKey], coord[1], coord[2])
+                    end
+                    data[4][oldKey] = nil
+                    zonesFixed = zonesFixed + 1
+                end
+            end
+        end
+    end
+    if zonesFixed > 0 then
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Migrated", zonesFixed, "spawn zone keys from uiMapId to areaId")
+    end
 
     -- 1. NPCs
     local npcIdsToFix = {}
@@ -1356,7 +1451,11 @@ function QuestieLearner:OnMouseoverUnit()
     _Learner.guidNpcCache = _Learner.guidNpcCache or {}
     _Learner.guidNpcCache[guid] = { npcId = npcId, name = name, ts = time() }
 
-    self:LearnNPC(npcId, name, level, subName, npcFlags, factionString)
+    -- Pass areaId as spawnZoneId so LearnNPC stores spawn data under the
+    -- correct areaId (3430 for Sunstrider/Eversong) rather than falling back
+    -- to GetZoneId() which may return the same value but via a different path.
+    -- GetPlayerCoords() fallback in LearnNPC will provide the coordinates.
+    self:LearnNPC(npcId, name, level, subName, npcFlags, factionString, nil, nil, areaId)
 end
 
 function QuestieLearner:OnTargetChanged()
@@ -1413,7 +1512,7 @@ function QuestieLearner:OnQuestDetail()
             elseif unitType == "Creature" or unitType == "Vehicle" then
                 self:LearnQuestGiver(questId, entityId, 1, true)
                 local npcFlags = UnitNPCFlags and UnitNPCFlags("npc") or 2
-                self:LearnNPC(entityId, entityName, nil, nil, npcFlags, nil)
+                self:LearnNPC(entityId, entityName, nil, nil, npcFlags, nil, nil, nil, zoneId)
             end
         end
     end
@@ -1422,6 +1521,9 @@ end
 function QuestieLearner:OnQuestComplete()
     local questId = GetQuestID and GetQuestID()
     if not questId or questId <= 0 then return end
+
+    -- Get current zone for quest giver spawn data
+    local zoneId = GetZoneId()
 
     -- Capture completion/finish text
     local data = {}
@@ -1442,7 +1544,7 @@ function QuestieLearner:OnQuestComplete()
             elseif unitType == "Creature" or unitType == "Vehicle" then
                 self:LearnQuestGiver(questId, entityId, 1, false)
                 local npcFlags = UnitNPCFlags and UnitNPCFlags("npc") or 2
-                self:LearnNPC(entityId, entityName, nil, nil, npcFlags, nil)
+                self:LearnNPC(entityId, entityName, nil, nil, npcFlags, nil, nil, nil, zoneId)
             end
         end
     end
@@ -1617,7 +1719,7 @@ function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
         elseif giverEntity.unitType == "Creature" or giverEntity.unitType == "Vehicle" then
             self:LearnQuestGiver(questId, giverEntity.id, 1, true)
             local npcFlags = (npcGuid and UnitNPCFlags and UnitNPCFlags("npc")) or 1
-            self:LearnNPC(giverEntity.id, giverEntity.name, nil, nil, npcFlags, nil)
+            self:LearnNPC(giverEntity.id, giverEntity.name, nil, nil, npcFlags, nil, nil, nil, GetZoneId())
         end
     end
 end
@@ -1642,7 +1744,7 @@ function QuestieLearner:OnQuestTurnedIn(questId, xpReward, moneyReward)
             elseif unitType == "Creature" or unitType == "Vehicle" then
                 self:LearnQuestGiver(questId, entityId, 1, false)
                 local npcFlags = UnitNPCFlags and UnitNPCFlags("npc") or 2
-                self:LearnNPC(entityId, entityName, nil, nil, npcFlags, nil)
+                self:LearnNPC(entityId, entityName, nil, nil, npcFlags, nil, nil, nil, GetZoneId())
             end
         end
     end
@@ -1706,7 +1808,7 @@ function QuestieLearner:OnGossipShow()
         self:LearnObject(id, name)
     elseif unitType == "Creature" or unitType == "Vehicle" then
         local npcFlags = UnitNPCFlags and UnitNPCFlags("npc") or 1
-        self:LearnNPC(id, name, nil, nil, npcFlags, nil)
+        self:LearnNPC(id, name, nil, nil, npcFlags, nil, nil, nil, GetZoneId())
     end
 end
 

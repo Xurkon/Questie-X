@@ -210,7 +210,7 @@
         <img src="QuestieXlogo.png" alt="Questie-X Logo" width="400" />
         <p class="subtitle">A universal WoW quest-helper with a plugin architecture for any private server.</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
-            <code>Version: v1.6.2</code>
+            <code>Version: v1.6.2 + Unreleased</code>
             <a href="changelog.html"
                 style="background: var(--bg-tertiary); color: var(--accent-green); text-decoration: none; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; border: 1px solid var(--border-color);">View
                 Changelog</a>
@@ -218,6 +218,37 @@
     </div>
 
     <div class="container">
+        <section id="unreleased-highlights">
+            <h2>Current Unreleased Work</h2>
+            <p>The current working tree includes in-progress fixes for Ascension custom-zone rendering, learned tooltip reconstruction, and arrow/map behavior on Sunstrider Isle. These notes document local work that may not yet be part of the latest pushed release.</p>
+
+            <div class="grid">
+                <div class="card">
+                    <h4>Sunstrider Coordinate Normalization</h4>
+                    <p>Arrow and world-map code now normalize Sunstrider's child map <code>1241</code>, ghost map <code>946</code>, and parent Eversong map <code>1941</code> into a consistent coordinate path so distance, direction, and icon placement all use the same world space.</p>
+                </div>
+                <div class="card">
+                    <h4>Learned Tooltip Schema Fix</h4>
+                    <p><code>QuestieTooltips</code> now reconstructs learned objective text from <code>QuestieLearner.data.quests[questId][10]</code> instead of treating learner arrays like legacy <code>{ questId -&gt; objList }</code> maps, preventing the Stormwind City Guard-style <code>objList</code>-as-number crash reported from Bronzebeard.</p>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="card">
+                    <h4>Custom Map Data Aliases</h4>
+                    <p><code>Compat/HBD.lua</code> now aliases Sunstrider map data (<code>1241</code> and <code>946</code>) to Eversong (<code>1941</code>) and can fall back to the real HBD library's <code>mapData</code> for maps not present in Questie's local compat table.</p>
+                </div>
+                <div class="card">
+                    <h4>QuestieLearner Icon Preservation</h4>
+                    <p>Learned objectives now preserve the resolved quest-log icon during immediate tooltip registration so nameplates can render the correct learned slay/loot/talk marker instead of a missing icon state.</p>
+                </div>
+            </div>
+
+            <div class="important">
+                <strong>Documentation scope:</strong> The landing page and changelog intentionally describe both the latest release and the current local unreleased work so collaborators can see what is being tested before the next push.
+            </div>
+        </section>
+
         <!-- QuestieLearner Engine -->
         <section id="questielearner">
             <h2>QuestieLearner: Autonomous Data Engine</h2>

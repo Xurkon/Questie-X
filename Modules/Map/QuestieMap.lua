@@ -57,6 +57,22 @@ local drawTimer
 local fadeLogicTimerShown
 local fadeLogicCoroutine
 
+local function _ResolveMapUiMapId(uiMapId, x, y)
+    -- Ascension zone mapping: On Ascension, Sunstrider Isle (uiMapId 1241) shares
+    -- Eversong Woods' (1941) coordinate space. Zone 3430 (Eversong Woods) data
+    -- now correctly maps to uiMapId 1941 via GetUiMapIdByAreaId(3430)=1941.
+    -- These Eversong-map pins appear on the Sunstrider sub-map (1241) via
+    -- ZONE_REDIRECT visibility in HBD.lua.
+    --
+    -- Redirect any remaining map-1241 pins to 1941. On Ascension, map 1241
+    -- does not have its own independent coordinate space — it IS Eversong's
+    -- space. Pins destined for 1241 must use 1941's bounds for correct rendering.
+    if uiMapId == 1241 then
+        return 1941
+    end
+    return uiMapId
+end
+
 local isDrawQueueDisabled = false
 
 --* TODO: How the frames are handled needs to be reworked, why are we getting them from _G
@@ -445,7 +461,7 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
 
     data.Id = data.id
 
-    local uiMapId = ZoneDB:GetUiMapIdByAreaId(areaID)
+    local uiMapId = _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(areaID), x, y)
     if (not uiMapId) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieMap:DrawManualIcon] No UiMapID for areaId:", areaID, tostring(data.Name))
         return nil, nil
@@ -521,7 +537,7 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
         return nil, nil
     end
 
-    local uiMapId = ZoneDB:GetUiMapIdByAreaId(areaID)
+    local uiMapId = _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(areaID), x, y)
     if (not uiMapId) then
         local parentMapId
         local mapInfo = C_Map and C_Map.GetMapInfo and C_Map.GetMapInfo(areaID)
@@ -536,7 +552,7 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
             return nil, nil
         else
             areaID = parentMapId
-            uiMapId = ZoneDB:GetUiMapIdByAreaId(areaID)
+            uiMapId = _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(areaID), x, y)
         end
     end
 
@@ -687,14 +703,14 @@ function QuestieMap:FindClosestStarter()
                                                 if dungeonLocation ~= nil then
                                                     for _, value in ipairs(dungeonLocation) do
                                                         if (value[1] and value[2]) then
-                                                            local x, y, _ = HBD:GetWorldCoordinatesFromZone(value[1] / 100, value[2] / 100, ZoneDB:GetUiMapIdByAreaId(value[3]))
+                                                            local x, y, _ = HBD:GetWorldCoordinatesFromZone(value[1] / 100, value[2] / 100, _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(value[3]), value[1], value[2]))
                                                             if (x and y) then
                                                                 local distance = QuestieLib:Euclid(playerX or 0, playerY or 0, x, y);
                                                                 if (closestStarter[questId].distance > distance) then
                                                                     closestStarter[questId].distance = distance;
                                                                     closestStarter[questId].x = x;
                                                                     closestStarter[questId].y = y;
-                                                                    closestStarter[questId].zone = ZoneDB:GetUiMapIdByAreaId(Zone);
+                                                                    closestStarter[questId].zone = _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(Zone), value[1], value[2])
                                                                     closestStarter[questId].type = "GameObject - " .. obj.name;
                                                                 end
                                                             end
@@ -702,7 +718,7 @@ function QuestieMap:FindClosestStarter()
                                                     end
                                                 end
                                             else
-                                                local uiMapId = ZoneDB:GetUiMapIdByAreaId(Zone)
+                                                local uiMapId = _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(Zone), coords[1], coords[2])
                                                 local x, y, _ = HBD:GetWorldCoordinatesFromZone(coords[1] / 100, coords[2] / 100, uiMapId)
                                                 if (x and y) then
                                                     local distance = QuestieLib:Euclid(playerX or 0, playerY or 0, x, y);
@@ -732,7 +748,7 @@ function QuestieMap:FindClosestStarter()
                                                 if dungeonLocation ~= nil then
                                                     for _, value in ipairs(dungeonLocation) do
                                                         if (value[1] and value[2]) then
-                                                            local uiMapId = ZoneDB:GetUiMapIdByAreaId(value[3])
+                                                            local uiMapId = _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(value[3]), value[1], value[2])
                                                             local x, y, _ = HBD:GetWorldCoordinatesFromZone(value[1] / 100, value[2] / 100, uiMapId)
                                                             if (x and y) then
                                                                 local distance = QuestieLib:Euclid(playerX or 0, playerY or 0, x, y);
@@ -740,7 +756,7 @@ function QuestieMap:FindClosestStarter()
                                                                     closestStarter[questId].distance = distance;
                                                                     closestStarter[questId].x = x;
                                                                     closestStarter[questId].y = y;
-                                                                    closestStarter[questId].zone = ZoneDB:GetUiMapIdByAreaId(Zone);
+                                                                    closestStarter[questId].zone = _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(Zone), value[1], value[2])
                                                                     closestStarter[questId].type = "NPC - " .. NPC.name;
                                                                 end
                                                             end
@@ -748,7 +764,7 @@ function QuestieMap:FindClosestStarter()
                                                     end
                                                 end
                                             elseif (coords[1] and coords[2]) then
-                                                local uiMapId = ZoneDB:GetUiMapIdByAreaId(Zone)
+                                                local uiMapId = _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(Zone), coords[1], coords[2])
                                                 local x, y, _ = HBD:GetWorldCoordinatesFromZone(coords[1] / 100, coords[2] / 100, uiMapId)
                                                 if (x and y) then
                                                     local distance = QuestieLib:Euclid(playerX or 0, playerY or 0, x, y);
@@ -756,7 +772,7 @@ function QuestieMap:FindClosestStarter()
                                                         closestStarter[questId].distance = distance;
                                                         closestStarter[questId].x = x;
                                                         closestStarter[questId].y = y;
-                                                        closestStarter[questId].zone = ZoneDB:GetUiMapIdByAreaId(Zone);
+                                                        closestStarter[questId].zone = _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(Zone), coords[1], coords[2])
                                                         closestStarter[questId].type = "NPC - " .. NPC.name;
                                                     end
                                                 end
@@ -792,7 +808,7 @@ function QuestieMap:GetNearestSpawn(objective)
         for id, spawnData in pairs(objective.spawnList) do
             for zone, spawns in pairs(spawnData.Spawns) do
                 for _, spawn in pairs(spawns) do
-                    local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
+                    local uiMapId = _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(zone), spawn[1], spawn[2])
                     local dX, dY, dInstance = HBD:GetWorldCoordinatesFromZone(spawn[1] / 100.0, spawn[2] / 100.0, uiMapId)
                     local dist = HBD:GetWorldDistance(dInstance, playerX, playerY, dX, dY)
                     if dist then
@@ -836,7 +852,7 @@ function QuestieMap:GetNearestQuestSpawn(quest)
             local bestSpawn, bestSpawnZone, bestSpawnType, bestSpawnName
             for zone, spawns in pairs(finisherSpawns) do
                 for _, spawn in pairs(spawns) do
-                    local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
+                    local uiMapId = _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(zone), spawn[1], spawn[2])
                     local dX, dY, dInstance = HBD:GetWorldCoordinatesFromZone(spawn[1] / 100.0, spawn[2] / 100.0, uiMapId)
                     local dist = HBD:GetWorldDistance(dInstance, playerX, playerY, dX, dY)
                     if dist then

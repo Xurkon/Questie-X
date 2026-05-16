@@ -15,12 +15,19 @@ local _QuestieDB = QuestieDB.private
 --   1. override[stringKey]  (string-keyed, e.g. from wotlkNPCFixes)
 --   2. override[intKey]     (numeric-keyed, e.g. from QuestieLearner / AscensionDB)
 --   3. rawdata[intKey]      (fallback to compiled DB)
+--
+-- Empty tables from QuestieLearner (e.g. spawns={}) are treated as "not present"
+-- so the base DB's real spawn data is preserved until actual coordinates are learned.
 ------------------------------------------------------------------------
+local function IsEmptyTable(val)
+    return type(val) == "table" and next(val) == nil
+end
+
 local function _MergeOverride(result, override, rawdata, keyMap)
     for stringKey, intKey in pairs(keyMap) do
         if override[stringKey] ~= nil then
             result[stringKey] = override[stringKey]
-        elseif override[intKey] ~= nil then
+        elseif override[intKey] ~= nil and not IsEmptyTable(override[intKey]) then
             result[stringKey] = override[intKey]
         elseif rawdata then
             result[stringKey] = rawdata[intKey]

@@ -308,6 +308,46 @@ local function _RefreshActiveQuestPins(questIdSet)
     end
 end
 
+-- Invalidates cached objective.spawnList for any active quest whose objectives
+-- reference the given npcId. This forces the map system to rebuild spawn lists
+-- from QuestieDB on the next update, picking up newly learned coordinates.
+local function _InvalidateSpawnListsForNPC(npcId)
+    if not QuestieQuest or not QuestiePlayer or not QuestiePlayer.currentQuestlog then return end
+    local timer = (C_Timer) or (QuestieCompat and QuestieCompat.C_Timer)
+    local questsToRefresh = {}
+    for questId, _ in pairs(QuestiePlayer.currentQuestlog) do
+        local quest = QuestieDB.GetQuest and QuestieDB.GetQuest(questId)
+        if quest and quest.Objectives then
+            for _, objective in pairs(quest.Objectives) do
+                local shouldInvalidate = false
+                -- Monster objectives reference NPCs directly in spawnList keys
+                if objective.spawnList then
+                    if objective.spawnList[npcId] then
+                        shouldInvalidate = true
+                    end
+                    -- Also check killcredit IdList
+                    if not shouldInvalidate and objective.IdList then
+                        for _, id in ipairs(objective.IdList) do
+                            if id == npcId then shouldInvalidate = true; break end
+                        end
+                    end
+                end
+                -- Fallback: if objective Id matches the NPC (some objectives use NPC as their primary Id)
+                if not shouldInvalidate and objective.Id == npcId then
+                    shouldInvalidate = true
+                end
+                if shouldInvalidate then
+                    objective.spawnList = nil
+                    objective.AlreadySpawned = nil
+                    questsToRefresh[questId] = true
+                    break -- one invalidation per quest is enough
+                end
+            end
+        end
+    end
+    _RefreshActiveQuestPins(questsToRefresh)
+end
+
 ------------------------------------------------------------------------
 -- CrossLinkAfterNPC: called when a new NPC is first learned.
 -- Scans all learned quests for any reference to this npcId and stitches
@@ -645,6 +685,11 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
     if isNew then
         Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] New NPC learned:", npcId, name or "?")
         CrossLinkAfterNPC(npcId)
+    else
+        -- Existing NPC got new spawn data: invalidate cached spawnLists
+        -- for any active quest objective that references this NPC so the
+        -- map system rebuilds them with fresh data on next update.
+        _InvalidateSpawnListsForNPC(npcId)
     end
     _Learner:BroadcastIfCommsAvailable("NPC", npcId, existing)
 end

@@ -147,6 +147,8 @@ monster = function(npcId, objective)
         spawns = {}
     end
 
+    local isLearned = false
+
     -- Learner safety net: when prioritizeMyData is enabled and the Learner has
     -- verified spawn data for this NPC, prefer it over compiled DB spawns.
     -- This catches edge cases where the npcDataOverrides chain doesn't fully
@@ -161,6 +163,7 @@ monster = function(npcId, objective)
                 if learnedSpawns and next(learnedSpawns) and learnedNpc.mc and learnedNpc.mc >= threshold then
                     Questie:Debug(Questie.DEBUG_DEVELOP, "[monster] Preferring learned spawns for NPC:", npcId, "(mc=" .. tostring(learnedNpc.mc) .. ")")
                     spawns = learnedSpawns
+                    isLearned = true
                 end
             end
         end
@@ -182,6 +185,7 @@ monster = function(npcId, objective)
         GetIconScale = _GetIconScaleForMonster,
         IconScale = _GetIconScaleForMonster(),
         TooltipKey = "m_" .. npcId, -- todo: use ID based keys
+        isLearned = isLearned,
     }
 
     return {

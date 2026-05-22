@@ -1513,6 +1513,11 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
     if objective.spawnList and next(objective.spawnList) then
         Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:PopulateObjective] spawnList present for quest:", quest.Id,
             "objIdx:", objectiveIndex, "spawnList entries:", (function() local n=0 for _ in pairs(objective.spawnList) do n=n+1 end return n end)())
+
+        -- Clear stale AlreadySpawned entries before drawing. Frames may have been
+        -- unloaded by UnloadQuestFrames but AlreadySpawned still references dead frames.
+        _UnloadAlreadySpawnedIcons(objective)
+
         local maxPerType = 300
 
         if Questie.db.profile.enableIconLimit and Questie.db.profile.iconLimit < maxPerType then

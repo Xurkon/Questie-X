@@ -304,33 +304,6 @@ end
 
 QuestieCompat.C_Map = {
     GetPlayerMapPosition = function(uiMapID, unitToken)
-        unitToken = unitToken or "player"
-
-        if uiMapID and QuestieCompat.UiMapData and QuestieCompat.UiMapData[uiMapID] then
-            local originalMapAreaID = GetCurrentMapAreaID()
-            local originalDungeonLevel = GetCurrentMapDungeonLevel and GetCurrentMapDungeonLevel() or 0
-            local mapID = QuestieCompat.UiMapData[uiMapID].mapID
-            local dungeonLevel = QuestieCompat.Round(math.mod(mapID, 1) * 10)
-
-            SetMapByID(math.floor(mapID) - 1)
-            if dungeonLevel > 0 and SetDungeonMapLevel then
-                SetDungeonMapLevel(dungeonLevel)
-            end
-
-            local x, y = GetPlayerMapPosition(unitToken)
-
-            if originalMapAreaID and originalMapAreaID > 0 then
-                SetMapByID(originalMapAreaID - 1)
-                if originalDungeonLevel and originalDungeonLevel > 0 and SetDungeonMapLevel then
-                    SetDungeonMapLevel(originalDungeonLevel)
-                end
-            else
-                SetMapToCurrentZone()
-            end
-
-            return { uiMapID = uiMapID, x = x, y = y }, uiMapID
-        end
-
         return QuestieCompat.GetPlayerMapPosition()
     end,
     -- Returns map information.
@@ -878,6 +851,58 @@ function QuestieCompat.GetFactionInfo(factionIndex)
 
     return name, description, standingId, bottomValue, topValue, earnedValue, atWarWith,
         canToggleAtWar, isHeader, isCollapsed, hasRep, isWatched, isChild, QuestieCompat.FactionId[name:trim()]
+end
+
+-- Returns faction info by factionID.
+-- https://wowpedia.fandom.com/wiki/API_GetFactionInfoByID
+-- Patch 4.0.1 (Cataclysm): Added.
+-- On 3.3.5, this API does not exist, so we iterate GetFactionInfo indices and use
+-- our FactionId reverse lookup to match by ID.
+local _factionIdReverse = nil
+function QuestieCompat.GetFactionInfoByID(factionID)
+    if not factionID then return nil end
+
+    -- Build reverse map once (id -> name) from QuestieCompat.FactionId (name -> id)
+    if not _factionIdReverse then
+        _factionIdReverse = {}
+        for name, id in next, QuestieCompat.FactionId do
+            _factionIdReverse[id] = name
+        end
+    end
+
+    -- Fast path: try reverse lookup from our hardcoded faction data
+    local name = _factionIdReverse[factionID]
+    if name then
+        -- Find the faction in the reputation UI to get full info
+        local numFactions = GetNumFactions()
+        for i = 1, numFactions do
+            local fName, description, standingId, bottomValue, topValue, earnedValue,
+                atWarWith, canToggleAtWar, isHeader, isCollapsed, hasRep, isWatched, isChild = GetFactionInfo(i)
+            if fName and fName:trim() == name then
+                return fName, description, standingId, bottomValue, topValue, earnedValue,
+                    atWarWith, canToggleAtWar, isHeader, isCollapsed, hasRep, isWatched, isChild, factionID
+            end
+        end
+        -- Faction is in our DB but not in the reputation UI yet — return name-only
+        return name
+    end
+
+    -- Slow path: iterate all visible factions and check their ID via our name->id table
+    local numFactions = GetNumFactions()
+    for i = 1, numFactions do
+        local fName, description, standingId, bottomValue, topValue, earnedValue,
+            atWarWith, canToggleAtWar, isHeader, isCollapsed, hasRep, isWatched, isChild = GetFactionInfo(i)
+        if fName then
+            local fId = QuestieCompat.FactionId[fName:trim()]
+            if fId == factionID then
+                return fName, description, standingId, bottomValue, topValue, earnedValue,
+                    atWarWith, canToggleAtWar, isHeader, isCollapsed, hasRep, isWatched, isChild, factionID
+            end
+        end
+    end
+
+    -- Faction not found
+    return nil
 end
 
 -- Returns true if the unit is a member of your party

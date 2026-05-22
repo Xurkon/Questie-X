@@ -54,7 +54,7 @@ QuestieCompat.HBD = HBD
 -- ZONE_REDIRECT: used by ResolveZone() for visibility logic (isSameZoneSpace).
 local ZONE_REDIRECT = {
     [1241] = 1941,  -- Sunstrider Isle -> Eversong Woods (shared visibility space)
-    [946]  = 1941,  -- Ghost map -> Eversong Woods (shared visibility space)
+    [946]  = 1941,  -- Ghost/transition map -> Eversong Woods (for Sunstrider loading)
 }
 
 --- Resolve a zone ID through the redirect table.
@@ -465,14 +465,11 @@ local function drawMinimapPin(pin, data)
 end
 
 local function _GetEffectiveMinimapPlayerWorldPosition()
-    if QuestieCompat and QuestieCompat.GetCurrentPlayerPosition and QuestieCompat.GetCalibratedPlayerPosition then
-        local uiMapID = QuestieCompat.GetCurrentPlayerPosition()
-        local worldX, worldY, instanceID = QuestieCompat.GetCalibratedPlayerPosition(uiMapID, nil, "player")
-        if worldX and worldY then
-            return worldX, worldY, instanceID
-        end
-    end
-
+    -- For minimap pins we MUST use HBD's native world coordinate space.
+    -- Minimap pins store their positions in HBD world coords, so the player
+    -- position must also be in HBD world coords. The calibrated pseudo-world
+    -- space (used by the arrow) has a different origin/scale on Ascension and
+    -- must never be mixed with minimap pin positions.
     return HBD:GetPlayerWorldPosition()
 end
 

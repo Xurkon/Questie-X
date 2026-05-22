@@ -26,12 +26,12 @@ local abs = math.abs
 local max = math.max
 local min = math.min
 
-local ARROW_SHEET_SIZE = 512
-local ARROW_CELL_W = 56
-local ARROW_CELL_H = 42
-local ARROW_SHEET_COLS = 9
-local ARROW_SHEET_ROWS = 12
-local ARROW_TOTAL_CELLS = ARROW_SHEET_COLS * ARROW_SHEET_ROWS
+-- Single-frame arrow with SetRotation for perfectly smooth rotation.
+-- Texture is a 256x256 SQUARE TGA with arrow 2x horizontally stretched to fill
+-- ~70% of canvas. SQUARE is critical: SetRotation rotates UVs inside the display
+-- rect, so non-square textures distort at every diagonal angle. No SetTexCoord.
+local ARROW_DISPLAY_WIDTH = 160
+local ARROW_DISPLAY_HEIGHT = 160
 
 local UPDATE_THROTTLE_SECONDS = 0.05
 local RECALC_NEAREST_SECONDS = 1.0
@@ -49,9 +49,9 @@ local hasManualTarget = false
 -- Shared context written by UpdateNearestTargets, read by hoisted helpers.
 -- Avoids closure allocation on every call.
 local _arrow_playerX, _arrow_playerY, _arrow_playerInstance
-local _arrow_playerCalibratedX, _arrow_playerCalibratedY, _arrow_playerCalibratedGroup
 local _arrow_usingAutoLogic, _arrow_playerZoneId, _arrow_playerUiMapId
 local _arrow_quest  -- current quest being processed by the hoisted helpers
+
 
 local lastPopulateByQuestId = {}
 
@@ -134,36 +134,24 @@ local function ResolveIconTexture(icon)
 end
 
 local function _ResolveArrowUiMapId(uiMapId)
-    -- Sunstrider Isle (1241) and its ghost map (946) both resolve to Eversong Woods (1941)
-    -- for arrow calculations. This normalizes both player and target uiMapIds so the
-    -- same-map branch fires and zone-relative coord math works consistently.
-    -- NOTE: _ResolveMapUiMapId in QuestieMap.lua also redirects 1241→1941 because
-    -- on Ascension, map 1241 shares Eversong's coordinate space. Zone 3430 data
-    -- now maps to uiMapId 1941 via GetUiMapIdByAreaId(3430)=1941, so quest items
-    -- render on the Eversong map and appear on Sunstrider via ZONE_REDIRECT.
-    if uiMapId == 1241 or uiMapId == 946 then
+    -- Ghost map 946 has no real coordinate data; redirect to Eversong (1941).
+    -- Ascension custom map 1241 (Sunstrider Isle) must also redirect to 1941
+    -- so target world coords match player world coords (both in Eversong space).
+    if uiMapId == 946 or uiMapId == 1241 then
         return 1941
     end
     return uiMapId
 end
 
 local function _GetSunstriderPlayerMapPosition(debugArrow)
-    local worldX, worldY, _, mapX, mapY, group = QuestieCompat.GetCalibratedPlayerPosition(_arrow_playerUiMapId, _arrow_playerZoneId, "player")
-    if group and mapX and mapY then
-        if debugArrow then
-            print(string.format("Sunstrider helper: calibrated primary=%s -> mapX=%.4f mapY=%.4f worldX=%.1f worldY=%.1f",
-                tostring(group.primaryUiMapId), mapX, mapY, worldX or 0, worldY or 0))
-        end
-        return mapX, mapY
-    end
-
+    -- NEVER use the calibrated branch here. It returns Eversong-wide normalized coords
+    -- (~0.60, 0.44) which are in a completely different coordinate space from
+    -- Sunstrider-local target coords (~0.38, 0.21). Mixing them causes bogus distances.
+    -- Always obtain Sunstrider-local coords via the 1241 map lookup, then convert
+    -- through HBD using Eversong bounds (1941) to get real comparable world coords.
     local mapX2, mapY2
 
     if QuestieCompat and QuestieCompat.C_Map and QuestieCompat.C_Map.GetPlayerMapPosition then
-        -- For local player map coords on Sunstrider, ask for the actual child map (1241).
-        -- Asking for parent 1941 returns parent-relative coords (~60/44) which recreates
-        -- the classic 433-yard / backwards-arrow bug when compared against Sunstrider-local
-        -- target coords (~38/21).
         local mapPos = QuestieCompat.C_Map.GetPlayerMapPosition(1241, "player")
         if type(mapPos) == "table" then
             mapX2, mapY2 = mapPos.x, mapPos.y
@@ -192,6 +180,8 @@ local function _GetSunstriderPlayerMapPosition(debugArrow)
     mapX2, mapY2 = GetPlayerMapPosition("player")
     return mapX2, mapY2
 end
+
+
 
 local function _ApplyOutline(fontString)
     if not fontString or not fontString.GetFont or not fontString.SetFont then
@@ -235,9 +225,9 @@ local function EnsureArrowFrame()
     -- Store whether we should use saved position or default
     arrowFrame._useDefaultPosition = not (pos and pos.point)
 
-    -- Make room for the objective icon below the arrow (no overlap)
-    arrowFrame:SetWidth(56)
-    arrowFrame:SetHeight(64)
+    -- Make room for arrow (square) plus icon and text below
+    arrowFrame:SetWidth(ARROW_DISPLAY_WIDTH)
+    arrowFrame:SetHeight(ARROW_DISPLAY_HEIGHT + 60)
     arrowFrame:SetScale(_GetArrowScale())
     arrowFrame:SetClampedToScreen(true)
     arrowFrame:SetMovable(true)
@@ -278,20 +268,19 @@ local function EnsureArrowFrame()
         self:SetScale(scale)
     end)
 
-    -- Arrow sprite sheet texture (108 cells: 9 columns, 12 rows)
+    -- Single arrow texture with SetRotation for smooth rotation
     arrowFrame.arrow = arrowFrame:CreateTexture(nil, "MEDIUM")
     arrowFrame.arrow:SetTexture(QuestieLib.AddonPath .. "Icons\\arrow.tga")
-    -- Render at native cell size; use frame scaling if you want it larger.
-    arrowFrame.arrow:SetWidth(ARROW_CELL_W)
-    arrowFrame.arrow:SetHeight(ARROW_CELL_H)
-    arrowFrame.arrow:SetPoint("TOP", arrowFrame, "TOP", 0, 0)
-    arrowFrame.arrow:SetTexCoord(0, 0.109375, 0, 0.08203125) -- First cell
+    arrowFrame.arrow:SetWidth(ARROW_DISPLAY_WIDTH)
+    arrowFrame.arrow:SetHeight(ARROW_DISPLAY_HEIGHT)
+    arrowFrame.arrow:SetPoint("CENTER", arrowFrame, "CENTER", 0, 0)
+    arrowFrame.arrow:SetRotation(0)  -- 0 = pointing up (north)
 
     -- Quest icon texture at bottom (pfQuest style)
     arrowFrame.icon = arrowFrame:CreateTexture(nil, "OVERLAY")
     arrowFrame.icon:SetWidth(28)
     arrowFrame.icon:SetHeight(28)
-    arrowFrame.icon:SetPoint("BOTTOM", arrowFrame.arrow, "BOTTOM", 0, -20)
+    arrowFrame.icon:SetPoint("BOTTOM", arrowFrame.arrow, "BOTTOM", 0, 0)
 
     arrowFrame.title = arrowFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     arrowFrame.title:SetPoint("TOP", arrowFrame.icon, "BOTTOM", 0, -2)
@@ -334,213 +323,131 @@ arrowFrame:SetScript("OnUpdate", function(self)
         if (self._lastUpdate or 0) + UPDATE_THROTTLE_SECONDS > now then
             return
         end
-self._lastUpdate = now
+        self._lastUpdate = now
 
-        -- Persistent debug: print every frame so we can see what OnUpdate sees
         local debugArrow = Questie and Questie.db and Questie.db.profile and Questie.db.profile.debugArrow
-        if debugArrow then
-            print(string.format("QuestieArrow OnUpdate: frameShown=%s target=%s pX=%s pY=%s pInst=%s _playerUiMapId=%s targetUiMapId=%s",
-                tostring(self:IsShown()), tostring(target and target.title),
-                tostring(_arrow_playerX), tostring(_arrow_playerY), tostring(_arrow_playerInstance),
-                tostring(_arrow_playerUiMapId), tostring(target and target.uiMapId)))
+
+        local target = sortedTargets[1]
+
+-- -----------------------------------------------------------------
+        -- Get fresh player world position every frame for smooth arrow
+        -- rotation. UnitPosition updates every frame via HBD, which is
+        -- essential — cached values (updated only every 1s) make the
+        -- arrow rotate with the character since only GetPlayerFacing()
+        -- changes per frame when position is stale.
+        -- On Sunstrider, HBD may return Eastern Kingdoms coords. We
+        -- detect this and override with the cached corrected position.
+        -- -----------------------------------------------------------------
+        local playerX, playerY, playerInstance = HBD:GetPlayerWorldPosition()
+        if not playerX or not playerY or not playerInstance then
+            self.distance:SetText("Distance: --")
+            return
+        end
+        -- On Sunstrider, HBD returns Eastern Kingdoms continent coords
+        -- which are outside Eversong bounds. Instead of replacing fresh
+        -- per-frame coords with stale 1-second cache, compute fresh
+        -- Sunstrider-local coords via C_Map on EVERY frame so that
+        -- both position AND facing update per-frame.
+        -- PITFALL: zoneId can be 3431 (Eversong) while player is on uiMap 1241 (Sunstrider).
+        -- Check both zoneId and cached uiMapId for robust detection.
+        local _curZoneId = QuestiePlayer:GetCurrentZoneId()
+        local _sunOnUpdate = (_curZoneId == 3430 or _curZoneId == 3431
+            or _arrow_playerUiMapId == 1241)
+        if _sunOnUpdate then
+            local EXMIN, EXMAX, EYMIN, EYMAX = -2000, 3200, 5300, 8700
+            if playerX < EXMIN or playerX > EXMAX or playerY < EYMIN or playerY > EYMAX then
+                -- Fresh per-frame computation instead of stale cache
+                local mapX, mapY = _GetSunstriderPlayerMapPosition(debugArrow)
+                if mapX and mapY and mapX > 0 and mapY > 0 then
+                    local wX, wY, wInst = HBD:GetWorldCoordinatesFromZone(mapX, mapY, 1241)  -- use Ascension-calibrated 1241 bounds
+                    if wX and wY then
+                        if debugArrow then
+                            print(string.format("OnUpdate: Sunstrider fresh HBD(%.0f,%.0f) -> computed(%.0f,%.0f)",
+                                playerX, playerY, wX, wY))
+                        end
+                        playerX, playerY, playerInstance = wX, wY, wInst or playerInstance
+                    elseif _arrow_playerX and _arrow_playerY then
+                        -- Last resort: stale cache only if fresh calc fails
+                        if debugArrow then
+                            print(string.format("OnUpdate: Sunstrider fresh calc FAILED, using stale cache(%.0f,%.0f)",
+                                _arrow_playerX, _arrow_playerY))
+                        end
+                        playerX, playerY, playerInstance = _arrow_playerX, _arrow_playerY, _arrow_playerInstance
+                    end
+                elseif _arrow_playerX and _arrow_playerY then
+                    -- _GetSunstriderPlayerMapPosition failed, stale cache fallback
+                    if debugArrow then
+                        print(string.format("OnUpdate: Sunstrider map pos failed, using stale cache(%.0f,%.0f)",
+                            _arrow_playerX, _arrow_playerY))
+                    end
+                    playerX, playerY, playerInstance = _arrow_playerX, _arrow_playerY, _arrow_playerInstance
+                end
+            end
         end
 
-local pX, pY, pInst = _arrow_playerX, _arrow_playerY, _arrow_playerInstance
-        if not pX or not pY or not pInst then
-            -- Fallback to HBD if upvalues aren't set yet
-            pX, pY, pInst = HBD:GetPlayerWorldPosition()
+        -- Convert target spawn coords to world coordinates.
+        -- Resolve uiMapId again here as a safety net for targets that may
+        -- have raw custom map IDs (1241) bypassing PopulateTargets resolution.
+        local targetUiMapId = _ResolveArrowUiMapId(target.uiMapId)
+        -- On Sunstrider, convert target through Ascension-calibrated 1241 bounds
+        -- so target world coords match player world coords (both through 1241).
+        -- PITFALL: zoneId can be 3431 while player is on uiMap 1241.
+        if _sunOnUpdate and targetUiMapId == 1941 then
+            targetUiMapId = 1241
         end
-        if debugArrow then
-            local hbPX, hbPY, hbPInst = HBD:GetPlayerWorldPosition()
-            print(string.format("DEBUG PLAYER COMPARE: UnitPos pX=%.1f pY=%.1f | HBD pX=%.1f pY=%.1f | inst=%s",
-                pX or 0, pY or 0, hbPX or 0, hbPY or 0, tostring(hbPInst)))
-            print(string.format("DEBUG MAP RELATIVE: pX=%.4f pY=%.4f (from _arrow_playerX/Y, UnitPosition world coords)", pX or 0, pY or 0))
-            print(string.format("DEBUG OnUpdate: rawUiMapId=%s resolved=%s targetUiMapId=%s", tostring(_arrow_playerUiMapId), tostring(playerUiMapId), tostring(targetUiMapId)))
-            print(string.format("DEBUG SPAWN COORDS: target worldX=%.1f worldY=%.1f rawMapX=%.2f rawMapY=%.2f",
-                targetX or 0, targetY or 0, rawMapX or 0, rawMapY or 0))
-        end
-        if not pX or not pY or not pInst then
-            local debugArrow = Questie and Questie.db and Questie.db.profile and Questie.db.profile.debugArrow
-            if debugArrow then
-                print(string.format("QuestieArrow OnUpdate: player position nil (x=%s y=%s inst=%s)", tostring(pX), tostring(pY), tostring(pInst)))
-            end
+        local targetX, targetY, targetInstance = HBD:GetWorldCoordinatesFromZone(target.x / 100.0, target.y / 100.0, targetUiMapId)
+        if not targetX or not targetY or not targetInstance then
             self.distance:SetText("Distance: --")
+            return
+        end
+
+        if targetInstance ~= playerInstance then
             self:Hide()
             return
         end
 
--- Player's ACTUAL uiMapId (1241 on Sunstrider) vs target's uiMapId.
-    -- _arrow_playerUiMapId is the real map the player is on (1241 on Sunstrider).
-    -- target.uiMapId is the resolved uiMapId for the spawn (1941 for Sunstrider targets).
-    -- Use the player's REAL uiMapId for the same-map check — not the resolved one.
-    -- _ResolveArrowUiMapId normalizes both player and target uiMapIds to the same
-    -- coordinate system: 1241→1941, 946→1941. This lets the same-map branch work
-    -- on Sunstrider Isle where player is on 946 but targets resolve to 1941.
-    local playerUiMapId = _ResolveArrowUiMapId(_arrow_playerUiMapId) or 0
-    local targetUiMapId = _ResolveArrowUiMapId(target.uiMapId) or 0
+        -- Arrow direction from pure world-coordinate math.
+        -- HBD world coords: X decreases going EAST (more negative = more west).
+        --                    Y increases going NORTH (larger = more north).
+        -- GetPlayerFacing: 0=North, π/2=East, π=South, 3π/2=West (CW from N).
+        -- SetRotation(r): rotates texture CW (positive = clockwise).
+        -- Arrow image tip is at TOP of file → points UP at SetRotation(0).
+        --
+        -- dx = targetX - playerX:
+        --   targetX > playerX (numerically) → target LESS negative → target EAST
+        --   So dx>0 = target EAST of player
+        -- dy = targetY - playerY:
+        --   targetY > playerY → target MORE north
+        --   So dy>0 = target NORTH of player
+        --
+        -- Bearing CW from North: atan2(dx, dy)
+        --   N: dx=0, dy>0  → atan2(0,+) = 0
+        --   E: dx>0, dy=0  → atan2(+,0) = π/2
+        --   S: dx=0, dy<0  → atan2(0,-) = π
+        --   W: dx<0, dy=0  → atan2(-,0) = -π/2 → 3π/2
+        --
+        -- Screen direction relative to facing:
+        --   relative = bearing - facing  (0 = target ahead)
+        --
+        -- SetRotation wants CW; relative is CW: use it directly.
+        --   SetRotation(relative) → arrow points at target on screen.
+        local dx = targetX - playerX
+        local dy = targetY - playerY
+        local bearing = atan2(dx, dy)
+        if bearing < 0 then bearing = bearing + (pi * 2) end
+        local facing = GetPlayerFacing and GetPlayerFacing() or 0
+        local relative = bearing - facing
+        if relative < 0 then relative = relative + (pi * 2) end
+        local rotAngle = relative  -- CW rotation for SetRotation
 
-        -- Declare world coords outside the branches so they're in scope for direction calc
-        local playerWorldX, playerWorldY
-
--- If target and player are on the same uiMapId, they're in the same instance.
-        -- If they're on different maps, we need to compare instances via HBD.
-        if playerUiMapId ~= targetUiMapId then
-            -- Different maps: just skip instance check since UnitPosition gives us
-            -- the real instance — if player and target instances differ, HBD will return
-            -- nil for distance anyway. Fall through to direction calc with player coords.
-        end
-
-        -- Calculate arrow direction using zone-relative coords when on same map (avoids
-        -- world-coordinate mismatch on Sunstrider Isle where player is in EK world space).
-        -- For cross-map, fall back to world coords via HBD.
-        -- The key insight: on Sunstrider, _arrow_playerX/Y (world EK coords) and target.x/y
-        -- (zone coords in Sunstrider space) are incompatible. We use C_Map to get the player's
-        -- zone coords in Sunstrider space so they align with target zone coords.
-        local targetX, targetY, targetInstance
-        local useZoneAngle = false
-        local zoneAngle = nil
-        local zoneBasedDist = nil
-        -- Declare worldPlayerX/Y here so they're in scope for the debug print at line 478
-        -- even when the same-map branch takes the zone-relative path (useZoneAngle=true).
-        local worldPlayerX, worldPlayerY
         if debugArrow then
-            print(string.format("DEBUG BRANCH CHECK: playerUiMapId=%s targetUiMapId=%s sameMap=%s",
-                tostring(playerUiMapId), tostring(targetUiMapId),
-                tostring(playerUiMapId == targetUiMapId and playerUiMapId ~= 0)))
-        end
-        if playerUiMapId == targetUiMapId and playerUiMapId ~= 0 then
-            -- Same uiMapId on Sunstrider/Eversong: use zone-relative coordinates for BOTH
-            -- distance and direction. Mixing player UnitPosition world coords with HBD target
-            -- coords recreates the classic 433-yard / backwards-arrow bug.
-            local pZoneX, pZoneY = _GetSunstriderPlayerMapPosition(debugArrow)
-            local playerZoneX, playerZoneY = pZoneX * 100, pZoneY * 100
-            local targetZoneX, targetZoneY = target.x, target.y
-            local zoneDist = sqrt((playerZoneX - targetZoneX) ^ 2 + (playerZoneY - targetZoneY) ^ 2)
-            -- Eversong/Sunstrider: 100 zone-units ≈ 1353 yards (full map width from HBD bounds)
-            local zoneScale = 13.53 -- yards per zone-unit
-            zoneBasedDist = zoneDist * zoneScale
-
-            local zoneXDelta = (playerZoneX - targetZoneX) * 1.5
-            local zoneYDelta = -(playerZoneY - targetZoneY)
-            zoneAngle = atan2(zoneXDelta, -zoneYDelta)
-            zoneAngle = zoneAngle > 0 and (pi * 2) - zoneAngle or -zoneAngle
-            if zoneAngle < 0 then zoneAngle = zoneAngle + (pi * 2) end
-
-            targetX, targetY, targetInstance = targetZoneX, targetZoneY, 0
-            useZoneAngle = true
-
-            if debugArrow then
-                local dbg1941x, dbg1941y = HBD:GetZoneCoordinatesFromWorld(pX, pY, 1941, true)
-                local dbg1241x, dbg1241y = HBD:GetZoneCoordinatesFromWorld(pX, pY, 1241, true)
-                print(string.format("DEBUG SAME_MAP: zoneDist=%.4f zoneYards≈%.1f | pZone(%.2f,%.2f) tZone(%.2f,%.2f) angle=%.2f | world->1941(%.4f,%.4f) world->1241(%.4f,%.4f)",
-                    zoneDist, zoneBasedDist, playerZoneX, playerZoneY, targetZoneX, targetZoneY,
-                    zoneAngle or 0,
-                    (dbg1941x or -1), (dbg1941y or -1),
-                    (dbg1241x or -1), (dbg1241y or -1)))
-            end
-        else
-            -- Different maps: convert target to world coords using its uiMapId (works for 1941).
-            -- Player is already in world coords from UnitPosition via pX/pY.
-            local tWX, tWY, tInst = HBD:GetWorldCoordinatesFromZone(target.x / 100.0, target.y / 100.0, targetUiMapId)
-            if tWX and tWY then
-                targetX, targetY, targetInstance = tWX, tWY, tInst or pInst or 0
-                if debugArrow then
-                    print(string.format("DEBUG OnUpdate else-branch: tWX=%.4f tWY=%.4f tInst=%s using HBD", tWX, tWY, tostring(tInst)))
-                end
-            else
-                -- HBD failed: fall back to zone coords (target.x, target.y) for direction only.
-                -- Distance will be wrong (zone units instead of yards) but arrow will point correctly.
-                targetX, targetY = target.x, target.y
-                targetInstance = pInst or 0
-                if debugArrow then
-                    print(string.format("DEBUG OnUpdate else-branch: HBD failed for target uiMapId=%s, falling back to zone coords (%.2f, %.2f)", tostring(targetUiMapId), targetX, targetY))
-                end
-            end
+            print(string.format("QuestieArrow OnUpdate: target=%s pX=%.1f pY=%.1f tX=%.1f tY=%.1f dx=%.1f dy=%.1f bearing=%.2f facing=%.2f relative=%.2f rotAng=%.2f inst=%s",
+                tostring(target.title), playerX, playerY, targetX, targetY, dx, dy, bearing, facing, relative, rotAngle, tostring(playerInstance)))
         end
 
-        -- If targetX is still nil at this point, bail out
-        if not targetX or not targetY then
-            self.distance:SetText("Distance: --")
-            return
-        end
-
-        -- Skip world direction calc when same-map; zoneAngle already computed above
-        if useZoneAngle then
-            -- zoneAngle already set; apply facing and proceed.
-            -- Sunstrider calibrated zone-space currently resolves to the inverse heading
-            -- relative to the arrow sprite sheet, so flip by 180 degrees after facing.
-            angle = zoneAngle - (GetPlayerFacing and GetPlayerFacing() or 0) + pi
-            if angle < 0 then angle = angle + (pi * 2) end
-            if angle >= (pi * 2) then angle = angle - (pi * 2) end
-        else
-            -- Use world coords for direction: both player and target must be in world coordinate space.
-            -- UnitPosition("player") gives world coords directly. For same-uiMapId: pX/pY from
-            -- UpdateNearestTargets are world coords from UnitPosition — use directly.
-            if playerWorldX then
-                worldPlayerX, worldPlayerY = playerWorldX, playerWorldY
-            else
-                worldPlayerX, worldPlayerY = pX, pY
-            end
-
-            if not targetX or not targetY then
-                self.distance:SetText("Distance: --")
-                return
-            end
-
-            local xDelta = (worldPlayerX - targetX) * 1.5
-            local yDelta = (worldPlayerY - targetY)
-            angle = atan2(xDelta, -(yDelta))
-            angle = angle > 0 and (pi * 2) - angle or -angle
-            if angle < 0 then angle = angle + (pi * 2) end
-
-            angle = angle - (GetPlayerFacing and GetPlayerFacing() or 0)
-        end
-
-        -- Calculate color gradient based on direction
-        local perc = abs(((pi - abs(angle)) / pi))
-        local r, g, b = GetColorGradient(perc)
-
-        -- Select sprite sheet cell
-        local cell = modulo(floor(angle / (pi * 2) * ARROW_TOTAL_CELLS + 0.5), ARROW_TOTAL_CELLS)
-        local column = modulo(cell, ARROW_SHEET_COLS)
-        local row = floor(cell / ARROW_SHEET_COLS)
-        local xstart = (column * ARROW_CELL_W) / ARROW_SHEET_SIZE
-        local ystart = (row * ARROW_CELL_H) / ARROW_SHEET_SIZE
-        local xend = ((column + 1) * ARROW_CELL_W) / ARROW_SHEET_SIZE
-        local yend = ((row + 1) * ARROW_CELL_H) / ARROW_SHEET_SIZE
-
-        -- Avoid bleeding from neighboring cells when texture filtering is enabled.
-        local padX = 0.5 / ARROW_SHEET_SIZE
-        local padY = 0.5 / ARROW_SHEET_SIZE
-        xstart = xstart + padX
-        ystart = ystart + padY
-        xend = xend - padX
-        yend = yend - padY
-
--- Calculate distance and alpha
-        -- Override distance with zone-based when same-map (avoids cross-world-system mismatch)
-        local dist = nil
-        if useZoneAngle and zoneBasedDist then
-            dist = zoneBasedDist
-        else
-            dist = HBD:GetWorldDistance(targetInstance, worldPlayerX, worldPlayerY, targetX, targetY)
-        end
-        if debugArrow then
-            local dbgDist = dist or 0
-            local dbgPX = worldPlayerX or 0
-            local dbgPY = worldPlayerY or 0
-            print(string.format("DEBUG DIST: dist=%s inst=%s pX=%.1f pY=%.1f tX=%.1f tY=%.1f rawMapX=%s rawMapY=%s",
-                tostring(dbgDist), tostring(targetInstance),
-                dbgPX, dbgPY,
-                targetX or 0, targetY or 0,
-                tostring(target.x), tostring(target.y)))
-        end
+        -- Calculate distance and alpha
+        local dist = HBD:GetWorldDistance(targetInstance, playerX, playerY, targetX, targetY)
         if dist then
-            if debugArrow then
-                local dbgWorldPX = worldPlayerX or targetX or 0
-                local dbgWorldPY = worldPlayerY or targetY or 0
-                print(string.format("QuestieArrow OnUpdate: dist=%.1f worldPlayerX=%.1f worldPlayerY=%.1f targetX=%.1f targetY=%.1f targetInst=%s title='%s' rawMapX=%s rawMapY=%s", dist, dbgWorldPX, dbgWorldPY, targetX or 0, targetY or 0, tostring(targetInstance), tostring(target.title), tostring(target.x), tostring(target.y)))
-            end
             local area = 1
             local alpha = dist - area
             alpha = alpha > 1 and 1 or alpha
@@ -550,10 +457,8 @@ local pX, pY, pInst = _arrow_playerX, _arrow_playerY, _arrow_playerInstance
             texalpha = texalpha > 1 and 1 or texalpha
             texalpha = texalpha < 0 and 0 or texalpha
 
-            r, g, b = r + texalpha, g + texalpha, b + texalpha
-
-            self.arrow:SetTexCoord(xstart, xend, ystart, yend)
-            self.arrow:SetVertexColor(r, g, b)
+            self.arrow:SetRotation(rotAngle)
+            self.arrow:SetVertexColor(1, 1, 1)
             self.arrow:SetAlpha(alpha)
 
             local distText = string.format("%.1f", dist)
@@ -638,6 +543,8 @@ local function _CollectFinisherSpawns(finisher, quest)
     if not finisher then return end
     local pX, pY, pInst = _arrow_playerX, _arrow_playerY, _arrow_playerInstance
     local autoLogic, pZone, pMap = _arrow_usingAutoLogic, _arrow_playerZoneId, _arrow_playerUiMapId
+    -- On Sunstrider, force target conversion through 1241 bounds to match player coords
+    local sunOverride = (pMap == 1241)
     local iconPath = ResolveIconTexture(_GetCompleteIconType(quest))
     if finisher.spawns then
         for finisherZone, spawns in pairs(finisher.spawns) do
@@ -656,6 +563,7 @@ local function _CollectFinisherSpawns(finisher, quest)
                                         local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
                                         if uiMapId and x and y then
                                             local resolvedUiMapId = _ResolveArrowUiMapId(uiMapId)
+                                            if sunOverride and resolvedUiMapId == 1941 then resolvedUiMapId = 1241 end
                                             local tX, tY, tInst = HBD:GetWorldCoordinatesFromZone(x / 100.0, y / 100.0, resolvedUiMapId)
                                             if tX and tY and tInst then
                                                 local dist = HBD:GetWorldDistance(tInst, pX, pY, tX, tY)
@@ -672,12 +580,13 @@ local function _CollectFinisherSpawns(finisher, quest)
                             end
                         else
                             -- Zone filtering disabled (same zone ID vs area ID mismatch issue)
-                            if true then
-                                local x = coords[1]
-                                local y = coords[2]
-                                local uiMapId = ZoneDB:GetUiMapIdByAreaId(finisherZone)
-                                if uiMapId then
-                                    local resolvedUiMapId = _ResolveArrowUiMapId(uiMapId)
+                        if true then
+                            local x = coords[1]
+                            local y = coords[2]
+                            local uiMapId = ZoneDB:GetUiMapIdByAreaId(finisherZone)
+                            if uiMapId then
+                                local resolvedUiMapId = _ResolveArrowUiMapId(uiMapId)
+                                if sunOverride and resolvedUiMapId == 1941 then resolvedUiMapId = 1241 end
                                     local tX, tY, tInst = HBD:GetWorldCoordinatesFromZone(x / 100.0, y / 100.0, resolvedUiMapId)
                                     if tX and tY and tInst then
                                         local dist = HBD:GetWorldDistance(tInst, pX, pY, tX, tY)
@@ -706,6 +615,7 @@ local function _CollectFinisherSpawns(finisher, quest)
                     local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
                     if uiMapId and x and y then
                         local resolvedUiMapId = _ResolveArrowUiMapId(uiMapId)
+                        if sunOverride and resolvedUiMapId == 1941 then resolvedUiMapId = 1241 end
                         local tX, tY, tInst = HBD:GetWorldCoordinatesFromZone(x / 100.0, y / 100.0, resolvedUiMapId)
                         if tX and tY and tInst then
                             local dist = HBD:GetWorldDistance(tInst, pX, pY, tX, tY)
@@ -724,9 +634,38 @@ local function _CollectFinisherSpawns(finisher, quest)
 end
 
 local function _CollectObjective(objective, quest)
-    if not objective or not objective.spawnList then return end
+    if not objective or not objective.spawnList then
+        -- spawnList can be nil if _TryInvalidateObjective cleared it (QuestieLearner
+        -- learned new data) but the rebuild via UpdateQuest hasn't happened yet, or if
+        -- stale quest.isComplete prevented PopulateObjective from rebuilding it.
+        -- Proactively trigger UpdateQuest to rebuild the spawnList for this quest.
+        if quest and quest.Id and QuestieQuest and QuestieQuest.UpdateQuest then
+            local dbComplete = QuestieDB.IsComplete(quest.Id)
+            -- Only request rebuild if quest is NOT complete in the DB
+            if dbComplete ~= 1 and not quest.isComplete then
+                local now = GetTime()
+                local last = lastPopulateByQuestId[quest.Id] or 0
+                -- Throttle rebuilds to every 5 seconds per quest
+                if (last + 5.0) < now then
+                    lastPopulateByQuestId[quest.Id] = now
+                    Questie:Debug(Questie.DEBUG_DEVELOP, "[Arrow] _CollectObjective: spawnList nil for quest", quest.Id, "- triggering UpdateQuest rebuild")
+                    QuestieQuest:UpdateQuest(quest.Id)
+                end
+            end
+        end
+        if debugCollect then
+            print(string.format("    _CollectObjective SKIP: obj=%s spawnList=%s (quest=%s)",
+                tostring(objective), objective and tostring(objective.spawnList) or "nil", quest and tostring(quest.name) or "?"))
+        end
+        return
+    end
     if QuestieQuest.ShouldHideObjective(objective) then return end
-    if objective.Completed == true or objective.Completed == 1 then return end
+    if objective.Completed == true or objective.Completed == 1 then
+        if debugCollect then
+            print(string.format("    _CollectObjective SKIP: Completed=%s (quest=%s)", tostring(objective.Completed), quest and tostring(quest.name) or "?"))
+        end
+        return
+    end
     if objective.Needed and objective.Collected
         and type(objective.Needed) == "number" and type(objective.Collected) == "number"
         and objective.Collected >= objective.Needed then
@@ -734,6 +673,8 @@ local function _CollectObjective(objective, quest)
     end
     local pX, pY, pInst = _arrow_playerX, _arrow_playerY, _arrow_playerInstance
     local autoLogic, pZone, pMap = _arrow_usingAutoLogic, _arrow_playerZoneId, _arrow_playerUiMapId
+    -- On Sunstrider, force target conversion through 1241 bounds to match player coords
+    local sunOverride = (pMap == 1241)
     local debugCollect = Questie and Questie.db and Questie.db.profile and Questie.db.profile.debugArrow
     if debugCollect then
         print(string.format("    _CollectObjective: spawnList=%s", objective.spawnList and "yes" or "nil"))
@@ -760,16 +701,12 @@ local function _CollectObjective(objective, quest)
                         end
                         if uiMapId then
                             local resolvedUiMapId = _ResolveArrowUiMapId(uiMapId)
-                            local tX, tY, tInst, calibratedTargetGroup = QuestieCompat.GetCalibratedWorldCoordinatesFromZone(spawn[1] / 100.0, spawn[2] / 100.0, resolvedUiMapId, zone)
+                            if sunOverride and resolvedUiMapId == 1941 then resolvedUiMapId = 1241 end
+                            local tX, tY, tInst = HBD:GetWorldCoordinatesFromZone(spawn[1] / 100.0, spawn[2] / 100.0, resolvedUiMapId)
                             if tX and tY and tInst then
-                                local dist
-                                if calibratedTargetGroup and _arrow_playerCalibratedGroup and _arrow_playerCalibratedX and _arrow_playerCalibratedY then
-                                    dist = sqrt((_arrow_playerCalibratedX - tX) ^ 2 + (_arrow_playerCalibratedY - tY) ^ 2)
-                                else
-                                    dist = HBD:GetWorldDistance(tInst, pX, pY, tX, tY)
-                                end
+                                local dist = HBD:GetWorldDistance(tInst, pX, pY, tX, tY)
                                 if dist then
-                                    if (not calibratedTargetGroup) and tInst ~= pInst then dist = 500000 + dist * 100 end
+                                    if tInst ~= pInst then dist = 500000 + dist * 100 end
                                     if debugCollect then
                                         print(string.format("            ADDED dist=%.0f", dist))
                                     end
@@ -813,22 +750,14 @@ sortedTargets = {}
     -- On Sunstrider Isle (areaId 3430, uiMapId 1241), HBD:GetPlayerWorldPosition() returns
     -- Eastern Kingdoms world coords because that's the continent HBD thinks the player is on.
     -- We must use C_Map.GetPlayerMapPosition(1241) + HBD:GetWorldCoordinatesFromZone(..., 1941).
-    -- NOTE: GetCurrentUiMapId() returns 946 (ghost map) on Sunstrider, not 1241 or 1941,
-    -- so we check zoneId == 3430 as the primary indicator.
-    local useSunstriderFix = (zoneId == 3430)
+    -- NOTE: GetCurrentUiMapId() returns 1241 on Sunstrider Isle (not 946 or 1941).
+    -- PITFALL: zoneId can be 3431 (Eversong) while player is on uiMap 1241 (Sunstrider).
+    local useSunstriderFix = (zoneId == 3430 or zoneId == 3431 or pUiMapId == 1241)
 
-    -- Get player position from the calibrated transform layer first for broken/custom maps.
-    local playerX, playerY, playerInstance, calibratedMapX, calibratedMapY, calibratedGroup = QuestieCompat.GetCalibratedPlayerPosition(pUiMapId, zoneId, "player")
-
-    -- Get player position — first try HBD's direct method (works when map is OPEN).
-    -- If that returns nil (map closed), fall back to C_Map.GetPlayerMapPosition +
+    -- Get player position — always try HBD's direct method first (works when map is OPEN).
+    -- If that returns nil (map closed or Sunstrider), fall back to C_Map.GetPlayerMapPosition +
     -- HBD:GetWorldCoordinatesFromZone which works regardless of map open/closed state.
-    -- Also skip HBD directly on Sunstrider since it returns wrong coords.
-    if useSunstriderFix and calibratedGroup then
-        -- already resolved via calibrated transform layer
-    elseif not playerX or not playerY or not playerInstance then
-        playerX, playerY, playerInstance = HBD:GetPlayerWorldPosition()
-    end
+    local playerX, playerY, playerInstance = HBD:GetPlayerWorldPosition()
     if not playerX or not playerY or not playerInstance then
         -- Fallback: get map-relative position then convert to world coords via HBD.
         -- IMPORTANT: never use 946/947 (world/cosmic maps) — they have no world coord data.
@@ -858,7 +787,7 @@ sortedTargets = {}
         -- map-space coords. We must look up with the actual Sunstrider uiMapId (1241) and
         -- then convert through Eversong's 1941 bounds to get correct world coords.
         local lookupUiMapId = pUiMapId
-        if zoneId == 3430 then
+        if zoneId == 3430 or zoneId == 3431 or pUiMapId == 1241 then
             lookupUiMapId = 1241 -- always use Sunstrider's real uiMapId for C_Map
         end
         if debugArrow then
@@ -873,11 +802,18 @@ sortedTargets = {}
             print(string.format("UpdateNearestTargets: _GetSunstriderPlayerMapPosition() -> mapX=%.4f mapY=%.4f", mapX or -1, mapY or -1))
         end
         if mapX and mapY and mapX > 0 and mapY > 0 then
-            if calibratedGroup then
-                playerX, playerY, playerInstance = QuestieCompat.GetCalibratedWorldCoordinatesFromZone(mapX, mapY, lookupUiMapId, zoneId)
+            if useSunstriderFix then
+                -- Sunstrider: use 1941 (Eversong) for coordinate conversion so that
+                -- player world coords are in the same space as target world coords.
+                -- Targets always use 1941 (via ZoneDB:GetUiMapIdByAreaId(3430)→1941),
+                -- so the player must also use 1941 for consistent distance/direction.
+                -- Ascension-calibrated 1241 bounds now match Eversong world space.
+                playerX, playerY, playerInstance = HBD:GetWorldCoordinatesFromZone(mapX, mapY, 1241)
             else
-                local worldUiMapId = 1941 -- always use Eversong bounds for world coord conversion
-                playerX, playerY, playerInstance = HBD:GetWorldCoordinatesFromZone(mapX, mapY, worldUiMapId)
+                -- Normal zone: convert the player's map coords through the ACTUAL zone's
+                -- uiMapId bounds. This was hardcoded to 1941 in the original Sunstrider fix,
+                -- which broke every zone except Eversong.
+                playerX, playerY, playerInstance = HBD:GetWorldCoordinatesFromZone(mapX, mapY, lookupUiMapId)
             end
             if debugArrow then
                 print(string.format("UpdateNearestTargets: HBD via lookupUiMapId=%s mapX=%.4f mapY=%.4f -> worldX=%.4f worldY=%.4f",
@@ -886,15 +822,60 @@ sortedTargets = {}
             playerInstance = playerInstance or 0
         end
     end
-    if debugArrow then
-            print(string.format("UpdateNearestTargets: HBD.GetPlayerWorldPosition() = x=%.4f y=%.4f inst=%s", playerX or 0, playerY or 0, tostring(playerInstance)))
+    -- Sunstrider override: HBD:GetPlayerWorldPosition() may return incorrect
+    -- (Eastern Kingdoms offset) coords on Sunstrider Isle. Only override if
+    -- the HBD coords appear wrong — specifically, if they fall outside the
+    -- Eversong bounding box. Eversong world bounds: X ∈ [-1825, 3100],
+    -- Y ∈ [5358, 8642]. If HBD coords are outside this range, they're EK coords.
+    -- NOTE: _GetSunstriderPlayerMapPosition returns 1241-local normalized coords.
+    -- We convert through 1941 (Eversong) so that player world coords share the
+    -- same coordinate space as targets (which always use uiMapId 1941 via ZoneDB).
+    if useSunstriderFix and playerX and playerY then
+        -- Eversong bounding box in world coordinates (with some margin).
+        -- A player on Sunstrider/Eversong should be within these bounds.
+local EVERSENG_XMIN, EVERSENG_XMAX = -2000, 3200
+        local EVERSENG_YMIN, EVERSENG_YMAX = 5300, 8700
+        local coordsOutsideEversong = (playerX < EVERSENG_XMIN or playerX > EVERSENG_XMAX
+            or playerY < EVERSENG_YMIN or playerY > EVERSENG_YMAX)
+        if debugArrow then
+            print(string.format("UpdateNearestTargets: Sunstrider check outsideEv=%s px=%.0f py=%.0f bounds=[%d..%d,%d..%d]",
+                tostring(coordsOutsideEversong), playerX, playerY,
+                EVERSENG_XMIN, EVERSENG_XMAX, EVERSENG_YMIN, EVERSENG_YMAX))
         end
-        if not playerX or not playerY or not playerInstance then
+        if coordsOutsideEversong then
+            local mapX, mapY = _GetSunstriderPlayerMapPosition(debugArrow)
             if debugArrow then
-                print("UpdateNearestTargets: player position unavailable, returning early")
+                print(string.format("UpdateNearestTargets: Sunstrider mapPos mapX=%.4f mapY=%.4f", mapX or -1, mapY or -1))
             end
-            return
+            if mapX and mapY and mapX > 0 and mapY > 0 then
+                -- Use Ascension-calibrated 1241 bounds for consistent world space.
+                local wX, wY, wInst = HBD:GetWorldCoordinatesFromZone(mapX, mapY, 1241)
+                if debugArrow then
+                    print(string.format("UpdateNearestTargets: Sunstrider HBD1941 wX=%s wY=%s wInst=%s", tostring(wX), tostring(wY), tostring(wInst)))
+                end
+                if wX and wY then
+                    if debugArrow then
+                        print(string.format("UpdateNearestTargets: Sunstrider override HBD(%.4f,%.4f) -> HBD1941(%.4f,%.4f)", playerX, playerY, wX, wY))
+                    end
+                    playerX, playerY, playerInstance = wX, wY, wInst or 0
+                else
+                    -- HBD 1941 conversion failed — no fallback available.
+                    if debugArrow then
+                        print("UpdateNearestTargets: Sunstrider HBD1941 conversion FAILED")
+                    end
+                end
+            end
         end
+    end
+    if debugArrow then
+        print(string.format("UpdateNearestTargets: HBD.GetPlayerWorldPosition() = x=%.4f y=%.4f inst=%s", playerX or 0, playerY or 0, tostring(playerInstance)))
+    end
+    if not playerX or not playerY or not playerInstance then
+        if debugArrow then
+            print("UpdateNearestTargets: player position unavailable, returning early")
+        end
+        return
+    end
 
     playerInstance = playerInstance or 0
 
@@ -923,17 +904,22 @@ sortedTargets = {}
 
     -- Publish context for hoisted helper functions (avoids closure allocation every call)
     _arrow_playerX, _arrow_playerY, _arrow_playerInstance = playerX, playerY, playerInstance
-    _arrow_playerCalibratedX, _arrow_playerCalibratedY, _arrow_playerCalibratedGroup = playerX, playerY, calibratedGroup
     _arrow_usingAutoLogic = usingAutoLogic
     _arrow_playerZoneId, _arrow_playerUiMapId = playerZoneId, playerUiMapId
+
+    
 
     local function _CollectQuestTargets(quest)
         if not quest then return end
 
         local debugCollect = Questie and Questie.db and Questie.db.profile and Questie.db.profile.debugArrow
 
-        -- Avoid spamming QuestieQuest:PopulateQuestLogInfo (it can trigger marker rebuilds and flicker).
-        -- Only populate when objective completion flags are missing, and throttle per quest id.
+        -- Periodic quest state verification: call PopulateQuestLogInfo when
+        --   (a) objectives/completion flags are missing (original logic), OR
+        --   (b) the quest hasn't been populated in the last 30 seconds
+        --   (c) quest.isComplete is stale (does not match DB)
+        -- This ensures the arrow always has accurate completion data, catching
+        -- cases where events didn't fire or stale flags survived a reload.
         if QuestieQuest and QuestieQuest.PopulateQuestLogInfo and quest.Id then
             local needsPopulate = false
             if not quest.Objectives and not quest.SpecialObjectives then
@@ -941,9 +927,17 @@ sortedTargets = {}
             elseif _HasMissingCompletedFlag(quest.Objectives) or _HasMissingCompletedFlag(quest.SpecialObjectives) then
                 needsPopulate = true
             end
+
+            -- Periodic force-refresh: if more than 30 seconds since last populate, re-sync
+            -- quest state from live quest log. This catches stale isComplete/WasComplete
+            -- that survived event-driven updates (e.g., Ascension missing QUEST_LOG_UPDATE).
+            local now = GetTime()
+            local last = lastPopulateByQuestId[quest.Id] or 0
+            if (last + 30.0) < now then
+                needsPopulate = true
+            end
+
             if needsPopulate then
-                local now = GetTime()
-                local last = lastPopulateByQuestId[quest.Id] or 0
                 if (last + 2.0) < now then
                     lastPopulateByQuestId[quest.Id] = now
                     QuestieQuest:PopulateQuestLogInfo(quest)
@@ -951,12 +945,22 @@ sortedTargets = {}
             end
         end
 
-        local isComplete = quest.isComplete or (QuestieDB.IsComplete(quest.Id) == 1)
-        if isComplete then quest.isComplete = true end
+        local dbComplete = QuestieDB.IsComplete(quest.Id)
+        -- Defensive: if quest.isComplete is stale from a prior complete-then-abandon, and
+        -- QuestLogCache says the quest is NOT complete (0 or nil), clear the stale flag so
+        -- objective pins are drawn. AcceptQuest normally resets this, but this guards
+        -- against edge cases where AcceptQuest's reset didn't fire.
+        if quest.isComplete and dbComplete ~= 1 then
+            quest.isComplete = nil
+        end
+        local isComplete = quest.isComplete or (dbComplete == 1)
 
         if debugCollect then
-            print(string.format("  _CollectQuestTargets: %s isComplete=%s hasObjectives=%s hasSpecialObjectives=%s hasFinisher=%s",
+            local objCount = quest.Objectives and #quest.Objectives or 0
+            print(string.format("  _CollectQuestTargets: %s isComplete=%s (quest.isComplete=%s dbComplete=%s) objCount=%d hasObjectives=%s hasSpecialObjectives=%s hasFinisher=%s",
                 tostring(quest.name), tostring(isComplete),
+                tostring(quest.isComplete), tostring(dbComplete),
+                objCount,
                 tostring(quest.Objectives ~= nil),
                 tostring(quest.SpecialObjectives ~= nil),
                 tostring(quest.Finisher ~= nil)))

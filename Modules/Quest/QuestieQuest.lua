@@ -472,28 +472,63 @@ function QuestieQuest:AcceptQuest(questId)
     local quest = QuestieDB.GetQuest(questId)
 
     if quest then
-        local complete = QuestieDB.IsComplete(questId)
-        -- If any of these flags exsist then this quest has already once been accepted and is probobly in a failed state
-        if (quest.WasComplete or quest.isComplete or complete == 0 or complete == -1) and (QuestiePlayer.currentQuestlog[questId]) then
-            Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest] Accepted Quest:", questId,
-                " Warning: This quest was once accepted and needs to be reset.")
+        -- If any of these flags exist, this quest was previously accepted and may
+        -- have stale completion state (e.g. complete-then-abandon-then-reaccept leaves
+        -- quest.isComplete=true, WasComplete=true). Only check quest-object flags
+        -- (WasComplete, isComplete), NOT QuestieDB.IsComplete, because IsComplete
+        -- returns 0 for any incomplete quest — including brand new acceptances.
+        -- The original code also checked complete==0 and complete==-1, but those
+        -- combined with removing the currentQuestlog guard caused every quest
+        -- acceptance to enter this block and unload freshly-drawn pins.
+        -- DEBUG: Log stale flag state on accept
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] AcceptQuest state check - questId:", questId,
+            " WasComplete:", tostring(quest.WasComplete),
+            " isComplete:", tostring(quest.isComplete),
+            " currentQuestlog:", tostring(QuestiePlayer.currentQuestlog[questId] and "present" or "nil"))
 
-            -- Reset quest log
+        if quest.WasComplete or quest.isComplete then
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] AcceptQuest RESET BLOCK firing for questId:", questId)
+
+            -- Reset quest log (may already be nil after QUEST_REMOVED)
             QuestiePlayer.currentQuestlog[questId] = nil
 
-            -- Reset quest objectives
-            quest.Objectives = {}
+            -- Reset quest objectives (clear stale Completed/isUpdated flags that
+            -- would prevent map pins from being drawn on re-accept)
+            if type(quest.Objectives) == "table" then
+                for k in pairs(quest.Objectives) do
+                    quest.Objectives[k] = nil
+                end
+            else
+                quest.Objectives = {}
+            end
+
+            -- Reset SpecialObjectives too
+            if type(quest.SpecialObjectives) == "table" then
+                for k in pairs(quest.SpecialObjectives) do
+                    quest.SpecialObjectives[k] = nil
+                end
+            end
 
             -- Reset quest flags
             quest.WasComplete = nil
             quest.isComplete = nil
 
+            -- Ensure isUpdated flags are reset so ObjectiveUpdate will refresh
+            -- objective state from the quest log instead of short-circuiting
+            QuestieQuest:SetObjectivesDirty(questId)
+
             -- Reset tooltips
             QuestieTooltips:RemoveQuest(questId)
+
+            -- Unload map pins from previous acceptance so they don't linger
+            QuestieMap:UnloadQuestFrames(questId)
         end
 
         if not QuestiePlayer.currentQuestlog[questId] then
-            Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest] Accepted Quest:", questId)
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] AcceptQuest NORMAL path - questId:", questId,
+                " quest.isComplete:", tostring(quest.isComplete),
+                " quest.WasComplete:", tostring(quest.WasComplete),
+                " quest.Objectives:", quest.Objectives and next(quest.Objectives) and "has entries" or "empty")
 
             QuestiePlayer.currentQuestlog[questId] = quest
 
@@ -537,8 +572,8 @@ function QuestieQuest:AcceptQuest(questId)
                 end
             )
         else
-            Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest] Accepted Quest:", questId,
-                " Warning: Quest already exists, not adding")
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] AcceptQuest DUPLICATE - questId:", questId,
+                " Warning: Quest already exists in currentQuestlog, not processing!")
         end
     end
 end
@@ -575,6 +610,14 @@ function QuestieQuest:CompleteQuest(questId)
         Questie.db.char.complete[13701] = true -- Horde Champion Marker
         Questie.db.char.complete[13687] = nil  -- Horde Tournament Eligibility Marker
     end
+    -- Clear stale objective data so a subsequent re-accept doesn't inherit
+    -- Cached Completed=true / isUpdated=true flags that would cause
+    -- PopulateObjectiveNotes to skip drawing map pins (bug: complete-abandon-reaccept).
+    local quest = QuestieDB.GetQuest(questId)
+    if quest and type(quest.Objectives) == "table" then
+        quest.Objectives = {}
+    end
+
     QuestieMap:UnloadQuestFrames(questId)
 
     -- Clear the pending-complete guard now that frames are unloaded
@@ -620,6 +663,11 @@ function QuestieQuest:AbandonedQuest(questId)
 
     local quest = QuestieDB.GetQuest(questId)
     if quest then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] AbandonedQuest - questId:", questId,
+            " WasComplete:", tostring(quest.WasComplete),
+            " isComplete:", tostring(quest.isComplete),
+            " Objectives:", quest.Objectives and next(quest.Objectives) and "has entries" or "empty")
+
         -- Reset quest objectives
         quest.Objectives = {}
 
@@ -686,9 +734,31 @@ function QuestieQuest:UpdateQuest(questId)
         end
         QuestieQuest:PopulateQuestLogInfo(quest)
 
-        if QuestieQuest:ShouldShowQuestNotes(questId) then
+        -- Defensive: clear stale isComplete/WasComplete after PopulateQuestLogInfo
+        -- syncs quest log state. This catches cases where PopulateQuestLogInfo ran
+        -- but the quest log cache didn't have the isComplete field (nil), in which
+        -- case the else branch above wouldn't clear the flags.
+        if quest.isComplete then
+            local dbComplete = QuestieDB.IsComplete(questId)
+            if dbComplete ~= 1 then
+                quest.isComplete = nil
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:UpdateQuest] Cleared stale isComplete for quest:", questId)
+            end
+        end
+        if quest.WasComplete then
+            local dbComplete = QuestieDB.IsComplete(questId)
+            if dbComplete ~= 1 then
+                quest.WasComplete = nil
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:UpdateQuest] Cleared stale WasComplete for quest:", questId)
+            end
+        end
+
+        local showNotes = QuestieQuest:ShouldShowQuestNotes(questId)
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:UpdateQuest] ShouldShowQuestNotes:", tostring(showNotes), "questId:", questId)
+        if showNotes then
             QuestieQuest:UpdateObjectiveNotes(quest)
         else
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:UpdateQuest] ShouldShowQuestNotes=false, removing tooltips for questId:", questId)
             QuestieTooltips:RemoveQuest(questId)
         end
 
@@ -760,6 +830,34 @@ function QuestieQuest:UpdateQuest(questId)
                 QuestieQuest:PopulateObjectiveNotes(quest)
                 AvailableQuests.CalculateAndDrawAll()
             else
+                -- Robustness: ensure objective pins are present for incomplete quests.
+                -- On Ascension, quest log cache can be stale after reload/abandon-reaccept,
+                -- leaving objectives empty or AlreadySpawned pointing to dead frames.
+                if showNotes then
+                    local hasObjectives = quest.Objectives and table.getn(quest.Objectives) > 0
+                    local hasFrames = QuestieMap.questIdFrames[questId] ~= nil
+
+                    if not hasObjectives then
+                        Questie:Debug(Questie.DEBUG_DEVELOP,
+                            "[QuestieQuest:UpdateQuest] Objectives missing for incomplete quest, re-populating:", questId)
+                        QuestieQuest:PopulateQuestLogInfo(quest)
+                        hasObjectives = quest.Objectives and table.getn(quest.Objectives) > 0
+                        if hasObjectives then
+                            QuestieQuest:PopulateObjectiveNotes(quest)
+                        end
+                    elseif not hasFrames then
+                        -- Objectives exist but no frames on map: AlreadySpawned may be stale
+                        Questie:Debug(Questie.DEBUG_DEVELOP,
+                            "[QuestieQuest:UpdateQuest] Incomplete quest has objectives but no map frames, clearing AlreadySpawned:", questId)
+                        for _, objective in pairs(quest.Objectives) do
+                            if objective.AlreadySpawned then
+                                objective.AlreadySpawned = {}
+                            end
+                        end
+                        QuestieQuest:PopulateObjectiveNotes(quest)
+                    end
+                end
+
                 -- Sometimes objective(s) are all complete but the quest doesn't get flagged as "1". So far the only
                 -- quests I've found that does this are quests involving an item(s). Checks all objective(s) and if they
                 -- are all complete, simulate a "Complete Quest" so the quest finisher appears on the map.
@@ -1048,7 +1146,12 @@ end
 -- iterate all notes, update / remove as needed
 ---@param quest Quest
 function QuestieQuest:UpdateObjectiveNotes(quest)
+    -- DEBUG: Log currentQuestlog state
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] UpdateObjectiveNotes - questId:", quest.Id,
+        " currentQuestlog present:", tostring(QuestiePlayer.currentQuestlog and QuestiePlayer.currentQuestlog[quest.Id] and "yes" or "no"))
+
     if (not QuestiePlayer.currentQuestlog) or (not QuestiePlayer.currentQuestlog[quest.Id]) then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] UpdateObjectiveNotes - EARLY RETURN: quest not in currentQuestlog, questId:", quest.Id)
         return
     end
 
@@ -1342,14 +1445,17 @@ end
 ---@param objective QuestObjective
 ---@param blockItemTooltips any
 function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockItemTooltips) -- must be p-called
-    Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest:PopulateObjective]", objective.Description)
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:PopulateObjective] questId:", quest.Id,
+        " objIdx:", objectiveIndex, " Desc:", objective.Description,
+        " Completed:", tostring(objective.Completed),
+        " quest.isComplete:", tostring(quest.isComplete))
 
     if (not objective.Update) then
         -- No Update function means static/pre-populated objective.
         -- Still check completion state so icons are removed if this objective was
         -- already marked complete from a previous update cycle.
         if objective.Completed or quest.isComplete then
-            Questie:Debug(Questie.DEBUG_INFO,
+            Questie:Debug(Questie.DEBUG_DEVELOP,
                 "[QuestieQuest:PopulateObjective] - No Update fn but objective is complete, unloading icons.")
             _UnloadAlreadySpawnedIcons(objective)
         end
@@ -1358,7 +1464,24 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
 
     objective:Update()
 
+    -- Defensive: clear stale quest.isComplete if quest DB says the quest is NOT
+    -- complete. The DB cache persists quest objects across acceptance cycles
+    -- (complete → abandon → reaccept), and PopulateQuestLogInfo may not have
+    -- run yet for this specific path (e.g., Learner invalidation).
+    if quest.isComplete then
+        local dbComplete = QuestieDB.IsComplete(quest.Id)
+        if dbComplete ~= 1 then
+            quest.isComplete = nil
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:PopulateObjective] Cleared stale isComplete for quest:", quest.Id)
+        end
+    end
+
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:PopulateObjective] POST-Update questId:", quest.Id,
+        " objIdx:", objectiveIndex, " Completed:", tostring(objective.Completed),
+        " isComplete:", tostring(quest.isComplete), " HasUpdate:", tostring(objective.Update ~= nil))
+
     if QuestieQuest.ShouldHideObjective(objective) then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:PopulateObjective] HIDDEN by ShouldHideObjective, unloading icons for objIdx:", objectiveIndex)
         _UnloadAlreadySpawnedIcons(objective)
         return
     end
@@ -1377,6 +1500,8 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
     _RegisterObjectiveTooltips(objective, quest.Id, blockItemTooltips)
 
     if completed or quest.isComplete then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:PopulateObjective] SKIPPING objective (completed):",
+            objective.Description, "completed:", tostring(completed), "quest.isComplete:", tostring(quest.isComplete))
         _UnloadAlreadySpawnedIcons(objective)
         return
     end
@@ -1386,6 +1511,8 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
     end
 
     if objective.spawnList and next(objective.spawnList) then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:PopulateObjective] spawnList present for quest:", quest.Id,
+            "objIdx:", objectiveIndex, "spawnList entries:", (function() local n=0 for _ in pairs(objective.spawnList) do n=n+1 end return n end)())
         local maxPerType = 300
 
         if Questie.db.profile.enableIconLimit and Questie.db.profile.iconLimit < maxPerType then
@@ -1448,6 +1575,9 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
         local iconsToDraw, _ = _DetermineIconsToDraw(quest, objective, objectiveIndex, objectiveCenter)
         local icon, iconPerZone = _DrawObjectiveIcons(quest.Id, iconsToDraw, objective, maxPerType)
         _DrawObjectiveWaypoints(objective, icon, iconPerZone)
+    else
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:PopulateObjective] NO spawnList for quest:", quest.Id,
+            "objIdx:", objectiveIndex, "spawnList:", tostring(objective.spawnList))
     end
 end
 
@@ -1519,7 +1649,10 @@ end
 ---@param objectiveIndex ObjectiveIndex
 ---@param objectiveCenter {x:X, y:Y}
 _DetermineIconsToDraw = function(quest, objective, objectiveIndex, objectiveCenter)
-    Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest:_DetermineIconsToDraw]")
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:_DetermineIconsToDraw] quest:", quest.Id,
+        "objective:", objective.Description, "spawnList:", objective.spawnList and next(objective.spawnList) and "has entries" or "nil/empty",
+        "AlreadySpawned:", objective.AlreadySpawned and next(objective.AlreadySpawned) and "has entries" or "empty",
+        "Completed:", tostring(objective.Completed), "enableObjectives:", tostring(Questie.db.profile.enableObjectives))
 
     local iconsToDraw = {}
     local spawnItemId
@@ -1535,6 +1668,7 @@ _DetermineIconsToDraw = function(quest, objective, objectiveIndex, objectiveCent
         end
 
         if (not objective.AlreadySpawned[id]) and (not objective.Completed) and Questie.db.profile.enableObjectives then
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:_DetermineIconsToDraw] CREATING icon entry for id:", id, "quest:", quest.Id)
             local data = {
                 Id = quest.Id,
                 ObjectiveIndex = objectiveIndex,
@@ -1605,7 +1739,15 @@ _DetermineIconsToDraw = function(quest, objective, objectiveIndex, objectiveCent
 end
 
 _DrawObjectiveIcons = function(questId, iconsToDraw, objective, maxPerType)
-    Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest:_DrawObjectiveIcons] Adding Icons for quest:", questId)
+    local iconCount = 0
+    local _, _ = next(iconsToDraw)
+    if _ then
+        local n = 0
+        for _ in pairs(iconsToDraw) do n = n + 1 end
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:_DrawObjectiveIcons] Drawing", n, "icon groups for quest:", questId)
+    else
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:_DrawObjectiveIcons] NO icons to draw for quest:", questId)
+    end
 
     local spawnedIconCount = 0
     local icon
@@ -1747,7 +1889,23 @@ function QuestieQuest:PopulateObjectiveNotes(quest) -- this should be renamed to
         return
     end
 
-    if QuestieDB.IsComplete(quest.Id) == 1 then
+    local dbComplete = QuestieDB.IsComplete(quest.Id)
+
+    -- DEBUG: Log PopulateObjectiveNotes state
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] PopulateObjectiveNotes - questId:", quest.Id,
+        " quest.isComplete:", tostring(quest.isComplete),
+        " dbComplete:", tostring(dbComplete),
+        " Objectives count:", quest.Objectives and next(quest.Objectives) and "has entries" or "empty")
+
+    -- Defensive: clear stale quest.isComplete flag if the quest log doesn't confirm
+    -- completion. Without this, a re-accepted quest that was previously completed can
+    -- have isComplete=true while the quest log shows it as incomplete.
+    if quest.isComplete and dbComplete ~= 1 then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] PopulateObjectiveNotes - clearing stale isComplete for questId:", quest.Id)
+        quest.isComplete = nil
+    end
+
+    if dbComplete == 1 then
         Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest:PopulateObjectiveNotes] Quest Complete! Adding Finisher for:",
             quest.Id)
 
@@ -1778,14 +1936,33 @@ function QuestieQuest:PopulateQuestLogInfo(quest)
         return nil
     end
 
-    Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest:PopulateQuestLogInfo] ", quest.Id)
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] PopulateQuestLogInfo - questId:", quest.Id,
+        " Objectives:", quest.Objectives and next(quest.Objectives) and "has entries" or "empty",
+        " isComplete:", tostring(quest.isComplete),
+        " WasComplete:", tostring(quest.WasComplete))
 
     local questLogEngtry = QuestLogCache.GetQuest(quest.Id) -- DO NOT MODIFY THE RETURNED TABLE
 
-    if (not questLogEngtry) then return end
+    if (not questLogEngtry) then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] PopulateQuestLogInfo - CACHE MISS for questId:", quest.Id, "- returning early!")
+        return
+    end
 
+    -- Sync quest.isComplete with quest log state. The cache in QuestieDB persists
+    -- quest objects across acceptance cycles (complete → abandon → reaccept), so
+    -- stale isComplete/WasComplete flags from a previous acceptance must be cleared
+    -- when the quest log says the quest is no longer complete.
     if questLogEngtry.isComplete ~= nil and questLogEngtry.isComplete == 1 then
         quest.isComplete = true
+    else
+        quest.isComplete = nil
+        -- Also clear WasComplete when quest log confirms the quest is NOT complete.
+        -- Without this, the isComplete==0 branch in UpdateQuest sees stale
+        -- WasComplete=true and triggers an unnecessary reset sequence.
+        if quest.WasComplete then
+            quest.WasComplete = nil
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:PopulateQuestLogInfo] Cleared stale WasComplete for quest:", quest.Id)
+        end
     end
 
     -- Live fallback quests (no static DB entry) manage their own Objectives.
@@ -1978,6 +2155,31 @@ function _QuestieQuest.ObjectiveUpdate(self)
             self.isUpdated = true
         end
     end
+end
+
+--- Lazily build an objective's spawnList from the spawn call table (includes
+--- QuestieLearner-injected data). Used by QuestieArrow to resolve targets when
+--- the spawnList hasn't been populated yet (e.g. after a quest re-accept cycle).
+---@param objective table @An objective entry from quest.Objectives or quest.SpecialObjectives
+---@param objectiveData table? @Corresponding ObjectiveData entry (falls back to the objective itself for SpecialObjectives)
+---@return table|nil @The built spawnList, or nil if no handler matched
+function QuestieQuest:BuildObjectiveSpawnList(objective, objectiveData)
+    if not objective then return nil end
+    -- Already populated — nothing to do
+    if objective.spawnList and next(objective.spawnList) then
+        return objective.spawnList
+    end
+    -- Try the explicit ObjectiveData first (normal objectives)
+    if objectiveData and objectiveData.Type and _QuestieQuest.objectiveSpawnListCallTable[objectiveData.Type] then
+        objective.spawnList = _QuestieQuest.objectiveSpawnListCallTable[objectiveData.Type](objective.Id, objective, objectiveData)
+        return objective.spawnList
+    end
+    -- SpecialObjectives and fallback: use the objective's own Type
+    if objective.Type and _QuestieQuest.objectiveSpawnListCallTable[objective.Type] then
+        objective.spawnList = _QuestieQuest.objectiveSpawnListCallTable[objective.Type](objective.Id, objective, objective)
+        return objective.spawnList
+    end
+    return nil
 end
 
 ---@param questId number

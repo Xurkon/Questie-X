@@ -31,22 +31,26 @@ local GetClassColor = QuestieCompat.GetClassColor
 
 
 -- Silent quest log index lookup (prevents warning spam for auto-complete/achievement "quests")
+-- Uses QuestieCompat wrapper which normalizes return values across API versions.
 local function _Questie_SilentGetQuestLogIndexByID(questId)
     questId = tonumber(questId)
     if not questId then return 0 end
 
-    if _G.GetQuestLogIndexByID then
-        return _G.GetQuestLogIndexByID(questId) or 0
+    -- QuestieCompat.GetQuestLogIndexByID returns nil when not found,
+    -- coerce to 0 for callers that check > 0.
+    local idx = QuestieCompat.GetQuestLogIndexByID(questId)
+    if idx then
+        return idx
     end
 
-    local n = (GetNumQuestLogEntries and select(1, GetNumQuestLogEntries())) or 0
-    if n > 0 and GetQuestLogTitle then
-        for i = 1, n do
-            local _, _, _, isHeader, _, _, _, qid = GetQuestLogTitle(i)
-            qid = tonumber(qid)
-            if (not isHeader) and qid and qid == questId then
-                return i
-            end
+    -- Fallback: use the compat-normalized GetQuestLogTitle (always 8 returns)
+    local GetQuestLogTitleCompat = QuestieCompat.GetQuestLogTitle
+    local n = select(1, GetNumQuestLogEntries()) or 0
+    for i = 1, n do
+        local _, _, _, isHeader, _, _, _, qid = GetQuestLogTitleCompat(i)
+        qid = tonumber(qid)
+        if (not isHeader) and qid and qid == questId then
+            return i
         end
     end
     return 0
@@ -224,8 +228,14 @@ function MapIconTooltip:Show()
             handleMapIcon(icon)
         end
     else
-        for pin in HBDPins.worldmapProvider:GetMap():EnumeratePinsByTemplate("HereBeDragonsPinsTemplateQuestie") do
-            handleMapIcon(pin.icon)
+        if QuestieCompat.Is335 then
+            for icon, _ in next, HBDPins.worldmapPins do
+                handleMapIcon(icon)
+            end
+        else
+            for pin in HBDPins.worldmapProvider:GetMap():EnumeratePinsByTemplate("HereBeDragonsPinsTemplateQuestie") do
+                handleMapIcon(pin.icon)
+            end
         end
     end
 
@@ -402,7 +412,7 @@ function MapIconTooltip:Show()
                             break
                         end
 
-                        factionName = select(1, GetFactionInfoByID(factionId))
+                        factionName = select(1, QuestieCompat.GetFactionInfoByID(factionId))
                         if factionName then
                             rewardValue = rewardPair[2]
 
@@ -423,10 +433,10 @@ function MapIconTooltip:Show()
                     end
 
                     if aldorPenalty then
-                        factionName = select(1, GetFactionInfoByID(932))
+                        factionName = select(1, QuestieCompat.GetFactionInfoByID(932))
                         tinsert(rewardTable, aldorPenalty .. " " .. factionName)
                     elseif scryersPenalty then
-                        factionName = select(1, GetFactionInfoByID(934))
+                        factionName = select(1, QuestieCompat.GetFactionInfoByID(934))
                         tinsert(rewardTable, scryersPenalty .. " " .. factionName)
                     end
 
@@ -513,6 +523,7 @@ function MapIconTooltip:Show()
                 end
                 return levelString
             end
+
             -- Used to get the white color for the quests which don't have anything to collect
             local defaultQuestColor = QuestieLib:GetRGBForObjective({})
             local creatureLevels = QuestieDB:GetCreatureLevels(quest) -- Data for min and max level
@@ -585,7 +596,7 @@ function MapIconTooltip:Show()
                         break
                     end
 
-                    factionName = select(1, GetFactionInfoByID(factionId))
+                    factionName = select(1, QuestieCompat.GetFactionInfoByID(factionId))
                     if factionName then
                         rewardValue = rewardPair[2]
 
@@ -606,10 +617,10 @@ function MapIconTooltip:Show()
                 end
 
                 if aldorPenalty then
-                    factionName = select(1, GetFactionInfoByID(932))
+                    factionName = select(1, QuestieCompat.GetFactionInfoByID(932))
                     tinsert(rewardTable, aldorPenalty .. " " .. factionName)
                 elseif scryersPenalty then
-                    factionName = select(1, GetFactionInfoByID(934))
+                    factionName = select(1, QuestieCompat.GetFactionInfoByID(934))
                     tinsert(rewardTable, scryersPenalty .. " " .. factionName)
                 end
 

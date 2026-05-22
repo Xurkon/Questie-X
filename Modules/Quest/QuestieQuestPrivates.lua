@@ -120,7 +120,23 @@ monster = function(npcId, objective)
     end
 
     local name = QuestieDB.QueryNPCSingle(npcId, "name")
-    if (not name) then
+    if not name or name == "" then
+        -- Last resort: extract NPC name from objective description text.
+        -- This mirrors the name-parsing logic in the killcredit function.
+        if objective then
+            local desc = objective.Description or objective.text
+            if desc then
+                name = desc:match("^%d+/%d+%s+(.+)$") or desc:match("^(.-):%s*%d+/%d+$")
+                if not name then
+                    name = desc:gsub("%d+/%d+", ""):gsub("[:!?,.%(%)%[%]]", ""):gsub("^%s+", ""):gsub("%s+$", "")
+                end
+                if name and name ~= "" then
+                    Questie:Debug(Questie.DEBUG_DEVELOP, "[monster] Using objective description as name fallback for NPC:", npcId, name)
+                end
+            end
+        end
+    end
+    if not name or name == "" then
         Questie:Debug(Questie.DEBUG_CRITICAL, "Name missing for NPC:", npcId)
         return nil
     end
@@ -129,6 +145,25 @@ monster = function(npcId, objective)
     if (not spawns) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "Spawn data missing for NPC:", npcId)
         spawns = {}
+    end
+
+    -- Learner safety net: when prioritizeMyData is enabled and the Learner has
+    -- verified spawn data for this NPC, prefer it over compiled DB spawns.
+    -- This catches edge cases where the npcDataOverrides chain doesn't fully
+    -- replace retail positions (e.g. format migration gaps, timing issues).
+    if Questie.IsAscension and Questie.dbLearner and Questie.dbLearner.global then
+        local ld = Questie.dbLearner.global
+        if ld.settings and ld.settings.prioritizeMyData then
+            local learnedNpc = ld.npcs and ld.npcs[npcId]
+            if learnedNpc then
+                local learnedSpawns = learnedNpc[7]
+                local threshold = ld.settings.minConfidencePins or 1
+                if learnedSpawns and next(learnedSpawns) and learnedNpc.mc and learnedNpc.mc >= threshold then
+                    Questie:Debug(Questie.DEBUG_DEVELOP, "[monster] Preferring learned spawns for NPC:", npcId, "(mc=" .. tostring(learnedNpc.mc) .. ")")
+                    spawns = learnedSpawns
+                end
+            end
+        end
     end
 
     local rank = QuestieDB.QueryNPCSingle(npcId, "rank")

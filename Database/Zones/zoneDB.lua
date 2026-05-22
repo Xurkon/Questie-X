@@ -62,25 +62,38 @@ local UiMapIdOverrides = {
 -- Sunstrider Isle overrides (separate from Northshire since they're different Ascension realms)
 ZoneDB.private.uiMapIdToAreaId = ZoneDB.private.uiMapIdToAreaId or {}
 ZoneDB.private.uiMapIdToAreaId[1241] = 3430
-ZoneDB.private.uiMapIdToAreaId[946] = 3430  -- Ghost map for Sunstrider Isle (different zone than Northshire's 946)
+-- 946 is a ghost/transition map. On Horde (Sunstrider), it resolves to areaId 3430.
+-- On Alliance (Northshire), it resolves to areaId 12 (Elwynn). The AscensionDB
+-- zone table handles both via runtime loading; we set the default here for
+-- the Sunstrider case since that's where pins break without it.
+ZoneDB.private.uiMapIdToAreaId[946] = 3430
 -- Reverse mapping: areaId → uiMapId for GetUiMapIdByAreaId lookups.
 -- Northshire Valley (areaId 668) uses uiMapId 1238.
 ZoneDB.private.areaIdToUiMapId[668] = 1238
 areaIdToUiMapId[668] = 1238
 -- Eversong Woods (areaId 3430) maps to the Eversong Woods map (uiMapId 1941).
--- Sunstrider Isle (uiMapId 1241) is a child map that shares Eversong's coordinate space.
--- Pins for zone 3430 render on map 1941 and appear on map 1241 via ZONE_REDIRECT visibility.
+-- Sunstrider Isle (areaId 3431) is a subzone of Eversong Woods — same map (1941).
+-- Sunstrider Isle (uiMapId 1241) is a child map of Eversong Woods.
+-- Pins for zones 3430 and 3431 render on map 1941 (Eversong).
+-- Pins for zone 1241 render on map 1241 (Sunstrider) using Ascension-calibrated bounds.
 ZoneDB.private.areaIdToUiMapId[3430] = 1941
 areaIdToUiMapId[3430] = 1941
+ZoneDB.private.areaIdToUiMapId[3431] = 1941
+areaIdToUiMapId[3431] = 1941
+-- Allow drawing pins directly on Sunstrider Isle (uiMapId 1241) via areaId 1241.
+ZoneDB.private.areaIdToUiMapId[1241] = 1241
+areaIdToUiMapId[1241] = 1241
 -- Also populate the cache so the fast path works without a lazy lookup.
 if uiMapIdToAreaIdCache[1238] == nil then
     uiMapIdToAreaIdCache[1238] = 668
 end
+-- Sunstrider Isle uiMapId 1241 → areaId 3431 (subzone, not parent 3430).
+-- Questie resolves 3431→3430 via GetParentZoneId() automatically when needed.
 if uiMapIdToAreaIdCache[1241] == nil then
-    uiMapIdToAreaIdCache[1241] = 3430
+    uiMapIdToAreaIdCache[1241] = 3431
 end
 if uiMapIdToAreaIdCache[946] == nil then
-    uiMapIdToAreaIdCache[946] = 3430  -- Ghost map for Sunstrider Isle (different zone than Northshire's 946)
+    uiMapIdToAreaIdCache[946] = 3430
 end
 local parentZoneToSubZone = {} -- Generated
 local zoneMap = {}             -- Generated

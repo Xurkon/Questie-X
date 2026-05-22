@@ -693,7 +693,9 @@ function QuestieDB.GetSuppressedNPCs(zoneId)
         local threshold = ld.settings.minConfidencePins or 2
         local npcId, entry = next(ld.npcs)
         while npcId do
-            if entry.mc and entry.mc >= threshold and entry[7] and entry[7][zoneId] then
+            -- Support both old format ([4]=spawns) and new format ([7]=spawns)
+            local spawns = entry[7] or entry[4]
+            if entry.mc and entry.mc >= threshold and spawns and spawns[zoneId] then
                 suppressed[npcId] = true
             end
             npcId, entry = next(ld.npcs, npcId)
@@ -713,7 +715,9 @@ function QuestieDB.GetSuppressedObjects(zoneId)
         local threshold = ld.settings.minConfidencePins or 2
         local objId, entry = next(ld.objects)
         while objId do
-            if entry.mc and entry.mc >= threshold and entry[4] and entry[4][zoneId] then
+            -- Support both old format ([4]=spawns) and new format ([7]=spawns)
+            local spawns = entry[4] or entry[7]
+            if entry.mc and entry.mc >= threshold and spawns and spawns[zoneId] then
                 suppressed[objId] = true
             end
             objId, entry = next(ld.objects, objId)

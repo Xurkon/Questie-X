@@ -224,8 +224,8 @@
 
             <div class="grid">
                 <div class="card">
-                    <h4>Sunstrider Coordinate Normalization</h4>
-                    <p>Arrow and world-map code now normalize Sunstrider's child map <code>1241</code>, ghost map <code>946</code>, and parent Eversong map <code>1941</code> into a consistent coordinate path so distance, direction, and icon placement all use the same world space.</p>
+                    <h4>Sunstrider Coordinate Normalization (Final)</h4>
+                    <p>Arrow and world-map code now normalize Sunstrider's child map <code>1241</code>, ghost map <code>946</code>, and parent Eversong map <code>1941</code> into a consistent coordinate path. <code>GetCurrentZoneId()</code> can return 3430 <em>or</em> 3431 on Sunstrider &mdash; all 4 detection checks now accept both values plus uiMapId 1241. The 1241&rarr;1941 redirect in <code>_ResolveMapUiMapId()</code> was removed; pins render natively on 1241 via <code>areaIdToUiMapId[1241] = 1241</code>.</p>
                 </div>
                 <div class="card">
                     <h4>Learned Tooltip Schema Fix</h4>
@@ -235,12 +235,12 @@
 
             <div class="grid">
                 <div class="card">
-                    <h4>Custom Map Data Aliases</h4>
-                    <p><code>Compat/HBD.lua</code> now aliases Sunstrider map data (<code>1241</code> and <code>946</code>) to Eversong (<code>1941</code>) and can fall back to the real HBD library's <code>mapData</code> for maps not present in Questie's local compat table.</p>
+                    <h4>Arrow Rotation &amp; Collection Fixes</h4>
+                    <p>Fixed arrow rotation direction (<code>SetRotation</code> is CW-positive, not CCW) and collection function distance mismatch where targets were converted through 1941 bounds while player coords were in 1241 bounds, causing 1261-yard errors instead of ~48 yards.</p>
                 </div>
                 <div class="card">
-                    <h4>QuestieLearner Icon Preservation</h4>
-                    <p>Learned objectives now preserve the resolved quest-log icon during immediate tooltip registration so nameplates can render the correct learned slay/loot/talk marker instead of a missing icon state.</p>
+                    <h4>NPC Spawn Zone &amp; Native Map Pins</h4>
+                    <p>NPC 15281 (Lanthan Perilon) spawn zone corrected from 3430 to 1241 so coords land in Sunstrider's 0-1 space. Pins on 1241 now render natively using Ascension-calibrated bounds with <code>areaIdToUiMapId[1241] = 1241</code> instead of redirecting to 1941.</p>
                 </div>
             </div>
 

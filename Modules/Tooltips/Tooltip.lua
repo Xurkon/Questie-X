@@ -232,7 +232,7 @@ function QuestieTooltips:GetTooltip(key)
              -- Try to find in learned NPCs or objects
              local id = tonumber(key:sub(3))
              if id then
-                if key:sub(1,2) == "m_" then
+if key:sub(1,2) == "m_" then
                     local learnedNpc = QuestieLearner.data.npcs[id]
                     -- npc[10] from _AddToArray is an array of questIds, not {questId -> objList}
                     if learnedNpc and learnedNpc[10] then
@@ -248,13 +248,11 @@ function QuestieTooltips:GetTooltip(key)
                                                 local objText = objEntry[2]
                                                 local needed, collected
                                                 local objectives = QuestLogCache.GetQuestObjectives(questId)
-                                                local objectiveIcon
                                                 if objectives then
                                                     for _, obj in next, objectives do
                                                         if obj.text and objText and (obj.text == objText or string.find(obj.text, objText, 1, true) or string.find(objText, obj.text, 1, true)) then
                                                             needed = obj.numRequired
                                                             collected = obj.numFulfilled
-                                                            objectiveIcon = obj.Icon
                                                             break
                                                         end
                                                     end
@@ -264,7 +262,6 @@ function QuestieTooltips:GetTooltip(key)
                                                     Description = objText,
                                                     Needed = needed,
                                                     Collected = collected,
-                                                    Icon = objectiveIcon,
                                                     Update = function(self)
                                                         local objs = QuestLogCache.GetQuestObjectives(questId)
                                                         if objs then
@@ -288,7 +285,7 @@ function QuestieTooltips:GetTooltip(key)
                             tinsert(tooltipLines, "|cFF5EBAF3(Learned - Confidence: " .. tostring(learnedNpc.mc) .. ")|r")
                         end
                     end
-                elseif key:sub(1,2) == "o_" then
+elseif key:sub(1,2) == "o_" then
                     local learnedObj = QuestieLearner.data.objects[id]
                     -- obj[2] from _AddToArray is an array of questIds (questStarts), not {questId -> objList}
                     if learnedObj and learnedObj[2] then
@@ -304,13 +301,11 @@ function QuestieTooltips:GetTooltip(key)
                                                 local objText = objEntry[2]
                                                 local needed, collected
                                                 local objectives = QuestLogCache.GetQuestObjectives(questId)
-                                                local objectiveIcon
                                                 if objectives then
                                                     for _, obj in next, objectives do
                                                         if obj.text and objText and (obj.text == objText or string.find(obj.text, objText, 1, true) or string.find(objText, obj.text, 1, true)) then
                                                             needed = obj.numRequired
                                                             collected = obj.numFulfilled
-                                                            objectiveIcon = obj.Icon
                                                             break
                                                         end
                                                     end
@@ -320,7 +315,6 @@ function QuestieTooltips:GetTooltip(key)
                                                     Description = objText,
                                                     Needed = needed,
                                                     Collected = collected,
-                                                    Icon = objectiveIcon,
                                                     Update = function(self)
                                                         local objs = QuestLogCache.GetQuestObjectives(questId)
                                                         if objs then

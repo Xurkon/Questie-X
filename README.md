@@ -220,7 +220,7 @@ If your server uses non-standard map data, enable **Options → Advanced → Use
 - Fixed arrow pointing to previously completed objective locations instead of the current finisher.
 - Fixed nil error in `_CollectObjective` when processing incomplete quests.
 - Fixed arrow direction for quests that require speaking to an NPC as a prerequisite step.
-- **Sunstrider Isle (Ascension starting zone)**: Resolved arrow not appearing when the world map is closed. `C_Map.GetBestMapForUnit("player")` returns a ghost/loading map uiMapId (946) instead of Sunstrider Isle's real uiMapId (1241) with the map closed. Added `UiMapIdOverrides` entries for both 946 and 1241 mapping to Sunstrider Isle's areaId (3430). Updated the arrow's `UpdateNearestTargets` fallback to use `ZoneDB` lookups when the ghost map is detected, ensuring the arrow gets real world coordinates regardless of map state.
+- **Sunstrider Isle (Ascension starting zone)**: Resolved arrow distance, direction, and map pin issues on Sunstrider Isle. `GetCurrentZoneId()` can return 3430 OR 3431 when the player is on uiMap 1241 — all 4 Sunstrider detection checks now accept both zoneIds plus uiMapId 1241. Fixed arrow rotation direction (`SetRotation` is CW-positive, not CCW). Fixed collection function distance mismatch where targets were converted through 1941 (Eversong) bounds while player coords were in 1241 bounds. NPC 15281 spawn zone corrected from 3430 to 1241 so coords land in Sunstrider's normalized space. Removed the 1241→1941 redirect in `_ResolveMapUiMapId()`; pins on 1241 now render natively via `areaIdToUiMapId[1241] = 1241`.
 
 ### Nameplates
 

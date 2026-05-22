@@ -95,11 +95,28 @@ QuestieLearner.data = nil
 ------------------------------------------------------------------------
 
 local function GetZoneId()
-    -- On WotLK/Ascension, C_Map.GetBestMapForUnit returns a uiMapId (e.g. 1241 for Sunstrider).
-    -- Questie NPC spawns are keyed by areaId (e.g. 3430), so we must convert.
+    -- Prefer the most specific zone available: GetRealZoneText() returns the
+    -- sub-zone name when the player is on a child map (e.g. "Sunstrider Isle"
+    -- on map 1241 → areaId 3431), and the parent zone name otherwise (e.g.
+    -- "Eversong Woods" → areaId 3430). Using the sub-zone is correct because
+    -- Questie resolves subzones to parents via GetParentZoneId() automatically.
+    local zoneText = GetRealZoneText and GetRealZoneText() or ""
+    if zoneText ~= "" then
+        local areaId = _Learner.zoneCache[zoneText]
+        if not areaId and l10n and l10n.GetAreaIdByLocalName then
+            areaId = l10n:GetAreaIdByLocalName(zoneText)
+            if areaId and areaId > 0 then
+                _Learner.zoneCache[zoneText] = areaId
+            end
+        end
+        if areaId and areaId > 0 then
+            return areaId
+        end
+    end
+
+    -- Fallback: uiMapId-based conversion (e.g. 1241→3431 for Sunstrider).
     local uiMapId = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
     if uiMapId then
-        -- Try ZoneDB reverse lookup first (covers Ascension overrides like 1241→3430)
         if ZoneDB and ZoneDB.GetAreaIdByUiMapId then
             local areaId = ZoneDB:GetAreaIdByUiMapId(uiMapId)
             if areaId and areaId > 0 then
@@ -312,57 +329,93 @@ end
 -- reference the given npcId. Unloads existing world/minimap icons, resets
 -- tooltip registration, and forces the map system to rebuild spawn lists from
 -- QuestieDB on the next update — picking up newly learned coordinates in real time.
+-- Helper: check if a single objective references the given npcId and, if so,
+-- unload its icons and reset its cached spawnList so the map rebuilds it.
+-- Returns true if the objective was invalidated.
+local function _TryInvalidateObjective(objective, npcId, quest)
+    local shouldInvalidate = false
+    -- Monster objectives reference NPCs directly in spawnList keys
+    if objective.spawnList then
+        if objective.spawnList[npcId] then
+            shouldInvalidate = true
+        end
+        -- Also check killcredit IdList
+        if not shouldInvalidate and objective.IdList then
+            for _, id in ipairs(objective.IdList) do
+                if id == npcId then shouldInvalidate = true; break end
+            end
+        end
+    else
+        -- spawnList is nil (first-ever encounter, never populated).
+        -- Check the quest's ObjectiveData for NPC references so killcredit
+        -- and item objectives are still invalidated on the first kill.
+        if quest and quest.ObjectiveData and objective.Index then
+            local objData = quest.ObjectiveData[objective.Index]
+            if objData and objData.IdList then
+                for _, id in ipairs(objData.IdList) do
+                    if id == npcId then shouldInvalidate = true; break end
+                end
+            end
+            -- Also match the primary objective Id (e.g. single-target monster objectives)
+            if not shouldInvalidate and objData and objData.Id == npcId then
+                shouldInvalidate = true
+            end
+        end
+    end
+    -- Fallback: if objective Id matches the NPC (some objectives use NPC as their primary Id)
+    if not shouldInvalidate and objective.Id == npcId then
+        shouldInvalidate = true
+    end
+    if shouldInvalidate then
+        -- Unload existing icons manually so frames are removed from map/minimap.
+        -- We can't call QuestieQuest's local _UnloadAlreadySpawnedIcons from here,
+        -- so we iterate the refs directly.
+        if objective.AlreadySpawned then
+            for _, spawn in pairs(objective.AlreadySpawned) do
+                if spawn then
+                    if spawn.mapRefs then
+                        for _, mapIcon in ipairs(spawn.mapRefs) do
+                            if mapIcon and mapIcon.Unload then mapIcon:Unload() end
+                        end
+                    end
+                    if spawn.minimapRefs then
+                        for _, minimapIcon in ipairs(spawn.minimapRefs) do
+                            if minimapIcon and minimapIcon.Unload then minimapIcon:Unload() end
+                        end
+                    end
+                end
+            end
+        end
+        objective.spawnList = nil
+        objective.AlreadySpawned = {}  -- empty table, NOT nil (_DetermineIconsToDraw indexes this)
+        objective.hasRegisteredTooltips = false
+        objective.registeredItemTooltips = false
+    end
+    return shouldInvalidate
+end
+
 local function _InvalidateSpawnListsForNPC(npcId)
     if not QuestieQuest or not QuestiePlayer or not QuestiePlayer.currentQuestlog then return end
     local timer = (C_Timer) or (QuestieCompat and QuestieCompat.C_Timer)
     local questsToRefresh = {}
     for questId, _ in pairs(QuestiePlayer.currentQuestlog) do
         local quest = QuestieDB.GetQuest and QuestieDB.GetQuest(questId)
-        if quest and quest.Objectives then
+        if quest then
             local needsUnload = false
-            for _, objective in pairs(quest.Objectives) do
-                local shouldInvalidate = false
-                -- Monster objectives reference NPCs directly in spawnList keys
-                if objective.spawnList then
-                    if objective.spawnList[npcId] then
-                        shouldInvalidate = true
-                    end
-                    -- Also check killcredit IdList
-                    if not shouldInvalidate and objective.IdList then
-                        for _, id in ipairs(objective.IdList) do
-                            if id == npcId then shouldInvalidate = true; break end
-                        end
+            -- Scan standard Objectives
+            if quest.Objectives then
+                for _, objective in pairs(quest.Objectives) do
+                    if _TryInvalidateObjective(objective, npcId, quest) then
+                        needsUnload = true
                     end
                 end
-                -- Fallback: if objective Id matches the NPC (some objectives use NPC as their primary Id)
-                if not shouldInvalidate and objective.Id == npcId then
-                    shouldInvalidate = true
-                end
-                if shouldInvalidate then
-                    -- Unload existing icons manually so frames are removed from map/minimap.
-                    -- We can't call QuestieQuest's local _UnloadAlreadySpawnedIcons from here,
-                    -- so we iterate the refs directly.
-                    if objective.AlreadySpawned then
-                        for _, spawn in pairs(objective.AlreadySpawned) do
-                            if spawn then
-                                if spawn.mapRefs then
-                                    for _, mapIcon in ipairs(spawn.mapRefs) do
-                                        if mapIcon and mapIcon.Unload then mapIcon:Unload() end
-                                    end
-                                end
-                                if spawn.minimapRefs then
-                                    for _, minimapIcon in ipairs(spawn.minimapRefs) do
-                                        if minimapIcon and minimapIcon.Unload then minimapIcon:Unload() end
-                                    end
-                                end
-                            end
-                        end
+            end
+            -- Scan SpecialObjectives (demonic runestones, custom Ascension objectives, etc.)
+            if quest.SpecialObjectives then
+                for _, objective in pairs(quest.SpecialObjectives) do
+                    if _TryInvalidateObjective(objective, npcId, quest) then
+                        needsUnload = true
                     end
-                    objective.spawnList = nil
-                    objective.AlreadySpawned = {}  -- empty table, NOT nil (_DetermineIconsToDraw indexes this)
-                    objective.hasRegisteredTooltips = false
-                    objective.registeredItemTooltips = false
-                    needsUnload = true
                 end
             end
             if needsUnload then
@@ -648,10 +701,21 @@ end
 -- NPC learning
 ------------------------------------------------------------------------
 
+-- Player-spawned NPCs that should never be learned (totems, guardians, etc.)
+local PLAYER_SPAWNED_NPC_SET = {
+    [2523] = true,    -- Searing Totem
+    [2630] = true,    -- Earthbind Totem
+    [10183] = true,   -- Moonflare Totem
+    [1103907] = true, -- Healing Stream Totem III
+    [1107398] = true, -- Stoneclaw Totem V
+}
+
 function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionString, spawnX, spawnY, spawnZoneId)
     if not self:IsEnabled() then return end
     if not Questie.dbLearner.global.settings.learnNpcs then return end
     if not npcId or npcId <= 0 then return end
+    -- Never learn player-spawned totems
+    if PLAYER_SPAWNED_NPC_SET[npcId] then return end
 
     -- Use provided spawn coords (e.g. from kill event) or fall back to current player position
     local zoneId = spawnZoneId or GetZoneId()
@@ -669,7 +733,7 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
         Questie.dbLearner.global.npcs[npcId] = existing
     end
 
-    if name          and not existing[1]  then existing[1]  = name end
+    if name and name ~= "" and (not existing[1] or existing[1] == "") then existing[1] = name end
     if level then
         if not existing[4] or level < existing[4] then existing[4] = level end
         if not existing[5] or level > existing[5] then existing[5] = level end
@@ -694,9 +758,9 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
         if not ovr then
             QuestieDB.npcDataOverrides[npcId] = existing
         else
-            -- Merge: fill missing fields only
+            -- Merge: fill missing fields; also overwrite empty-string names
             for k, v in pairs(existing) do
-                if ovr[k] == nil then ovr[k] = v end
+                if ovr[k] == nil or (k == 1 and ovr[k] == "") then ovr[k] = v end
             end
             -- Always merge spawn coords
             if existing[7] then
@@ -718,12 +782,11 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
     if isNew then
         Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] New NPC learned:", npcId, name or "?")
         CrossLinkAfterNPC(npcId)
-    else
-        -- Existing NPC got new spawn data: invalidate cached spawnLists
-        -- for any active quest objective that references this NPC so the
-        -- map system rebuilds them with fresh data on next update.
-        _InvalidateSpawnListsForNPC(npcId)
     end
+    -- Existing NPC got new spawn data: invalidate cached spawnLists
+    -- for any active quest objective that references this NPC so the
+    -- map system rebuilds them with fresh data on next update.
+    _InvalidateSpawnListsForNPC(npcId)
     _Learner:BroadcastIfCommsAvailable("NPC", npcId, existing)
 end
 
@@ -1117,11 +1180,65 @@ function QuestieLearner:InjectLearnedData()
     if not EnsureLearnedData() then return end
 
     local learned = Questie.dbLearner.global
+    -- Migrate old-format NPC data ([4]=spawns, [5]=zoneId) to new format ([7]=spawns, [9]=zoneId)
+    -- Always merge [4] into [7], even when [7] already has partial data from a recent session.
+    for npcId, data in pairs(learned.npcs) do
+        if type(data[4]) == "table" then
+            if data[7] == nil then
+                -- Simple move: no [7] exists yet
+                data[7] = data[4]
+            else
+                -- Merge: [7] has partial data, consolidate [4] coordinates into it
+                for zoneId, coords in pairs(data[4]) do
+                    data[7][zoneId] = data[7][zoneId] or {}
+                    for _, coord in ipairs(coords) do
+                        InsertIfNewBucket(data[7][zoneId], coord[1], coord[2])
+                    end
+                end
+            end
+            data[4] = nil
+        end
+        if type(data[5]) == "number" and data[9] == nil then
+            data[9] = data[5]
+            data[5] = nil
+        end
+    end
+
+    -- Merge character-specific learned NPC data into global pool
+    if Questie.db and Questie.db.char and Questie.db.char.npcs then
+        for npcId, data in pairs(Questie.db.char.npcs) do
+            local globalData = learned.npcs[npcId]
+            if not globalData then
+                learned.npcs[npcId] = data
+            else
+                -- Merge spawns: char data may be old ([4]) or new ([7]) format
+                local charSpawns = data[7] or data[4]
+                local globalSpawns = globalData[7] or globalData[4]
+                if charSpawns then
+                    if not globalSpawns then
+                        globalData[7] = {}
+                        globalSpawns = globalData[7]
+                    end
+                    for zoneId, coords in pairs(charSpawns) do
+                        globalSpawns[zoneId] = globalSpawns[zoneId] or {}
+                        for _, coord in ipairs(coords) do
+                            InsertIfNewBucket(globalSpawns[zoneId], coord[1], coord[2])
+                        end
+                    end
+                end
+                -- Adopt zoneId if missing
+                if not globalData[9] and data[9] then globalData[9] = data[9] end
+                if not globalData[5] and data[5] then globalData[5] = data[5] end
+            end
+        end
+        Questie.db.char.npcs = nil
+    end
+
     local npcCount, questCount, itemCount, objectCount = 0, 0, 0, 0
 
     -- Migration: fix spawn zone keys that were stored as uiMapId instead of areaId.
     -- Before the GetZoneId() fix, kills on maps like Sunstrider Isle (uiMapId 1241)
-    -- were stored under key 1241 instead of the correct areaId 3430.
+    -- were stored under key 1241 instead of the correct areaId 3431.
     -- Convert any uiMapId keys to areaId using ZoneDB.
     local zonesFixed = 0
     for npcId, data in pairs(learned.npcs) do
@@ -1181,6 +1298,82 @@ function QuestieLearner:InjectLearnedData()
         Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Migrated", zonesFixed, "spawn zone keys from uiMapId to areaId")
     end
 
+    -- Also fix [9] zone field for NPCs and [5] zone field for Objects
+    -- that were stored as uiMapId instead of areaId (e.g. 1241 → 3431).
+    local fieldsFixed = 0
+    for npcId, data in pairs(learned.npcs) do
+        if type(data[9]) == "number" and ZoneDB and ZoneDB.GetAreaIdByUiMapId then
+            local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(data[9])
+            if maybeAreaId and maybeAreaId ~= data[9] then
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] NPC", npcId, "zone field [9]", data[9], "->", maybeAreaId)
+                data[9] = maybeAreaId
+                fieldsFixed = fieldsFixed + 1
+            end
+        end
+    end
+    for objId, data in pairs(learned.objects) do
+        if type(data[5]) == "number" and ZoneDB and ZoneDB.GetAreaIdByUiMapId then
+            local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(data[5])
+            if maybeAreaId and maybeAreaId ~= data[5] then
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Object", objId, "zone field [5]", data[5], "->", maybeAreaId)
+                data[5] = maybeAreaId
+                fieldsFixed = fieldsFixed + 1
+            end
+        end
+    end
+    if fieldsFixed > 0 then
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Fixed", fieldsFixed, "zone fields from uiMapId to areaId")
+    end
+
+    -- Purge player-spawned totems from learned NPCs (they are not real world spawns)
+    -- Also purge NPCs with entirely empty spawn data (stale learner artifacts)
+    local purgedNpcs = 0
+    local PLAYER_SPAWNED_NPCS = {
+        [2523] = true,    -- Searing Totem
+        [2630] = true,    -- Earthbind Totem
+        [10183] = true,   -- Moonflare Totem
+        [1103907] = true, -- Healing Stream Totem III
+        [1107398] = true, -- Stoneclaw Totem V
+    }
+    for npcId, data in pairs(learned.npcs) do
+        if PLAYER_SPAWNED_NPCS[npcId] then
+            learned.npcs[npcId] = nil
+            purgedNpcs = purgedNpcs + 1
+            Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Purged player-spawned NPC", npcId, data[1] or "?")
+        elseif data[7] then
+            -- Check for empty spawn table (no coords at all = stale learner artifact)
+            local hasCoords = false
+            for zoneKey, coords in pairs(data[7]) do
+                if type(coords) == "table" and #coords > 0 then
+                    hasCoords = true
+                    break
+                end
+            end
+            if not hasCoords then
+                learned.npcs[npcId] = nil
+                purgedNpcs = purgedNpcs + 1
+                Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Purged NPC with empty spawns", npcId, data[1] or "?")
+            end
+        end
+    end
+    if purgedNpcs > 0 then
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Purged", purgedNpcs, "invalid NPCs from learned data")
+    end
+
+    -- Purge Object entries that duplicate NPC entries (mobs learned as both NPC and Object).
+    -- NPC data is richer (has names, quest IDs), so keep the NPC version and remove the Object.
+    local dupObjectsRemoved = 0
+    for objId, _ in pairs(learned.objects) do
+        if learned.npcs[objId] then
+            learned.objects[objId] = nil
+            dupObjectsRemoved = dupObjectsRemoved + 1
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Removed duplicate Object", objId, "(NPC version exists)")
+        end
+    end
+    if dupObjectsRemoved > 0 then
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Removed", dupObjectsRemoved, "Object entries that duplicate NPC entries")
+    end
+
     -- 1. NPCs
     local npcIdsToFix = {}
     for npcId, data in pairs(learned.npcs) do
@@ -1214,6 +1407,87 @@ function QuestieLearner:InjectLearnedData()
     for old, new in pairs(npcIdsToFix) do
         learned.npcs[new] = learned.npcs[old]
         learned.npcs[old] = nil
+    end
+
+    -- Diagnostic: log how many NPCs were injected with spawn overrides
+    local spawnOverrideCount = 0
+    for nid, ovr in pairs(QuestieDB.npcDataOverrides) do
+        if ovr[7] and next(ovr[7]) then
+            spawnOverrideCount = spawnOverrideCount + 1
+        end
+    end
+    Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieLearner] InjectLearnedData: injected", npcCount, "NPCs (", spawnOverrideCount, "with spawn overrides)")
+
+    -- Purge garbage quest entries: quests with no name [1] and only mc/ls metadata.
+    -- These are Ascension internal tracking artifacts (hash-like IDs) with no real quest data.
+    -- Also purge quest 788 ("Mottled Boar slain") which is an objective text, not a quest name.
+    local purgedQuests = 0
+    local OBJECTIVE_TEXT_QUEST_IDS = {
+        [788] = true, -- "Mottled Boar slain" — objective text, not a quest
+    }
+    for questId, data in pairs(learned.quests) do
+        local hasRealData = false
+        -- Check if quest has any meaningful data beyond mc/ls metadata
+        if type(data[1]) == "string" and data[1] ~= "" then
+            hasRealData = true
+        end
+        -- Also check for objective data, level, zone, etc.
+        if not hasRealData then
+            for k, v in pairs(data) do
+                if k ~= "mc" and k ~= "ls" then
+                    hasRealData = true
+                    break
+                end
+            end
+        end
+        local qid = tonumber(questId)
+        if not hasRealData or (qid and OBJECTIVE_TEXT_QUEST_IDS[qid]) then
+            local reason = not hasRealData and "garbage" or "objective-text"
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Purged", reason, "quest", questId, data[1] or "?")
+            learned.quests[questId] = nil
+            purgedQuests = purgedQuests + 1
+        end
+    end
+    if purgedQuests > 0 then
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Purged", purgedQuests, "invalid quests (garbage/objective-text)")
+    end
+
+    -- Infer sortKey [17] from zone data [3] for quests that have a name but no sortKey.
+    -- Field [3] contains zone/area info (e.g. {{470}} for Ghostlands, {{414}} for Zul'Drak).
+    -- The sortKey should be the areaId from [3] so the quest appears in the correct zone in the UI.
+    local sortKeysInferred = 0
+    for questId, data in pairs(learned.quests) do
+        if data[1] and not data[17] and data[3] then
+            -- [3] can be a table of tables: {{414}} or nested {{414, ...}, ...}
+            -- Extract the first numeric areaId from it
+            local sortKey = nil
+            if type(data[3]) == "table" then
+                -- Walk into nested tables to find the first numeric value
+                local function findFirstNumber(t)
+                    if type(t) ~= "table" then return nil end
+                    for i = 1, #t do
+                        if type(t[i]) == "number" then
+                            return t[i]
+                        elseif type(t[i]) == "table" then
+                            local result = findFirstNumber(t[i])
+                            if result then return result end
+                        end
+                    end
+                    return nil
+                end
+                sortKey = findFirstNumber(data[3])
+            elseif type(data[3]) == "number" then
+                sortKey = data[3]
+            end
+            if sortKey then
+                data[17] = sortKey
+                sortKeysInferred = sortKeysInferred + 1
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Inferred sortKey", sortKey, "for quest", questId, data[1])
+            end
+        end
+    end
+    if sortKeysInferred > 0 then
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Inferred sortKey for", sortKeysInferred, "quests from zone data")
     end
 
     -- 2. Quests
@@ -1512,7 +1786,7 @@ function QuestieLearner:OnMouseoverUnit()
     local level = UnitLevel("mouseover")
     local zoneText = GetRealZoneText()
     local areaId = _Learner.zoneCache[zoneText]
-    if not areaId then
+    if not areaId and l10n and l10n.GetAreaIdByLocalName then
         areaId = l10n:GetAreaIdByLocalName(zoneText)
         if areaId then
             _Learner.zoneCache[zoneText] = areaId
@@ -1707,7 +1981,7 @@ function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
 
     -- Zone: reverse-lookup from GetRealZoneText() which is always accurate on 3.3.5.
     local zoneText = GetRealZoneText()
-    if zoneText and zoneText ~= "" then
+    if zoneText and zoneText ~= "" and l10n and l10n.GetAreaIdByLocalName then
         local areaId = l10n:GetAreaIdByLocalName(zoneText)
         if areaId and areaId > 0 then
             data[17] = areaId
@@ -1973,12 +2247,27 @@ function QuestieLearner:OnCombatLogEvent(...)
     if not dstGUID then return end
 
     local npcId = GetNpcIdFromGUID(dstGUID)
+    local name = dstName
+
+    -- Fallback chain for mob name: combat-log dstName → cached target/mouseover → current target unit
+    if not name or name == "" then
+        if _Learner.guidNpcCache then
+            local cached = _Learner.guidNpcCache[dstGUID]
+            if cached and cached.name and cached.name ~= "" then
+                name = cached.name
+            end
+        end
+    end
+    if not name or name == "" then
+        if UnitGUID("target") == dstGUID then
+            name = UnitName("target")
+        end
+    end
 
     if not npcId and _Learner.guidNpcCache then
         local cached = _Learner.guidNpcCache[dstGUID]
         if cached then
             npcId = cached.npcId
-            if not dstName then dstName = cached.name end
         end
     end
 
@@ -1993,7 +2282,7 @@ function QuestieLearner:OnCombatLogEvent(...)
     local zoneText = GetRealZoneText and GetRealZoneText() or ""
     _Learner.recentKills[dstGUID] = {
         npcId  = npcId,
-        name   = dstName or "",
+        name   = name or "",
         x      = px,
         y      = py,
         zoneId = zoneId,
@@ -2004,6 +2293,9 @@ function QuestieLearner:OnCombatLogEvent(...)
     if dstName and dstName ~= "" then
         Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Kill cached for correlation:", npcId, dstName, "@", tostring(px), tostring(py), "zone", tostring(zoneId))
     end
+
+    -- Unconditionally map the spawn position for Ascension DB building
+    self:LearnNPC(npcId, name, nil, nil, nil, nil, px, py, zoneId)
 
     -- TTL cleanup: drop entries older than 10 minutes
     local now = time()

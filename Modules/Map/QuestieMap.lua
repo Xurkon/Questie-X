@@ -58,18 +58,12 @@ local fadeLogicTimerShown
 local fadeLogicCoroutine
 
 local function _ResolveMapUiMapId(uiMapId, x, y)
-    -- Ascension zone mapping: On Ascension, Sunstrider Isle (uiMapId 1241) shares
-    -- Eversong Woods' (1941) coordinate space. Zone 3430 (Eversong Woods) data
-    -- now correctly maps to uiMapId 1941 via GetUiMapIdByAreaId(3430)=1941.
-    -- These Eversong-map pins appear on the Sunstrider sub-map (1241) via
-    -- ZONE_REDIRECT visibility in HBD.lua.
-    --
-    -- Redirect any remaining map-1241 pins to 1941. On Ascension, map 1241
-    -- does not have its own independent coordinate space — it IS Eversong's
-    -- space. Pins destined for 1241 must use 1941's bounds for correct rendering.
-    if uiMapId == 1241 then
+    -- Ghost map 946 has no real coordinate data; redirect to Eversong (1941).
+    if uiMapId == 946 then
         return 1941
     end
+    -- Map 1241 (Sunstrider Isle) now has its own Ascension-calibrated bounds
+    -- and pins on 1241 render correctly on the Sunstrider sub-map. No redirect.
     return uiMapId
 end
 
@@ -678,7 +672,7 @@ end
 local closestStarter = {}
 function QuestieMap:FindClosestStarter()
     local playerX, playerY, _ = HBD:GetPlayerWorldPosition();
-    local playerZone = HBD:GetPlayerWorldPosition();
+    local playerZone = QuestiePlayer:GetCurrentUiMapId();
     for questId in pairs(QuestiePlayer.currentQuestlog) do
         if (not closestStarter[questId]) then
             local quest = QuestieDB.GetQuest(questId);

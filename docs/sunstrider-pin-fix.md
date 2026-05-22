@@ -17,7 +17,8 @@ NPC spawn data: zone 3430 (Eversong) → GetUiMapIdByAreaId(3430) → uiMapId 19
 | Lookup | From | To | Purpose |
 |--------|------|----|---------|
 | `GetUiMapIdByAreaId(3430)` | areaId 3430 | uiMapId 1941 | Pin placement on Eversong map |
-| `GetAreaIdByUiMapId(1241)` | uiMapId 1241 | areaId 3430 | Zone ID for spawn data keys |
+| `GetUiMapIdByAreaId(3431)` | areaId 3431 | uiMapId 1941 | Pin placement on Eversong map (Sunstrider subzone) |
+| `GetAreaIdByUiMapId(1241)` | uiMapId 1241 | areaId 3431 | Zone ID for spawn data keys (Sunstrider subzone) |
 | `_ResolveMapUiMapId(1241)` | uiMapId 1241 | uiMapId 1941 | Normalize pin rendering |
 | `_ResolveArrowUiMapId(1241)` | uiMapId 1241 | uiMapId 1941 | Arrow math normalization |
 | `ZONE_REDIRECT[1241]` | uiMapId 1241 | uiMapId 1941 | Cross-visibility |
@@ -32,7 +33,7 @@ percentages (e.g., NPC 15278 at 38.02%, 21.01%). These render correctly on
 the Eversong map (1941). Mapping 3430→1241 would place Eversong-wide
 coordinates on the Sunstrider sub-map, producing wrong positions.
 
-Pins from zone 3430 render on uiMapId 1941 (Eversong) and appear on uiMapId
+Pins from zones 3430 and 3431 render on uiMapId 1941 (Eversong) and appear on uiMapId
 1241 (Sunstrider) via ZONE_REDIRECT visibility, which works because
 `ResolveZone(1241) == ResolveZone(1941) == 1941`.
 
@@ -54,6 +55,7 @@ Pins from zone 3430 render on uiMapId 1941 (Eversong) and appear on uiMapId
 - `_ResolveArrowUiMapId(1241)` → 1941
 - `_ResolveArrowUiMapId(946)` → 1941
 - Comment updated to match new approach
+- **Arrow rendering**: Replaced sprite sheet (108-frame) with single-frame texture + `SetRotation(-angle)` for infinite angular resolution and zero jitter. Arrow texture is now X-PLORE's `XPArrow4.tga` (256×256 RGBA, arrow pointing UP centered at 128,128). Removed all `ARROW_SHEET_*`, `ARROW_CELL_*`, UV math, and `SetTexCoord` cell selection logic. Arrow uses `ARROW_DISPLAY_SIZE=96` for on-screen pixel size and `SetPoint("CENTER")` anchor for clean rotation pivot. `SetVertexColor(1,1,1)` preserves original blue color.
 
 ### Modules/QuestieLearner.lua
 - `GetZoneId()`: Returns areaId via `ZoneDB:GetAreaIdByUiMapId(uiMapId)` with fallback
@@ -234,3 +236,71 @@ Expected: `ResolveZone(1241)= 1941  ResolveZone(946)= 1941`
 - [ ] After 1+ kill, verify learned pin auto-appears at correct position
 - [ ] Verify Eversong Woods NPCs NOT on Sunstrider show correctly on Eversong map
 - [ ] Check no regressions on other zones
+- [ ] **Complete-abandon-reaccept cycle**: Complete a quest's objectives → abandon → re-accept → verify pins appear for fresh 0/X objectives
+- [ ] **Arrow rendering**: Verify arrow shows a single blue arrow (not sprite sheet), smooth rotation with no visible frame transitions, correct direction toward quest objectives, and correct display size
+- [ ] **Learner data in arrow**: Verify arrow targets point to QuestieLearner-injected NPC spawn locations correctly
+- [ ] **QUEST_TURNED_IN auto-complete**: Verify quests that auto-complete on turn-in clean up state properly (no orphan pins)
+
+## Complete-Abandon-Reaccept Pin Lifecycle Fix (Session 2026-05-17)
+
+### Bug Chain
+
+Four interacting bugs prevented map pins and GPS arrow from reappearing after
+completing quest objectives, abandoning the quest, and re-accepting it:
+
+1. **MarkQuestAsAbandoned `objectivesWereComplete` path** — called `CompleteQuest`
+   without clearing `quest.Objectives`, `quest.WasComplete`, or `quest.isComplete`.
+   Stale `Completed=true` + `isUpdated=true` flags caused `PopulateObjectiveNotes`
+   to skip drawing pins on re-accept.
+
+2. **CompleteQuest** — did not clear `quest.Objectives` (unlike `AbandonedQuest`
+   which does). Now adds `quest.Objectives = {}` with type guard as defense-in-depth.
+
+3. **QUEST_TURNED_IN dead code** — `questLog[questId] = {}` wiped state before the
+   QUEST_TURNED_IN state check could read it, making auto-complete cleanup unreachable.
+   Moved the check before the wipe.
+
+4. **AcceptQuest reset** — added `SetObjectivesDirty(questId)` in the re-accept block
+   to ensure `isUpdated` flags are reset even if stale objectives survive.
+
+5. **Arrow spawnList gap** — `_CollectObjective` silently skipped objectives with
+   nil/empty `spawnList`. After quest re-accept, `PopulateQuestLogInfo` creates
+   objectives without `spawnList`; `PopulateObjectiveNotes` builds it later in the
+   TaskQueue. Added `QuestieQuest:BuildObjectiveSpawnList(objective, objectiveData)`
+   public API that lazily builds `spawnList` from `objectiveSpawnListCallTable` handlers.
+   The arrow now calls this when `spawnList` is missing.
+
+### Files Changed
+
+- **QuestEventHandler.lua** (~line 443-461): MarkQuestAsAbandoned — clear stale
+  objectives/flags + SetObjectivesDirty before CompleteQuest
+- **QuestEventHandler.lua** (~line 233): QUEST_TURNED_IN — moved state check before
+  questLog[questId] = {} wipe
+- **QuestieQuest.lua** (~line 492): AcceptQuest reset — added SetObjectivesDirty(questId)
+- **QuestieQuest.lua** (~line 583): CompleteQuest — added `quest.Objectives = {}`
+- **QuestieQuest.lua** (~line 1996-2018): New `BuildObjectiveSpawnList` public API
+- **QuestieArrow.lua** (~line 726-760): _CollectObjective — lazy spawnList building
+  via `QuestieQuest:BuildObjectiveSpawnList()`
+## UpdateQuest Pin Refresher Fallback (Session 2026-05-17)
+
+### Problem
+After reload or abandon-reaccept, incomplete quests sometimes have no objective pins
+on the map even though they are in the quest log. This happens when:
+1. `PopulateQuestLogInfo` hits a cache miss and leaves `quest.Objectives` empty.
+2. `UnloadQuestFrames` removes map frames but `AlreadySpawned` is not cleared,
+   so `_DetermineIconsToDraw` skips recreating icons on the next refresh.
+
+### Fix
+Added a robustness fallback in `QuestieQuest:UpdateQuest()` (incomplete branch):
+- If `quest.Objectives` is empty → re-call `PopulateQuestLogInfo()`, then
+  `PopulateObjectiveNotes()` if objectives were created.
+- If objectives exist but `QuestieMap.questIdFrames[questId]` is nil → clear
+  `objective.AlreadySpawned = {}` for all objectives, then re-call
+  `PopulateObjectiveNotes()` to force icon recreation.
+
+This ensures that ANY incomplete quest in the log gets its pins re-added on the
+next periodic refresh (30s) or `QUEST_LOG_UPDATE` if they were lost.
+
+### Files Changed
+- **QuestieQuest.lua** (~line 833): Added `hasObjectives` / `hasFrames` fallback
+  in the `isComplete == 0` branch of `UpdateQuest`.

@@ -58,6 +58,14 @@ local deletedQuestItem = false
 local _bagUpdateDebounceTimer = nil
 local _bagUpdateFollowUpTimer = nil
 
+-- Periodic quest state verification timer.
+-- Ascension server events (QUEST_LOG_UPDATE, UNIT_QUEST_LOG_CHANGED) can be
+-- unreliable or delayed, causing stale quest.isComplete / quest.WasComplete flags
+-- to persist across reload/reaccept cycles. This timer forces a full quest log
+-- reconciliation every 30 seconds so pins and arrows stay accurate.
+local _periodicRefreshTimer = nil
+local PERIODIC_REFRESH_SECONDS = 30
+
 --- Registers all events that are required for questing (accepting, removing, objective updates, ...)
 function QuestEventHandler:RegisterEvents()
     Questie:Debug(Questie.DEBUG_DEVELOP, "[Quest Event] RegisterEvents")
@@ -76,6 +84,18 @@ function QuestEventHandler:RegisterEvents()
 
     eventFrame:RegisterEvent("CHAT_MSG_COMBAT_FACTION_CHANGE")
     eventFrame:SetScript("OnEvent", _QuestEventHandler.OnEvent)
+
+    -- Start periodic quest state verification timer.
+    -- On Ascension, QUEST_LOG_UPDATE events can be unreliable. This timer forces
+    -- a full reconciliation every 30 seconds, catching stale isComplete/WasComplete
+    -- flags and ensuring objective spawnLists stay populated for active quests.
+    if not _periodicRefreshTimer then
+        _periodicRefreshTimer = C_Timer.NewTicker(PERIODIC_REFRESH_SECONDS, function()
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[Quest Event] Periodic refresh: forcing full quest log scan")
+            doFullQuestLogScan = true
+            _QuestEventHandler:QuestLogUpdate()
+        end)
+    end
 
     -- StaticPopup dialog hooks. Deleteing Quest items do not always trigger a Quest Log Update.
     hooksecurefunc("StaticPopup_Show", function(...)
@@ -230,6 +250,20 @@ function _QuestEventHandler:QuestAccepted(questLogIndex, questId)
         end)
     end
 
+    -- If the quest was already in questLog as QUEST_TURNED_IN (e.g. Ebonhold Call Board repeatable
+    -- quests that vanish without a proper QUEST_REMOVED event), clean up before re-accepting so the
+    -- tracker doesn't show it as already complete.
+    -- NOTE: Must check BEFORE wiping questLog[questId] below, otherwise the state check is always false.
+    local wasTurnedIn = questLog[questId] and questLog[questId].state == QUEST_LOG_STATES.QUEST_TURNED_IN
+    if wasTurnedIn then
+        Questie:Debug(Questie.DEBUG_INFO, "Quest:", questId, "re-accepted after auto-complete, clearing stale state")
+        QuestLogCache.RemoveQuest(questId)
+        QuestieQuest:CompleteQuest(questId) -- clears per-quest data
+        QuestieJourney:CompleteQuest(questId)
+        QuestieAnnounce:CompletedQuest(questId)
+        QuestieTracker:RemoveQuest(questId)
+    end
+
     questLog[questId] = {}
 
     -- Timed quests do not need a full Quest Log Update.
@@ -239,19 +273,6 @@ function _QuestEventHandler:QuestAccepted(questLogIndex, questId)
         skipNextUQLCEvent = false
     else
         skipNextUQLCEvent = true
-    end
-
-    -- If the quest was already in questLog as QUEST_TURNED_IN (e.g. Ebonhold Call Board repeatable
-    -- quests that vanish without a proper QUEST_REMOVED event), clean up before re-accepting so the
-    -- tracker doesn't show it as already complete.
-    if questLog[questId] and questLog[questId].state == QUEST_LOG_STATES.QUEST_TURNED_IN then
-        Questie:Debug(Questie.DEBUG_INFO, "Quest:", questId, "re-accepted after auto-complete, clearing stale state")
-        QuestLogCache.RemoveQuest(questId)
-        QuestieQuest:CompleteQuest(questId) -- clears per-quest data
-        QuestieJourney:CompleteQuest(questId)
-        QuestieAnnounce:CompletedQuest(questId)
-        QuestieTracker:RemoveQuest(questId)
-        questLog[questId] = nil
     end
 
     QuestieCombatQueue:Queue(function()
@@ -266,8 +287,10 @@ end
 ---@param questId number
 ---@return boolean true @if the function was successful, false otherwise
 function _QuestEventHandler:HandleQuestAccepted(questId)
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestEventHandler] HandleQuestAccepted - questId:", questId)
     local idx = QuestieCompat.GetQuestLogIndexByID(questId)
     if not idx then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestEventHandler] HandleQuestAccepted - NO quest log index yet, retrying for questId:", questId)
         _QuestLogUpdateQueue:Insert(function()
             return _QuestEventHandler:HandleQuestAccepted(questId)
         end)
@@ -277,7 +300,7 @@ function _QuestEventHandler:HandleQuestAccepted(questId)
     local cacheMiss, changes = QuestLogCache.CheckForChanges({ [questId] = true })
     if cacheMiss then
         -- if cacheMiss, no need to check changes as only 1 questId
-        Questie:Debug(Questie.DEBUG_INFO, "Objectives are not cached yet")
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestEventHandler] HandleQuestAccepted - CACHE MISS for questId:", questId, "- retrying later")
         _QuestLogUpdateQueue:Insert(function()
             return _QuestEventHandler:HandleQuestAccepted(questId)
         end)
@@ -285,7 +308,7 @@ function _QuestEventHandler:HandleQuestAccepted(questId)
         return false
     end
 
-    Questie:Debug(Questie.DEBUG_INFO, "Objectives are correct. Calling accept logic. quest:", questId)
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestEventHandler] HandleQuestAccepted - cache ready, calling AcceptQuest for questId:", questId)
     questLog[questId].state = QUEST_LOG_STATES.QUEST_ACCEPTED
     QuestieQuest:SetObjectivesDirty(questId)
 
@@ -446,6 +469,16 @@ function _QuestEventHandler:MarkQuestAsAbandoned(questId)
             Questie:Debug(Questie.DEBUG_INFO, "Quest:", questId,
                 "objectives were complete - treating as completed (auto-complete quest)")
             questEntry.state = QUEST_LOG_STATES.QUEST_TURNED_IN
+
+            -- Clear stale objective data so re-accepting this quest later doesn't
+            -- inherit Cached "Completed = true" / "isUpdated = true" flags that
+            -- would cause PopulateObjectiveNotes to skip drawing map pins.
+            if quest then
+                quest.Objectives = {}
+                quest.WasComplete = nil
+                quest.isComplete = nil
+            end
+            QuestieQuest:SetObjectivesDirty(questId)
 
             QuestLogCache.RemoveQuest(questId)
             QuestieQuest:CompleteQuest(questId)

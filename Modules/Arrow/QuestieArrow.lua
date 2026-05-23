@@ -135,9 +135,10 @@ end
 
 local function _ResolveArrowUiMapId(uiMapId)
     -- Ghost map 946 has no real coordinate data; redirect to Eversong (1941).
-    -- Ascension custom map 1241 (Sunstrider Isle) must also redirect to 1941
-    -- so target world coords match player world coords (both in Eversong space).
-    if uiMapId == 946 or uiMapId == 1241 then
+    -- NOTE: 1241 (Sunstrider Isle) is no longer redirected here - zoneDB now
+    -- maps areaId 3431 → uiMapId 1241, and player is on uiMapId 1241, so 1241
+    -- stays as 1241 for correct world-coord computation via its own bounds.
+    if uiMapId == 946 then
         return 1941
     end
     return uiMapId

@@ -679,6 +679,16 @@ local function _CollectObjective(objective, quest)
     local debugCollect = Questie and Questie.db and Questie.db.profile and Questie.db.profile.debugArrow
     if debugCollect then
         print(string.format("    _CollectObjective: spawnList=%s", objective.spawnList and "yes" or "nil"))
+        for id, spawnData in pairs(objective.spawnList) do
+            if spawnData and spawnData.Spawns then
+                for zone, spawns in pairs(spawnData.Spawns) do
+                    if spawns and #spawns > 0 then
+                        print(string.format("      spawnList[%d]: zone=%s firstCoord=(%.2f,%.2f) isLearned=%s",
+                            id, tostring(zone), spawns[1][1], spawns[1][2], tostring(spawnData.isLearned)))
+                    end
+                end
+            end
+        end
     end
     if not objective.spawnList then return end
     for _, spawnData in pairs(objective.spawnList) do
@@ -1189,6 +1199,11 @@ function QuestieArrow:PrintTargetCoords()
     print("  Zone Coords: " .. string.format("%.1f, %.1f", target.x, target.y))
     print("  UI Map ID: " .. tostring(target.uiMapId))
     print("  Distance: " .. string.format("%.0f", target.distance))
+    -- Debug: show world coords computed from zone coord + uiMapId
+    local tX, tY, tInst = HBD:GetWorldCoordinatesFromZone(target.x / 100.0, target.y / 100.0, target.uiMapId)
+    if tX and tY then
+        print("  World Coords: " .. string.format("%.1f, %.1f", tX, tY))
+    end
 end
 
 function QuestieArrow:DebugPrint()

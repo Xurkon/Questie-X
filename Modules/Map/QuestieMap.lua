@@ -62,8 +62,10 @@ local function _ResolveMapUiMapId(uiMapId, x, y)
     if uiMapId == 946 then
         return 1941
     end
-    -- Map 1241 (Sunstrider Isle) now has its own Ascension-calibrated bounds
-    -- and pins on 1241 render correctly on the Sunstrider sub-map. No redirect.
+    -- Map 1241 (Sunstrider Isle): the game engine returns player world
+    -- coordinates in Sunstrider space (mapData[1241] calibrated bounds).
+    -- Pins MUST also convert through mapData[1241] so they share the same
+    -- world space as the player on the minimap. Do NOT redirect to 1941.
     return uiMapId
 end
 

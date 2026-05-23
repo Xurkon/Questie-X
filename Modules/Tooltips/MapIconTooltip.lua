@@ -503,23 +503,25 @@ function MapIconTooltip:Show()
                     local minLevel = creatureLevels[name][1]
                     local maxLevel = creatureLevels[name][2]
                     local rank = creatureLevels[name][3]
-                    if minLevel == maxLevel then
-                        levelString = name .. " (" .. minLevel
-                    else
-                        levelString = name .. " (" .. minLevel .. "-" .. maxLevel
-                    end
+                    if minLevel and maxLevel then
+                        if minLevel == maxLevel then
+                            levelString = name .. " (" .. minLevel
+                        else
+                            levelString = name .. " (" .. minLevel .. "-" .. maxLevel
+                        end
 
-                    if rank and rank == 1 then
-                        levelString = levelString .. "+"
-                    elseif rank and rank == 2 then
-                        levelString = levelString .. " " .. l10n("Rare Elite")
-                    elseif rank and rank == 3 then
-                        levelString = levelString .. " Boss"
-                    elseif rank and rank == 4 then
-                        levelString = levelString .. " " .. l10n("Rare")
-                    end
+                        if rank and rank == 1 then
+                            levelString = levelString .. "+"
+                        elseif rank and rank == 2 then
+                            levelString = levelString .. " " .. l10n("Rare Elite")
+                        elseif rank and rank == 3 then
+                            levelString = levelString .. " Boss"
+                        elseif rank and rank == 4 then
+                            levelString = levelString .. " " .. l10n("Rare")
+                        end
 
-                    levelString = levelString .. ")"
+                        levelString = levelString .. ")"
+                    end
                 end
                 return levelString
             end

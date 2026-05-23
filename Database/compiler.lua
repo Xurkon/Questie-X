@@ -1439,10 +1439,16 @@ function QuestieDBCompiler:GetDBHandle(data, pointers, skipMap, keyToRootIndex, 
         ---@param key string
         ---@return any
         handle.QuerySingle = function(id, key)
-            local override = overrides[id]
-            if override then
+            -- Check override first for custom server data
+            if overrides and overrides[id] then
                 local kti = keyToRootIndex[key]
-                if kti and override[kti] ~= nil then return override[kti] end
+                if kti then
+                    local overrideVal = overrides[id][kti]
+                    -- Only use override if it has actual data (not nil, not empty table)
+                    if overrideVal ~= nil and not (type(overrideVal) == "table" and next(overrideVal) == nil) then
+                        return overrideVal
+                    end
+                end
             end
             local ptr = pointers[id]
             if not ptr then

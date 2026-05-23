@@ -52,8 +52,12 @@ QuestieCompat.HBD = HBD
 --      33-38%/18-25% range, which maps to Sunstrider's location WITHIN Eversong
 --
 -- ZONE_REDIRECT: used by ResolveZone() for visibility logic (isSameZoneSpace).
+-- NOTE: 1241 is NOT redirected to 1941. Map 1241 (Sunstrider) has its own
+-- calibrated bounds that produce a different world coordinate space than
+-- Eversong. Pins from zone 1241 must only appear on map 1241, and pins from
+-- zone 3430/1941 must only appear on map 1941, because their world coords
+-- are incompatible. The arrow handles 1241→1941 conversion internally.
 local ZONE_REDIRECT = {
-    [1241] = 1941,  -- Sunstrider Isle -> Eversong Woods (shared visibility space)
     [946]  = 1941,  -- Ghost/transition map -> Eversong Woods (for Sunstrider loading)
 }
 
@@ -137,9 +141,10 @@ end)
 --- @param y Y position in 0-1 point coordinates
 --- @param zone uiMapID of the zone
 function HBD:GetWorldCoordinatesFromZone(x, y, zone)
-    -- Ascension: mapData[1241] and [946] have been overridden with Eversong bounds
-    -- at startup, so coordinate calls for these zones now use Eversong's coordinate
-    -- space naturally. No redirect needed here.
+    -- Ascension: mapData[946] has been overridden with Eversong bounds.
+    -- mapData[1241] has its own calibrated bounds that match the game engine's
+    -- Sunstrider coordinate space. Both convert through their own bounds —
+    -- no redirect needed here because _ResolveMapUiMapId passes 1241 through.
     local data = mapData[zone]
     if not data or data[1] == 0 or data[2] == 0 then
         -- Attempt to lazy-load the real HBD if we haven't yet
@@ -167,9 +172,9 @@ end
 --- @param zone uiMapID of the zone
 --- @param allowOutOfBounds Allow coordinates to go beyond the current map (ie. outside of the 0-1 range), otherwise nil will be returned
 function HBD:GetZoneCoordinatesFromWorld(x, y, zone, allowOutOfBounds)
-    -- Ascension: mapData[1241] and [946] have been overridden with Eversong bounds
-    -- at startup, so coordinate calls for these zones now use Eversong's coordinate
-    -- space naturally. No redirect needed here.
+    -- Ascension: mapData[946] has been overridden with Eversong bounds.
+    -- mapData[1241] has its own calibrated bounds matching the engine's space.
+    -- No redirect needed — callers pass the correct zone directly.
     local data = mapData[zone]
     if not data or data[1] == 0 or data[2] == 0 then
         if not RealHBD then
@@ -743,9 +748,9 @@ local function HandleWorldMapPin(icon, data)
         end
 
         -- translate coordinates
-        -- Ascension: mapData[1241] and [946] have been overridden with Eversong bounds,
-        -- so cross-zone pin positioning (e.g., Eversong 1941 pins on Sunstrider 1241 map)
-        -- works naturally — both zones share the same coordinate space.
+        -- Ascension: mapData[1241] has calibrated Sunstrider bounds matching
+        -- the game engine's coordinate space. Pins on zone 1241 use these
+        -- bounds for world coord conversion, so they align with the player.
         x, y = HBD:GetZoneCoordinatesFromWorld(data.x, data.y, uiMapID)
         -- [HBD-Pins] pin position debug disabled
     end

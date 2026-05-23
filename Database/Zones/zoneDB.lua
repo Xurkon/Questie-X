@@ -52,8 +52,7 @@ local UiMapIdOverrides = {
     [1415] = 668, -- Eastern Kingdoms (matches Undercity on Ascension)
     -- [1241] intentionally NOT overridden: areaId 3430 = Eversong Woods (the whole zone),
     -- and should map to uiMapId 1941 (Eversong map) for proper coordinate rendering.
-    -- Sunstrider sub-zone pins are handled via ZONE_REDIRECT in HBD.lua (visibility)
-    -- and _ResolveMapUiMapId in QuestieMap.lua (coordinate conversion).
+    -- Zone 1241 pins render on map 1241 only (separate coordinate space from Eversong).
     [1238] = 668,  -- Northshire Valley child map (Conquest of Azeroth)
     -- [946] = 668 removed: both Sunstrider Isle AND Northshire Valley use 946 as ghost/zone map,
     -- so 946 cannot be overridden to a single zone. Instead, uiMapIdToAreaIdCache handles both.
@@ -78,8 +77,10 @@ areaIdToUiMapId[668] = 1238
 -- Pins for zone 1241 render on map 1241 (Sunstrider) using Ascension-calibrated bounds.
 ZoneDB.private.areaIdToUiMapId[3430] = 1941
 areaIdToUiMapId[3430] = 1941
-ZoneDB.private.areaIdToUiMapId[3431] = 1941
-areaIdToUiMapId[3431] = 1941
+-- Sunstrider Isle (3431) uses its own map (1241) with calibrated bounds.
+-- Pins for Sunstrider NPCs (zone 1241 coords) must appear on map 1241, not 1941.
+ZoneDB.private.areaIdToUiMapId[3431] = 1241
+areaIdToUiMapId[3431] = 1241
 -- Allow drawing pins directly on Sunstrider Isle (uiMapId 1241) via areaId 1241.
 ZoneDB.private.areaIdToUiMapId[1241] = 1241
 areaIdToUiMapId[1241] = 1241

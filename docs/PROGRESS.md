@@ -58,9 +58,23 @@ QuestieLearner is being hardened in phases. Each phase is committed and pushed s
 
 ---
 
-## Phase 3: Self-Healing Spawn Merge — ⏳ PENDING
+## Phase 3: Self-Healing Spawn Merge — ✅ COMPLETE
 
-**Status:** Not started. Depends on Phase 2 smoke test.
+**Status:** Committed and pushed.
+
+**Commit:** `dc96782` — weighted spawn merge
+
+**Test commit:** `2da18a8` — Phase 3 unit tests for spawn merge
+
+**Changes:**
+
+|| File | Change |
+||------|--------|
+|| `Modules/QuestieLearner.lua` | `_MergeSpawnEvidence(npcId)` (line ~928); kill handler integration (line ~2628) |
+
+**Purpose:** Collate all learned spawn evidence for an NPC, score by frequency, override static DB only when top spawn appears in >60% of evidence AND differs from static entry. Below 60%, both sources coexist.
+
+**Revert:** `git revert HEAD~1 --no-edit && git push` to undo Phase 3 features; `git revert HEAD~2 --no-edit && git push` to also undo test commit
 
 ---
 

@@ -92,7 +92,10 @@ end
 function AvailableQuests.UnloadUndoable()
     local questId, _ = next(availableQuests)
     while questId do
-        if (not QuestieDB.IsDoable(questId)) then
+        -- Only unload if the quest is no longer doable AND is not in the live quest log.
+        -- The currentQuestlog guard prevents removing frames for completed-but-logged quests
+        -- (e.g. Quest 8325) where IsDoable returns false but the quest is still accepted.
+        if (not QuestieDB.IsDoable(questId)) and not QuestiePlayer.currentQuestlog[questId] then
             QuestieMap:UnloadQuestFrames(questId)
         end
         questId, _ = next(availableQuests, questId)
@@ -438,7 +441,7 @@ local function StartPeriodicCleanup()
             
             local questId, frameList = next(QuestieMap.questIdFrames)
             while questId do
-                if completedQuests[questId] then
+                if completedQuests[questId] and not QuestiePlayer.currentQuestlog[questId] then
                     -- This quest is complete but still has frames on the map
                     Questie:Debug(Questie.DEBUG_INFO, "[AvailableQuests] Cleanup: Removing lingering frames for completed quest:", questId)
                     QuestieMap:UnloadQuestFrames(questId)

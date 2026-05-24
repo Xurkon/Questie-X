@@ -7,6 +7,8 @@ local l10n = QuestieLoader:ImportModule("l10n")
 
 ---@type QuestieDB
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
+---@type QuestiePlayer
+local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
 
 --- COMPATIBILITY ---
 local UnitGUID = QuestieCompat.UnitGUID
@@ -112,7 +114,7 @@ local function _PlayerHasQuest(questId)
     end
 
     -- 2) Turned in / completed
-    if IsQuestFlaggedCompleted and IsQuestFlaggedCompleted(questId) then
+    if IsQuestFlaggedCompleted and IsQuestFlaggedCompleted(questId) and not QuestiePlayer.currentQuestlog[questId] then
         return true
     end
 

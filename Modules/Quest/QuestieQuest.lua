@@ -453,13 +453,26 @@ end
 
 function QuestieQuest:HideQuest(id)
     Questie.db.char.hidden[id] = true
-    QuestieMap:UnloadQuestFrames(id)
-    QuestieTooltips:RemoveQuest(id)
+    -- Only unload frames/tooltips if the quest is NOT in the live quest log.
+    -- A completed-but-logged quest (e.g. Quest 8325) must keep its pins even when hidden.
+    if not QuestiePlayer.currentQuestlog[id] then
+        QuestieMap:UnloadQuestFrames(id)
+        QuestieTooltips:RemoveQuest(id)
+    end
 end
 
 function QuestieQuest:UnhideQuest(id)
     Questie.db.char.hidden[id] = nil
     AvailableQuests.CalculateAndDrawAll()
+end
+
+--- Returns true when a quest can be safely unloaded from the map/tooltip tracker.
+--- Completion is in char.complete AND the quest is not in the live quest log.
+--- Prevents Quest 8325 flicker: completed-but-logged quests must keep their pins.
+---@param questId number
+---@return boolean
+function QuestieQuest:IsSafeToUnloadQuestFrames(questId)
+    return Questie.db.char.complete[questId] and not QuestiePlayer.currentQuestlog[questId]
 end
 
 local allianceTournamentMarkerQuests = { [13684] = true, [13685] = true, [13688] = true, [13689] = true, [13690] = true,

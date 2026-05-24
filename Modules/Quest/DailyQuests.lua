@@ -110,7 +110,8 @@ function _DailyQuests:HandleDailyQuests(possibleQuestIds, currentQuestId, type)
             Questie.db.char.hiddenDailies[type][questId] = nil;
         else
             -- If the quest is not in the questlog remove all frames
-            if (GetQuestLogIndexByID(questId) == 0) then
+            -- Guard with currentQuestlog to prevent removing frames for completed-but-logged quests
+            if (GetQuestLogIndexByID(questId) == 0) and not QuestiePlayer.currentQuestlog[questId] then
                 _DailyQuests:HideDailyQuest(questId);
             end
             Questie.db.char.hiddenDailies[type][questId] = true;

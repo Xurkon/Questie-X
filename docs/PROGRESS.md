@@ -78,9 +78,18 @@ QuestieLearner is being hardened in phases. Each phase is committed and pushed s
 
 ---
 
-## Phase 4: Real-Time Tooltip Population — ⏳ PENDING
+## Phase 4: Real-Time Tooltip Population — ✅ COMPLETE
 
-**Status:** Not started. Depends on Phase 3.
+**Status:** Completed. Commit `c56f2c5`.
+
+**Features added:**
+- `_AddLearnedSpawnTooltipLine(unitToken)` — checks if the hovered unit is a learned NPC and adds "Learned spawn: (x, y) from N kills" via `GameTooltip:AddDoubleLine`
+- `_RegisterLearnedSpawnTooltipHook()` — registers the `GameTooltip:HookScript("OnTooltipSetUnit", ...)` hook once (guard prevents double-hook)
+- Hook called during `QuestieLearner:Initialize()` after all other setup
+
+**Spec tests:** `Modules/QuestieLearner_spec.lua` — 6 tests covering coordinate formatting, grammar (singular/plural), early-return guards, and data extraction path
+
+**Revert:** `git revert c467538 --no-edit && git push` undoes the feature commit; then `git revert c56f2c5 --no-edit && git push` also undoes the test commit
 
 ---
 

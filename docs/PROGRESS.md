@@ -93,9 +93,17 @@ QuestieLearner is being hardened in phases. Each phase is committed and pushed s
 
 ---
 
-## Phase 5: Comms Hardening — ⏳ PENDING
+## Phase 5: Comms Hardening — ✅ COMPLETE
 
-**Status:** Not started. Depends on Phase 4.
+**Status:** Completed. Commit `2f5312f`.
+
+**Features added:**
+- `_ValidateLearnedSpawnData(data)` — validates external learned spawn data before merge, checks: data is a table, spawns[zoneId] zoneId keys are numbers, each zone's coord list is a table of {x, y} pairs where x and y are numbers in the 0–100 range. Rejects strings, nil, out-of-range coords, and malformed nested structures silently (no crash).
+- Validation gate added at the start of `HandleNetworkData` before any merge
+
+**Spec tests:** `Modules/QuestieLearner_spec.lua` Phase 5 section — 15 cases covering valid data, missing spawn data, type failures (string/nil/number), string zoneId, string zoneSpawns, malformed coords, out-of-range coords (negative, > 100), boundary edge cases
+
+**Revert:** `git revert 3f8c9f5 --no-edit && git push` undoes feature; `git revert 2f5312f --no-edit && git push` also undoes test commit
 
 ---
 

@@ -3191,6 +3191,32 @@ end
 -- Network bridge
 ------------------------------------------------------------------------
 
+--- Validates learned spawn data from external sources (comms, import).
+--- Returns true if the data is safe to merge; false to reject silently.
+--- Checks: data is a table, spawns[zoneId] keys are numeric, coordinates
+--- in each zone are numbers within 0-100 range.
+---@param data table The learned entity data table (e.g. NPC entry)
+---@return boolean True if valid, false if malformed
+local function _ValidateLearnedSpawnData(data)
+    if type(data) ~= "table" then return false end
+
+    local spawns = data[7]
+    if not spawns then return true end  -- no spawn data is OK
+    if type(spawns) ~= "table" then return false end
+
+    for zoneId, zoneSpawns in pairs(spawns) do
+        if type(zoneId) ~= "number" then return false end
+        if type(zoneSpawns) ~= "table" then return false end
+        for _, coord in ipairs(zoneSpawns) do
+            if type(coord) ~= "table" then return false end
+            local x, y = coord[1], coord[2]
+            if type(x) ~= "number" or type(y) ~= "number" then return false end
+            if x < 0 or x > 100 or y < 0 or y > 100 then return false end
+        end
+    end
+    return true
+end
+
 function _Learner:BroadcastIfCommsAvailable(typ, id, data)
     local QuestieLearnerComms = QuestieLoader:ImportModule("QuestieLearnerComms")
     if QuestieLearnerComms and QuestieLearnerComms.BroadcastLearnedData then
@@ -3219,6 +3245,12 @@ function QuestieLearner:HandleNetworkData(typ, id, d, op)
         if not Questie.dbLearner.global.settings.learnObjects then return end
         store = Questie.dbLearner.global.objects
     else
+        return
+    end
+
+    -- Validate external data before merging to prevent crash on malformed input
+    if not _ValidateLearnedSpawnData(d) then
+        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Rejected malformed network data", typ, id)
         return
     end
 

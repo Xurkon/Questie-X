@@ -2962,6 +2962,65 @@ function QuestieLearner:OnQuestLogUpdate()
 end
 
 ------------------------------------------------------------------------
+-- Real-time tooltip for learned spawns
+-- Hooks into GameTooltip to show "Learned spawn: (x, y) from N kills"
+-- when hovering over an NPC that has been learned.
+------------------------------------------------------------------------
+
+local _tooltipHookRegistered = false
+
+--- Adds a "Learned spawn: (x, y) from N kills" line to the tooltip
+--- for the NPC represented by the given unit token.
+--- Called by the GameTooltip OnTooltipSetUnit hook.
+---@param unitToken string WoW unit token (e.g. "mouseover")
+local function _AddLearnedSpawnTooltipLine(unitToken)
+    if not Questie or not Questie.dbLearner then return end
+    local guid = UnitGUID(unitToken)
+    if not guid then return end
+
+    local guidType, _, _, _, _, npcIdStr, _ = strsplit("-", guid)
+    if guidType ~= "Creature" and guidType ~= "Vehicle" then return end
+
+    local npcId = tonumber(npcIdStr)
+    if not npcId then return end
+
+    local entry = Questie.dbLearner.global.npcs[npcId]
+    if not entry or not entry[7] then return end
+
+    -- Find the first zone with spawn data
+    local spawnsByZone = entry[7]
+    local zoneId = next(spawnsByZone)
+    if not zoneId then return end
+
+    local zoneSpawns = spawnsByZone[zoneId]
+    if not zoneSpawns or #zoneSpawns == 0 then return end
+
+    -- Use the first recorded coordinate
+    local x = zoneSpawns[1][1]
+    local y = zoneSpawns[1][2]
+    local kills = entry.mc or 0
+
+    local formattedX = ("%.1f"):format(x)
+    local formattedY = ("%.1f"):format(y)
+    GameTooltip:AddDoubleLine("Learned spawn", ("(%s, %s) from %d kill%s"):format(
+        formattedX, formattedY, kills, kills == 1 and "" or "s"))
+end
+
+--- Registers the GameTooltip OnTooltipSetUnit hook once.
+--- Safe to call multiple times; guard prevents double-hook.
+local function _RegisterLearnedSpawnTooltipHook()
+    if _tooltipHookRegistered then return end
+    _tooltipHookRegistered = true
+    GameTooltip:HookScript("OnTooltipSetUnit", function()
+        -- self == GameTooltip
+        local _, unitToken = self:GetUnit()
+        if unitToken then
+            _AddLearnedSpawnTooltipLine(unitToken)
+        end
+    end)
+end
+
+------------------------------------------------------------------------
 -- Event registration
 ------------------------------------------------------------------------
 
@@ -3024,6 +3083,7 @@ function QuestieLearner:Initialize()
     QuestieLearner.data = Questie.dbLearner.global
     self:RegisterEvents()
     self:InjectLearnedData()
+    _RegisterLearnedSpawnTooltipHook()
 
     local QuestieLearnerComms = QuestieLoader:ImportModule("QuestieLearnerComms")
     if QuestieLearnerComms and QuestieLearnerComms.Initialize then

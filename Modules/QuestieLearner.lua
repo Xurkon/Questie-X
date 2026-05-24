@@ -31,7 +31,6 @@ local string_trim = string.trim
 local string_sub = string.sub
 local string_len = string.len
 local string_upper = string.upper
-local select = select
 
 -- WoW API locals
 local UnitExists = UnitExists
@@ -125,7 +124,9 @@ local function GetZoneId()
         end
         return uiMapId  -- fallback: no ZoneDB mapping available
     end
-    return select(8, GetInstanceInfo()) or 0
+    -- Lua 5.0 compat: replace select(8, GetInstanceInfo()) with explicit GetInstanceInfo unpack
+    local _, _, _, _, _, _, _, instanceMapID = GetInstanceInfo()
+    return instanceMapID or 0
 end
 
 local function GetPlayerCoords()
@@ -313,6 +314,8 @@ local function _GetDB() return Questie.dbLearner.global end
 local function _RefreshActiveQuestPins(questIdSet)
     if not QuestieQuest or not QuestieQuest.UpdateQuest then return end
     if not QuestiePlayer or not QuestiePlayer.currentQuestlog then return end
+    -- Skip scheduling when the set is empty (avoids no-op timer callbacks)
+    if not next(questIdSet) then return end
     local timer = (C_Timer) or (QuestieCompat and QuestieCompat.C_Timer)
     for questId in pairs(questIdSet) do
         if QuestiePlayer.currentQuestlog[questId] then
@@ -394,9 +397,18 @@ local function _TryInvalidateObjective(objective, npcId, quest)
     return shouldInvalidate
 end
 
+------------------------------------------------------------------------
+-- Debounce table: tracks pending (npcId, questId) invalidate pairs.
+-- Prevents scheduling multiple unload+refresh cycles for the same
+-- (npcId, questId) within the debounce window.
+local _invalidateDebounce = {}
+
 local function _InvalidateSpawnListsForNPC(npcId)
     if not QuestieQuest or not QuestiePlayer or not QuestiePlayer.currentQuestlog then return end
     local timer = (C_Timer) or (QuestieCompat and QuestieCompat.C_Timer)
+    local now = (GetTime and GetTime()) or 0
+    local debounceWindow = 0.5  -- seconds; coalesces rapid-fire calls
+
     local questsToRefresh = {}
     for questId, _ in pairs(QuestiePlayer.currentQuestlog) do
         local quest = QuestieDB.GetQuest and QuestieDB.GetQuest(questId)
@@ -419,15 +431,36 @@ local function _InvalidateSpawnListsForNPC(npcId)
                 end
             end
             if needsUnload then
-                -- Also purge QuestieMap's quest frame registry so no stale refs remain.
-                if QuestieMap and QuestieMap.UnloadQuestFrames then
-                    QuestieMap:UnloadQuestFrames(questId)
+                -- Debounce frame unload only. The spawnList is always cleared by
+                -- _TryInvalidateObjective (runs before this), so a debounced second call
+                -- clears an already-nil spawnList safely. The refresh, however, must always
+                -- fire so the map is eventually rebuilt with the latest npcDataOverrides
+                -- data (already written by LearnNPC before this call).
+                local debounceKey = npcId .. ":" .. questId
+                local suppressUnload = _invalidateDebounce[debounceKey]
+                    and (now - _invalidateDebounce[debounceKey]) < debounceWindow
+                if not suppressUnload then
+                    _invalidateDebounce[debounceKey] = now
+                    if QuestieMap and QuestieMap.UnloadQuestFrames then
+                        QuestieMap:UnloadQuestFrames(questId)
+                    end
                 end
-                questsToRefresh[questId] = true
+                questsToRefresh[questId] = true  -- always refresh when data changed
             end
         end
     end
+    -- _RefreshActiveQuestPins guards against empty set internally
     _RefreshActiveQuestPins(questsToRefresh)
+
+    -- Prune stale debounce keys (>2x window age) to prevent unbounded growth.
+    -- Keys expire naturally after their window; this is just cleanup.
+    if timer then
+        for key, ts in pairs(_invalidateDebounce) do
+            if (now - ts) > (debounceWindow * 2) then
+                _invalidateDebounce[key] = nil
+            end
+        end
+    end
 end
 
 ------------------------------------------------------------------------
@@ -788,6 +821,103 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
     -- map system rebuilds them with fresh data on next update.
     _InvalidateSpawnListsForNPC(npcId)
     _Learner:BroadcastIfCommsAvailable("NPC", npcId, existing)
+end
+
+------------------------------------------------------------------------
+-- Phase 2: Per-GUID spawn evidence
+------------------------------------------------------------------------
+
+-- Extracts the spawn UID (low 24 bits / last 6 hex chars) from a WoW GUID.
+-- This is the per-spawn-instance identifier — different GUIDs for the same
+-- npcId indicate different spawn points (e.g. three boars at three corners
+-- of a field, not one boar teleporting around).
+-- Format: "Creature-0-RR-RI-0-NNNNNNNN" where NNNNNNNN = spawn UID
+local function _ExtractSpawnUID(guid)
+    if not guid or type(guid) ~= "string" then return nil end
+    -- Dash format: Creature-0-1234-567-89-21878-0000001234
+    -- Last numeric segment after the 5th dash is the spawn UID
+    local spawnUID = guid:match("^[^%-]+%-[^%-]+%-[^%-]+%-[^%-]+%-[^%-]+%-(%d+)$")
+    if spawnUID then
+        return tonumber(spawnUID)
+    end
+    -- Fallback for other dash formats: take everything after the last dash
+    spawnUID = guid:match("^.+%-(%d+)$")
+    if spawnUID then
+        return tonumber(spawnUID)
+    end
+    return nil
+end
+
+-- Ensures entry[8] (guidSpawns) exists on the learned NPC data table.
+-- entry[8] schema: { [spawnUID] = { zoneId, x, y, ts, source, confidence } }
+local function _GetOrCreateGuidSpawnTable(entry)
+    if not entry then return nil end
+    if not entry[8] then entry[8] = {} end
+    return entry[8]
+end
+
+-- Stores a per-GUID kill event under the learned NPC data.
+-- Each unique spawn UID (per npcId per zone) gets one evidence entry.
+-- On repeated kills at the same spawn UID, the entry is updated (moved to
+-- the current position if the NPC has wandered slightly, timestamp refreshed).
+-- Storage is bounded: max MAX_GUID_SPAWNS_PER_NPC_PER_ZONE entries per zone;
+-- oldest entry evicted when at capacity.
+local MAX_GUID_SPAWNS_PER_NPC_PER_ZONE = 8
+
+function QuestieLearner:_StoreGuidSpawnEvidence(npcId, dstGUID, zoneId, x, y)
+    if not self:IsEnabled() then return end
+    if not npcId or npcId <= 0 then return end
+    if not dstGUID or type(dstGUID) ~= "string" then return end
+    if not zoneId or zoneId <= 0 then return end
+    if not x or not y or x <= 0 or y <= 0 then return end
+
+    local spawnUID = _ExtractSpawnUID(dstGUID)
+    if not spawnUID then return end
+
+    local learnedNpc = Questie.dbLearner.global.npcs[npcId]
+    if not learnedNpc then return end
+
+    local guidSpawns = _GetOrCreateGuidSpawnTable(learnedNpc)
+    if not guidSpawns then return end
+
+    -- Normalize coords: same format as recentKills so Phase 3 merge is consistent
+    -- Formula: floor(v * 10000) / 100 — converts normalized 0-1 to scaled 0-100
+    local nx = floor(x * 10000) / 100
+    local ny = floor(y * 10000) / 100
+
+    if guidSpawns[spawnUID] then
+        -- Existing spawn UID: update position and timestamp
+        guidSpawns[spawnUID].x = nx
+        guidSpawns[spawnUID].y = ny
+        guidSpawns[spawnUID].ts = time()
+    else
+        -- New spawn UID: insert, bounded by npcId+zoneId.
+        -- Evict oldest entry if at capacity.
+        local zoneCount = 0
+        local oldestUID = nil
+        local oldestTS = nil
+        for uid in pairs(guidSpawns) do
+            local e = guidSpawns[uid]
+            if e and e.zoneId == zoneId then
+                zoneCount = zoneCount + 1
+                if not oldestTS or e.ts < oldestTS then
+                    oldestTS = e.ts
+                    oldestUID = uid
+                end
+            end
+        end
+        if zoneCount >= MAX_GUID_SPAWNS_PER_NPC_PER_ZONE and oldestUID then
+            guidSpawns[oldestUID] = nil
+        end
+        guidSpawns[spawnUID] = {
+            zoneId = zoneId,
+            x = nx,
+            y = ny,
+            ts = time(),
+            source = "local",
+            confidence = 1,
+        }
+    end
 end
 
 ------------------------------------------------------------------------
@@ -2229,11 +2359,61 @@ _Learner.recentKills = _Learner.recentKills or {}
 -- Previous objective counts for active quests: questId → {[idx] = count}
 _Learner.prevObjCounts = _Learner.prevObjCounts or {}
 
-function QuestieLearner:OnCombatLogEvent(...)
-    local timestamp, eventType, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, spellId, spellName = ...
-    -- In some versions (Retail/WotLK), we should use CombatLogGetCurrentEventInfo()
-    if not timestamp and CombatLogGetCurrentEventInfo then
-        timestamp, eventType, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, spellId, spellName = CombatLogGetCurrentEventInfo()
+function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, spellId, spellName)
+    -- Guard: if combat log was unavailable or disabled, bail fast
+    if _Learner.combatLogDisabled then return end
+
+    -- arg1..arg10 are captured by the frame handler before calling this function.
+    -- On 3.3.5a these are populated by the client engine.
+    -- If timestamp was not passed (direct test call), try CombatLogGetCurrentEventInfo.
+    local path
+    if not timestamp then
+        -- Modern path (WoW 3.3.5+): use API, skip arg globals
+        if CombatLogGetCurrentEventInfo then
+            local t1, t2, t3, t4, t5, t6, t7, t8, t9, t10 = CombatLogGetCurrentEventInfo()
+            if t1 then
+                timestamp, eventType, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, spellId, spellName = t1, t2, t3, t4, t5, t6, t7, t8, t9, t10
+                path = "modern"
+            end
+        end
+        -- Legacy path (3.3.5a / test): use arg1..arg10 from caller vararg
+        -- On 3.3.5a the client delivers combat log fields via arg globals in the handler.
+        -- When OnCombatLogEvent is called directly in test with full args, timestamp
+        -- is non-nil so this branch never fires.
+        if not timestamp and arg1 then
+            timestamp   = arg1
+            eventType   = arg2
+            srcGUID     = arg3
+            srcName     = arg4
+            srcFlags    = arg5
+            dstGUID     = arg6
+            dstName     = arg7
+            dstFlags    = arg8
+            spellId     = arg9
+            spellName   = arg10
+            path = "legacy"
+        elseif not timestamp then
+            path = "none"
+        end
+    else
+        -- Args passed by frame handler — 3.3.5a client path
+        path = "client-arg"
+    end
+
+    -- Permanent minimal log: combat-log path, event, and target
+    Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] combat-log path=", path, " event=", eventType, " dstGUID=", dstGUID, " dstName=", dstName)
+
+    -- Vanilla: neither modern API nor legacy args available — throttle warning, do NOT disable permanently
+    if not timestamp then
+        -- Only log once per 60 seconds to avoid spam during combat log silence
+        local now = GetTime and GetTime() or 0
+        if not _Learner.combatLogSilentUntil or (now - _Learner.combatLogSilentUntil) > 60 then
+            _Learner.combatLogSilentUntil = now
+            Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] COMBAT_LOG_EVENT_UNFILTERED fired but no args available "
+                .. "(CombatLogGetCurrentEventInfo=" .. tostring(CombatLogGetCurrentEventInfo ~= nil) .. ", arg1=" .. tostring(arg1) .. ") "
+                .. "— combat-log kill learning skipped this event (not disabled)")
+        end
+        return
     end
 
     if eventType == "SPELL_CAST_SUCCESS" then
@@ -2245,6 +2425,23 @@ function QuestieLearner:OnCombatLogEvent(...)
 
     if eventType ~= "PARTY_KILL" and eventType ~= "UNIT_DIED" then return end
     if not dstGUID then return end
+
+    -- Dedupe: if this GUID was processed within the last 5 seconds, skip.
+    -- PARTY_KILL and UNIT_DIED can both fire for the same kill; we only need one.
+    local now = time()
+    local lastTs = _Learner.killDebounce and _Learner.killDebounce[dstGUID]
+    if lastTs and (now - lastTs) < 5 then
+        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] kill dedupe suppressed duplicate event=", eventType, " dstGUID=", dstGUID)
+        return
+    end
+    _Learner.killDebounce = _Learner.killDebounce or {}
+    _Learner.killDebounce[dstGUID] = now
+    -- Prune entries older than 10 seconds to keep the table bounded
+    for g, ts in pairs(_Learner.killDebounce) do
+        if (now - ts) > 10 then
+            _Learner.killDebounce[g] = nil
+        end
+    end
 
     local npcId = GetNpcIdFromGUID(dstGUID)
     local name = dstName
@@ -2297,6 +2494,9 @@ function QuestieLearner:OnCombatLogEvent(...)
     -- Unconditionally map the spawn position for Ascension DB building
     self:LearnNPC(npcId, name, nil, nil, nil, nil, px, py, zoneId)
 
+    -- Phase 2: store per-GUID spawn evidence for weighted merge
+    self:_StoreGuidSpawnEvidence(npcId, dstGUID, zoneId, px, py)
+
     -- TTL cleanup: drop entries older than 10 minutes
     local now = time()
     for g, entry in pairs(_Learner.recentKills) do
@@ -2322,6 +2522,243 @@ function QuestieLearner:PruneGuidNpcCache()
     if count > 0 then
         Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Pruned", count, "entries from guidNpcCache")
     end
+end
+
+--- Collect coord keys from a spawn table into a sequential array.
+--- Uses a two-pass pattern so deletion always happens after traversal.
+---@param spawnTable table  The [zoneId] sub-table containing learned coords
+---@return table, number    Array of keys to remove, count of keys
+local function _CollectOutlierKeys(spawnTable)
+    local keys = {}
+    local n = 0
+    local coord = next(spawnTable)
+    while coord do
+        n = n + 1
+        keys[n] = coord
+        coord = next(spawnTable, coord)
+    end
+    return keys, n
+end
+
+--- Prune wildly outlying learned spawn coords for a single NPC+zone entry.
+--- Only operates on QuestieLearner learned data (dbLearner.global.npcs / .objects).
+--- Never deletes static DB or AscensionDB spawns.
+--- Requires at least 4 learned points before evaluating.
+--- Prunes in a second pass after identification to avoid mid-iteration deletions.
+---@param spawnTable table   The [zoneId] sub-table containing learned coords
+---@param zoneId number     The zone being evaluated
+---@param threshold number Max percent-distance from cluster median before pruning (default 15)
+---@return boolean          True if any points were removed
+local function _PruneSpawnOutliers(spawnTable, zoneId, threshold)
+    threshold = threshold or 15
+    if not spawnTable then return false end
+
+    -- Pass 1: collect all points into a flat array
+    local learnedPoints = {}
+    local n = 0
+    local coord = next(spawnTable)
+    while coord do
+        n = n + 1
+        learnedPoints[n] = { coord[1], coord[2] }
+        coord = next(spawnTable, coord)
+    end
+
+    if n < 4 then return false end
+
+    -- Compute median x and y via insertion sort (Lua 5.0-safe)
+    local sortedX = {}
+    local sortedY = {}
+    for i = 1, n do
+        sortedX[i] = learnedPoints[i][1]
+        sortedY[i] = learnedPoints[i][2]
+    end
+    for i = 2, n do
+        local key = sortedX[i]
+        local j = i - 1
+        while j >= 1 and sortedX[j] > key do
+            sortedX[j + 1] = sortedX[j]
+            j = j - 1
+        end
+        sortedX[j + 1] = key
+    end
+    for i = 2, n do
+        local key = sortedY[i]
+        local j = i - 1
+        while j >= 1 and sortedY[j] > key do
+            sortedY[j + 1] = sortedY[j]
+            j = j - 1
+        end
+        sortedY[j + 1] = key
+    end
+    local medianX = sortedX[floor(n / 2) + 1]
+    local medianY = sortedY[floor(n / 2) + 1]
+
+    -- Compute mean absolute deviation from median for each axis
+    local devX, devY = 0, 0
+    for i = 1, n do
+        devX = devX + abs(learnedPoints[i][1] - medianX)
+        devY = devY + abs(learnedPoints[i][2] - medianY)
+    end
+    devX = devX / n
+    devY = devY / n
+
+    -- Dynamic axis threshold: 3x mean absolute deviation, floored to threshold
+    local pruneX = devX * 3
+    local pruneY = devY * 3
+    if pruneX < threshold then pruneX = threshold end
+    if pruneY < threshold then pruneY = threshold end
+
+    -- Pass 2: identify outlier keys (collect before deleting)
+    local toRemove = {}
+    local rmCount = 0
+    coord = next(spawnTable)
+    while coord do
+        local dx = abs(coord[1] - medianX)
+        local dy = abs(coord[2] - medianY)
+        if dx > pruneX or dy > pruneY then
+            rmCount = rmCount + 1
+            toRemove[rmCount] = coord
+        end
+        coord = next(spawnTable, coord)
+    end
+
+    -- Pass 3: delete in second pass (no mid-iteration table mutation)
+    local removed = 0
+    for i = 1, rmCount do
+        spawnTable[toRemove[i]] = nil
+        removed = removed + 1
+    end
+
+    if removed > 0 then
+        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Pruned", removed, "outlier spawns in zone", zoneId)
+    end
+    return removed > 0
+end
+
+--- Prune outlier learned spawn data for all NPCs and objects.
+--- Only touches dbLearner.global.npcs and dbLearner.global.objects (learned data).
+--- Guards static data: if a static DB entry exists for the same NPC+zone, use its
+--- centroid as the anchor and prune learned entries that deviate > threshold from it.
+--- If no static anchor exists, use a learned-median cluster.
+--- After pruning, re-injects cleaned data into live overrides so subsequent map/arrow
+--- consumers see the corrected pins immediately.
+--- Runs on learner import/save/cleanup — NOT on every map draw.
+---@param threshold number Max percent-distance from anchor before pruning (default 15)
+---@return boolean         True if any data was changed
+function QuestieLearner:PruneLearnedSpawnOutliers(threshold)
+    threshold = threshold or 15
+
+    local global = Questie.dbLearner and Questie.dbLearner.global
+    if not global then return false end
+
+    local anyChanged = false
+
+    -- ── NPCs ──────────────────────────────────────────────────────────────
+    local npcs = global.npcs
+    if npcs then
+        local npcId = next(npcs)
+        while npcId do
+            local entry = npcs[npcId]
+            local spawns = entry and entry[7]
+            if spawns then
+                local zoneId = next(spawns)
+                while zoneId do
+                    local zoneSpawns = spawns[zoneId]
+                    if zoneSpawns then
+                        local changed = false
+
+                        -- Check if static DB has anchors for this NPC+zone
+                        local staticNPC = nil
+                        if QuestieDB and QuestieDB.QueryNPC then
+                            staticNPC = QuestieDB.QueryNPC(npcId, 1)
+                        end
+
+                        if staticNPC and staticNPC[7] and staticNPC[7][zoneId] then
+                            -- Static anchor path: build centroid from static spawns
+                            local sc = staticNPC[7][zoneId]
+                            local si = next(sc)
+                            local sn = 0
+                            local sumX, sumY = 0, 0
+                            while si do
+                                sn = sn + 1
+                                sumX = sumX + sc[si][1]
+                                sumY = sumY + sc[si][2]
+                                si = next(sc, si)
+                            end
+
+                            if sn > 0 then
+                                local anchorX = sumX / sn
+                                local anchorY = sumY / sn
+
+                                -- Collect outlier keys first, delete second
+                                local toRemove = {}
+                                local rmCount = 0
+                                local coord = next(zoneSpawns)
+                                while coord do
+                                    local dx = abs(coord[1] - anchorX)
+                                    local dy = abs(coord[2] - anchorY)
+                                    if dx > threshold or dy > threshold then
+                                        rmCount = rmCount + 1
+                                        toRemove[rmCount] = coord
+                                    end
+                                    coord = next(zoneSpawns, coord)
+                                end
+                                for i = 1, rmCount do
+                                    zoneSpawns[toRemove[i]] = nil
+                                    changed = true
+                                end
+                                if changed then
+                                    Questie:Debug(Questie.DEBUG_LEARNER,
+                                        "[QuestieLearner] Pruned", rmCount,
+                                        "learned NPC", npcId, "zone", zoneId,
+                                        "(deviated from static anchor)")
+                                end
+                            end
+                        else
+                            -- Learned-only path: use median cluster
+                            changed = _PruneSpawnOutliers(zoneSpawns, zoneId, threshold)
+                        end
+
+                        if changed then anyChanged = true end
+                    end
+                    zoneId = next(spawns, zoneId)
+                end
+            end
+            npcId = next(npcs, npcId)
+        end
+    end
+
+    -- ── Objects ─────────────────────────────────────────────────────────────
+    -- Learned objects store spawns in [4], not [7]
+    local objects = global.objects
+    if objects then
+        local objectId = next(objects)
+        while objectId do
+            local entry = objects[objectId]
+            local spawns = entry and entry[4]
+            if spawns then
+                local zoneId = next(spawns)
+                while zoneId do
+                    local zoneSpawns = spawns[zoneId]
+                    if zoneSpawns then
+                        if _PruneSpawnOutliers(zoneSpawns, zoneId, threshold) then
+                            anyChanged = true
+                        end
+                    end
+                    zoneId = next(spawns, zoneId)
+                end
+            end
+            objectId = next(objects, objectId)
+        end
+    end
+
+    -- Re-inject cleaned data into live overrides so subsequent reads are consistent
+    if anyChanged then
+        self:InjectLearnedData()
+        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Re-injected learned data after outlier pruning")
+    end
+
+    return anyChanged
 end
 
 -- Clear objective tracking for a specific quest
@@ -2408,7 +2845,7 @@ function QuestieLearner:RegisterEvents()
     frame:RegisterEvent("UNIT_QUEST_LOG_CHANGED")
     frame:RegisterEvent("QUEST_REMOVED")
 
-    frame:SetScript("OnEvent", function(_, event, ...)
+    frame:SetScript("OnEvent", function(_, event)
         if event == "UPDATE_MOUSEOVER_UNIT" then
             self:OnMouseoverUnit()
         elseif event == "PLAYER_TARGET_CHANGED" then
@@ -2418,23 +2855,24 @@ function QuestieLearner:RegisterEvents()
         elseif event == "QUEST_COMPLETE" then
             self:OnQuestComplete()
         elseif event == "QUEST_TURNED_IN" then
-            self:OnQuestTurnedIn(...)
+            self:OnQuestTurnedIn(arg1, arg2, arg3)
         elseif event == "QUEST_ACCEPTED" then
-            self:OnQuestAccepted(...)
+            self:OnQuestAccepted(arg1, arg2)
         elseif event == "LOOT_OPENED" then
             self:OnLootOpened()
         elseif event == "GOSSIP_SHOW" then
             self:OnGossipShow()
         elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
-            self:OnCombatLogEvent(...)
+            -- arg1..arg10 must be captured HERE before any secondary call wipes them (3.3.5 behavior)
+            -- arg1=timestamp, arg2=eventType, arg3=srcGUID, arg4=srcName, arg5=srcFlags,
+            -- arg6=dstGUID, arg7=dstName, arg8=dstFlags, arg9=spellId, arg10=spellName
+            self:OnCombatLogEvent(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
         elseif event == "GET_ITEM_INFO_RECEIVED" then
-            local itemId = ...
-            self:OnGetItemInfoReceived(itemId)
+            self:OnGetItemInfoReceived(arg1)
         elseif event == "UNIT_QUEST_LOG_CHANGED" then
             self:OnQuestLogUpdate()
         elseif event == "QUEST_REMOVED" or event == "QUEST_TURNED_IN" then
-            local questId = ...
-            self:ClearQuestObjectiveTracking(questId)
+            self:ClearQuestObjectiveTracking(arg1)
         end
     end)
 
@@ -2460,6 +2898,9 @@ function QuestieLearner:Initialize()
     QuestieCompat.C_Timer.NewTicker(1800, function()
         self:PruneGuidNpcCache()
     end)
+
+    -- Run outlier pruning once at startup after data is loaded and DB is ready
+    self:PruneLearnedSpawnOutliers()
 
     -- Scan existing quests in log after initialization (deferred to ensure DB is ready)
     QuestieCompat.C_Timer.After(1, function()

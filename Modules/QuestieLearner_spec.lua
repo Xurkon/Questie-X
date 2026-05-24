@@ -215,3 +215,187 @@ _G.Questie = original_Questie
 _G.UnitGUID = original_UnitGUID
 
 print("=== All QuestieLearner tooltip spec tests passed ===")
+--[[
+  Phase 5: Comms data validation spec tests
+  Tests for _ValidateLearnedSpawnData
+]]
+
+local function _ValidateLearnedSpawnData(data)
+    if type(data) ~= "table" then return false end
+    local spawns = data[7]
+    if not spawns then return true end
+    if type(spawns) ~= "table" then return false end
+    for zoneId, zoneSpawns in pairs(spawns) do
+        if type(zoneId) ~= "number" then return false end
+        if type(zoneSpawns) ~= "table" then return false end
+        for _, coord in ipairs(zoneSpawns) do
+            if type(coord) ~= "table" then return false end
+            local x, y = coord[1], coord[2]
+            if type(x) ~= "number" or type(y) ~= "number" then return false end
+            if x < 0 or x > 100 or y < 0 or y > 100 then return false end
+        end
+    end
+    return true
+end
+
+print("=== QuestieLearner Phase 5 validation spec tests ===")
+
+-- Valid: NPC with valid spawn data
+do
+    local result = _ValidateLearnedSpawnData({
+        [7] = {
+            [3430] = {
+                { 39.5, 20.0 },
+                { 40.1, 21.3 },
+            },
+        },
+        mc = 5,
+    })
+    assert(result == true, "Test V1: valid spawn data accepted")
+    print("PASS: V1 - valid spawn data")
+end
+
+-- Valid: no spawn key at all (no spawn data to validate)
+do
+    local result = _ValidateLearnedSpawnData({
+        [1] = "Some NPC",
+        mc = 1,
+    })
+    assert(result == true, "Test V2: entry with no [7] key accepted")
+    print("PASS: V2 - entry with no spawn data")
+end
+
+-- Invalid: data is a string
+do
+    local result = _ValidateLearnedSpawnData("not a table")
+    assert(result == false, "Test V3: string rejected")
+    print("PASS: V3 - string rejected")
+end
+
+-- Invalid: data is nil
+do
+    local result = _ValidateLearnedSpawnData(nil)
+    assert(result == false, "Test V4: nil rejected")
+    print("PASS: V4 - nil rejected")
+end
+
+-- Invalid: data is a number
+do
+    local result = _ValidateLearnedSpawnData(123)
+    assert(result == false, "Test V5: number rejected")
+    print("PASS: V5 - number rejected")
+end
+
+-- Invalid: spawns is a string
+do
+    local result = _ValidateLearnedSpawnData({ [7] = "not a table" })
+    assert(result == false, "Test V6: spawns-as-string rejected")
+    print("PASS: V6 - spawns-as-string rejected")
+end
+
+-- Invalid: zoneId is a string
+do
+    local result = _ValidateLearnedSpawnData({
+        [7] = {
+            ["3430"] = { { 39.5, 20.0 } },
+        },
+    })
+    assert(result == false, "Test V7: string zoneId rejected")
+    print("PASS: V7 - string zoneId rejected")
+end
+
+-- Invalid: zoneSpawns is a string
+do
+    local result = _ValidateLearnedSpawnData({
+        [7] = {
+            [3430] = "not a table",
+        },
+    })
+    assert(result == false, "Test V8: zoneSpawns-as-string rejected")
+    print("PASS: V8 - zoneSpawns-as-string rejected")
+end
+
+-- Invalid: coord is a number
+do
+    local result = _ValidateLearnedSpawnData({
+        [7] = {
+            [3430] = { 39.5 },
+        },
+    })
+    assert(result == false, "Test V9: single-element coord rejected")
+    print("PASS: V9 - single-element coord rejected")
+end
+
+-- Invalid: coord x is a string
+do
+    local result = _ValidateLearnedSpawnData({
+        [7] = {
+            [3430] = { { "39.5", 20.0 } },
+        },
+    })
+    assert(result == false, "Test V10: string x rejected")
+    print("PASS: V10 - string x rejected")
+end
+
+-- Invalid: coord y is out of range (> 100)
+do
+    local result = _ValidateLearnedSpawnData({
+        [7] = {
+            [3430] = { { 39.5, 100.1 } },
+        },
+    })
+    assert(result == false, "Test V11: y > 100 rejected")
+    print("PASS: V11 - y > 100 rejected")
+end
+
+-- Invalid: coord x is negative
+do
+    local result = _ValidateLearnedSpawnData({
+        [7] = {
+            [3430] = { { -0.1, 50.0 } },
+        },
+    })
+    assert(result == false, "Test V12: negative x rejected")
+    print("PASS: V12 - negative x rejected")
+end
+
+-- Invalid: coord in range 0-100 for y but x slightly over
+do
+    local result = _ValidateLearnedSpawnData({
+        [7] = {
+            [3430] = { { 50.0, 0 }, { 100.01, 50.0 } },
+        },
+    })
+    assert(result == false, "Test V13: x > 100 on second coord rejected")
+    print("PASS: V13 - x > 100 rejected")
+end
+
+-- Valid: exact boundary 0 and 100
+do
+    local result = _ValidateLearnedSpawnData({
+        [7] = {
+            [3430] = {
+                { 0.0, 0.0 },
+                { 100.0, 100.0 },
+            },
+        },
+    })
+    assert(result == true, "Test V14: boundary 0 and 100 accepted")
+    print("PASS: V14 - boundary 0 and 100 accepted")
+end
+
+-- Valid: integer and float coords
+do
+    local result = _ValidateLearnedSpawnData({
+        [7] = {
+            [3430] = {
+                { 50, 75 },
+                { 33.33, 44.44 },
+            },
+        },
+    })
+    assert(result == true, "Test V15: integer and float coords accepted")
+    print("PASS: V15 - integer and float coords accepted")
+end
+
+print("=== All Phase 5 validation spec tests passed ===")

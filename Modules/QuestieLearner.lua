@@ -921,6 +921,131 @@ function QuestieLearner:_StoreGuidSpawnEvidence(npcId, dstGUID, zoneId, x, y)
 end
 
 ------------------------------------------------------------------------
+-- Phase 3: Weighted spawn merge
+------------------------------------------------------------------------
+
+-- Merges learned GUID-based spawn evidence into the static NPC spawn list.
+-- Scoring: spawn UID with most evidence across all zones wins.
+-- Override condition: top spawn appears in >60% of total evidence AND
+-- differs from static DB entry. Below 60% confidence, learned does not
+-- override static and both sources coexist.
+-- Called from the kill handler after _StoreGuidSpawnEvidence when
+-- evidence count >= 3 for that npcId.
+--@param npcId number  The NPC ID to merge evidence for
+--@return boolean      True if static DB spawn list was overridden
+local function _MergeSpawnEvidence(npcId)
+    if not npcId or npcId <= 0 then return false end
+
+    local learnedNpc = Questie.dbLearner and Questie.dbLearner.global
+        and Questie.dbLearner.global.npcs[npcId]
+    if not learnedNpc then return false end
+
+    local guidSpawns = learnedNpc[8]
+    if not guidSpawns or not next(guidSpawns) then return false end
+
+    -- Collect all evidence: group by (zoneId, x, y) rounded to 2 decimal places
+    -- Key format: "zoneId|x|y" → count
+    local evidence = {}  -- { [key] = { zoneId, x, y, count } }
+    local totalEvidence = 0
+
+    for spawnUID, entry in pairs(guidSpawns) do
+        if entry and entry.zoneId and entry.x and entry.y then
+            -- Round to 2 decimal places for grouping
+            local rx = floor(entry.x * 100 + 0.5) / 100
+            local ry = floor(entry.y * 100 + 0.5) / 100
+            local key = entry.zoneId .. "|" .. rx .. "|" .. ry
+            if not evidence[key] then
+                evidence[key] = { zoneId = entry.zoneId, x = rx, y = ry, count = 0 }
+            end
+            evidence[key].count = evidence[key].count + 1
+            totalEvidence = totalEvidence + 1
+        end
+    end
+
+    if totalEvidence < 3 then return false end
+
+    -- Find top-scoring spawn
+    local topKey = nil
+    local topCount = 0
+    for key, e in pairs(evidence) do
+        if e.count > topCount then
+            topCount = e.count
+            topKey = key
+        end
+    end
+
+    if not topKey then return false end
+
+    local topEvidence = evidence[topKey]
+    local topPct = (topCount / totalEvidence) * 100
+
+    -- Only override if > 60% confidence AND spawn differs from static DB
+    if topPct <= 60 then
+        Questie:Debug(Questie.DEBUG_LEARNER,
+            "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
+            "top spawn", topCount .. "/" .. totalEvidence,
+            "= " .. floor(topPct + 0.5) .. "% — below 60%, no override")
+        return false
+    end
+
+    -- Check against static DB entry
+    local staticNPC = nil
+    if QuestieDB and QuestieDB.QueryNPC then
+        staticNPC = QuestieDB.QueryNPC(npcId, 1)
+    end
+
+    local staticSpawnList = staticNPC and staticNPC[7]
+    local staticSpawnsForZone = staticSpawnList and staticSpawnList[topEvidence.zoneId]
+
+    -- Check if top spawn matches any static spawn in the same zone
+    local matchesStatic = false
+    if staticSpawnsForZone then
+        for _, coord in ipairs(staticSpawnsForZone) do
+            local sx = floor(coord[1] * 100 + 0.5) / 100
+            local sy = floor(coord[2] * 100 + 0.5) / 100
+            if abs(sx - topEvidence.x) < 0.01 and abs(sy - topEvidence.y) < 0.01 then
+                matchesStatic = true
+                break
+            end
+        end
+    end
+
+    if matchesStatic then
+        Questie:Debug(Questie.DEBUG_LEARNER,
+            "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
+            "top spawn matches static DB — no override needed")
+        return false
+    end
+
+    -- Override: inject top spawn into QuestieDB spawn overrides for this zone
+    if not QuestieDB.npcDataOverrides[npcId] then
+        QuestieDB.npcDataOverrides[npcId] = {}
+    end
+    if not QuestieDB.npcDataOverrides[npcId][7] then
+        QuestieDB.npcDataOverrides[npcId][7] = {}
+    end
+    if not QuestieDB.npcDataOverrides[npcId][7][topEvidence.zoneId] then
+        QuestieDB.npcDataOverrides[npcId][7][topEvidence.zoneId] = {}
+    end
+
+    -- Insert as new spawn (InsertIfNewBucket deduplicates)
+    InsertIfNewBucket(QuestieDB.npcDataOverrides[npcId][7][topEvidence.zoneId],
+        topEvidence.x, topEvidence.y)
+
+    Questie:Debug(Questie.DEBUG_LEARNER,
+        "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
+        "overrode static DB — learned spawn (" .. topEvidence.x .. "," .. topEvidence.y .. ")",
+        "zone " .. topEvidence.zoneId .. " at " .. floor(topPct + 0.5) .. "% confidence")
+
+    -- Clear npcCache so GetNPC returns fresh data
+    if QuestieDB.private and QuestieDB.private.npcCache then
+        QuestieDB.private.npcCache[npcId] = nil
+    end
+
+    return true
+end
+
+------------------------------------------------------------------------
 -- Quest learning
 ------------------------------------------------------------------------
 
@@ -2496,6 +2621,17 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
 
     -- Phase 2: store per-GUID spawn evidence for weighted merge
     self:_StoreGuidSpawnEvidence(npcId, dstGUID, zoneId, px, py)
+
+    -- Phase 3: weighted merge when evidence count >= 3
+    local guidSpawns = Questie.dbLearner.global.npcs[npcId]
+        and Questie.dbLearner.global.npcs[npcId][8]
+    if guidSpawns then
+        local count = 0
+        for _ in pairs(guidSpawns) do count = count + 1 end
+        if count >= 3 then
+            _MergeSpawnEvidence(npcId)
+        end
+    end
 
     -- TTL cleanup: drop entries older than 10 minutes
     local now = time()

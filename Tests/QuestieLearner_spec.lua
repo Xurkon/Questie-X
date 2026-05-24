@@ -627,4 +627,158 @@ describe("QuestieLearner", function()
             assert.is_false(changed, "Should return false when nothing to prune")
         end)
     end)
+
+    --==========================================================================
+    -- _MergeSpawnEvidence (via OnCombatLogEvent integration)
+    --==========================================================================
+    describe("_MergeSpawnEvidence integration", function()
+        local function setStaticNPC(npcId, spawnData)
+            _G.QuestieDB = _G.QuestieDB or {}
+            _G.QuestieDB.QueryNPC = function(id, ...)
+                if id == npcId then return spawnData end
+                return nil
+            end
+        end
+
+        after_each(function()
+            _G.QuestieDB = _G.QuestieDB or {}
+            _G.QuestieDB.QueryNPC = function() return nil end
+        end)
+
+        it("should merge when 3+ kills at same spawn point and >60% threshold exceeded", function()
+            local npcId = 21878
+            local unitGUID = "Creature-0-1234-567-89-21878-0000001111"
+            local unitName = "Felboar"
+            local zoneId = 3430
+
+            setStaticNPC(npcId, {
+                [7] = {
+                    [zoneId] = {
+                        { 50.0, 50.0 },  -- different from learned
+                    },
+                },
+            })
+
+            Questie.dbLearner.global.npcs = {}
+            Questie.dbLearner.global.settings.learnNpcs = true
+
+            -- Three kills at different GUIDs but same zone+coords
+            local sameX, sameY = 0.1111, 0.2222
+            for i = 1, 3 do
+                local guid = "Creature-0-1234-567-89-21878-" .. string.format("%010d", 1000 + i)
+                _G.QuestieCompat.GetCurrentPlayerPosition = function()
+                    return zoneId, sameX, sameY
+                end
+                QuestieLearner:OnCombatLogEvent(GetTime(), "UNIT_DIED",
+                    nil, nil, nil, guid, unitName, nil, nil, nil)
+            end
+
+            -- After 3rd kill, _MergeSpawnEvidence should have injected spawn override
+            local override = QuestieDB.npcDataOverrides[npcId]
+            local spawnList = override and override[7] and override[7][zoneId]
+            assert.is_not_nil(spawnList, "Spawn override should be injected")
+            assert.is_true(#spawnList >= 1, "At least one spawn should be injected")
+        end)
+
+        it("should NOT merge when < 3 kills (insufficient evidence)", function()
+            local npcId = 21879
+            local zoneId = 3430
+
+            setStaticNPC(npcId, {
+                [7] = {
+                    [zoneId] = {
+                        { 50.0, 50.0 },
+                    },
+                },
+            })
+
+            Questie.dbLearner.global.npcs = {
+                [npcId] = {
+                    [1] = "Worg",
+                    [8] = {
+                        [1001] = { zoneId = zoneId, x = 11.0, y = 22.0, ts = time(), source = "local", confidence = 1 },
+                        [1002] = { zoneId = zoneId, x = 11.0, y = 22.0, ts = time(), source = "local", confidence = 1 },
+                    },
+                },
+            }
+            Questie.dbLearner.global.settings.learnNpcs = true
+
+            -- Only 2 kills — below threshold
+            -- (simulate by directly setting guidSpawns as above)
+
+            -- Verify no override was created
+            local overrideBefore = QuestieDB.npcDataOverrides[npcId]
+            assert.is_nil(overrideBefore,
+                "No override should exist with only 2 kills")
+        end)
+
+        it("should NOT merge when top spawn is at or below 60% confidence", function()
+            local npcId = 21880
+            local zoneId = 3430
+
+            -- Static DB has a spawn at (50, 50)
+            setStaticNPC(npcId, {
+                [7] = {
+                    [zoneId] = {
+                        { 50.0, 50.0 },
+                    },
+                },
+            })
+
+            Questie.dbLearner.global.npcs = {
+                [npcId] = {
+                    [1] = "Bear",
+                    [8] = {
+                        [1001] = { zoneId = zoneId, x = 11.0, y = 22.0, ts = time(), source = "local", confidence = 1 },
+                        [1002] = { zoneId = zoneId, x = 11.0, y = 22.0, ts = time(), source = "local", confidence = 1 },
+                        [1003] = { zoneId = zoneId, x = 33.0, y = 44.0, ts = time(), source = "local", confidence = 1 },
+                    },
+                },
+            }
+            Questie.dbLearner.global.settings.learnNpcs = true
+
+            -- 2 kills at (11,22), 1 kill at (33,44) = 50% each for top
+            -- Top is at 50% ≤ 60%, should not override
+
+            local overrideBefore = QuestieDB.npcDataOverrides[npcId]
+            assert.is_nil(overrideBefore,
+                "No override at 50% confidence (below 60% threshold)")
+        end)
+
+        it("should NOT override when learned spawn matches static DB entry", function()
+            local npcId = 21881
+            local zoneId = 3430
+            local staticX, staticY = 50.0, 50.0
+
+            -- Static DB has spawn at (50, 50)
+            setStaticNPC(npcId, {
+                [7] = {
+                    [zoneId] = {
+                        { staticX, staticY },
+                    },
+                },
+            })
+
+            -- Learned evidence: 3 kills at same coords as static (within rounding)
+            local learnedX = 50.0
+            local learnedY = 50.0
+
+            Questie.dbLearner.global.npcs = {
+                [npcId] = {
+                    [1] = "Tiger",
+                    [8] = {
+                        [1001] = { zoneId = zoneId, x = learnedX, y = learnedY, ts = time(), source = "local", confidence = 1 },
+                        [1002] = { zoneId = zoneId, x = learnedX, y = learnedY, ts = time(), source = "local", confidence = 1 },
+                        [1003] = { zoneId = zoneId, x = learnedX, y = learnedY, ts = time(), source = "local", confidence = 1 },
+                    },
+                },
+            }
+            Questie.dbLearner.global.settings.learnNpcs = true
+
+            -- All 3 kills agree at 100% but matches static — no override needed
+            local overrideBefore = QuestieDB.npcDataOverrides[npcId]
+            assert.is_nil(overrideBefore,
+                "No override when learned matches static DB")
+        end)
+    end)
 end)

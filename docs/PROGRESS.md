@@ -30,13 +30,16 @@ QuestieLearner is being hardened in phases. Each phase is committed and pushed s
 
 ---
 
-## Phase 2: GUID-Based Kill Learning — ✅ COMPLETE
+## Phase 2: GUID-Based Kill Learning — ⚠️ IMPLEMENTED, NOT FULLY TEST-VERIFIED
 
-**Status:** Committed and pushed. Phase 3 ready to proceed.
+**Status:** Committed and pushed. 2 known test failures in spec (quarantined). Awaiting in-game smoke test before claiming full verification.
 
 **Commit:** `41f968b` — GUID-based spawn evidence and outlier pruning
 
 **Test commit:** `b9aa0be` — Phase 2 unit tests for spawn evidence and pruning
+**Note:** Spec tests in busted show 2 failures (quarantined). Not xfail'd — awaiting in-game smoke test.
+
+**Revert:** `git revert HEAD~1 --no-edit && git push` to undo Phase 2 features
 
 **Changes:**
 
@@ -58,9 +61,9 @@ QuestieLearner is being hardened in phases. Each phase is committed and pushed s
 
 ---
 
-## Phase 3: Self-Healing Spawn Merge — ✅ COMPLETE
+## Phase 3: Self-Healing Spawn Merge — ⚠️ IMPLEMENTED, NOT FULLY TEST-VERIFIED
 
-**Status:** Committed and pushed.
+**Status:** Committed and pushed. Awaiting in-game smoke test. No spec test failures reported, but no in-game validation yet.
 
 **Commit:** `dc96782` — weighted spawn merge
 
@@ -78,9 +81,11 @@ QuestieLearner is being hardened in phases. Each phase is committed and pushed s
 
 ---
 
-## Phase 4: Real-Time Tooltip Population — ✅ COMPLETE
+## Phase 4: Real-Time Tooltip Population — ⚠️ IMPLEMENTED, NOT FULLY TEST-VERIFIED
 
-**Status:** Completed. Commit `c56f2c5`.
+**Status:** Committed. Awaiting in-game smoke test.
+
+**Commit:** `c467538` — real-time tooltip for learned spawns
 
 **Features added:**
 - `_AddLearnedSpawnTooltipLine(unitToken)` — checks if the hovered unit is a learned NPC and adds "Learned spawn: (x, y) from N kills" via `GameTooltip:AddDoubleLine`
@@ -93,9 +98,11 @@ QuestieLearner is being hardened in phases. Each phase is committed and pushed s
 
 ---
 
-## Phase 5: Comms Hardening — ✅ COMPLETE
+## Phase 5: Comms Hardening — ⚠️ IMPLEMENTED, NOT FULLY TEST-VERIFIED
 
-**Status:** Completed. Commit `2f5312f`.
+**Status:** Committed. Awaiting in-game smoke test.
+
+**Commit:** `3f8c9f5` — comms data validation
 
 **Features added:**
 - `_ValidateLearnedSpawnData(data)` — validates external learned spawn data before merge, checks: data is a table, spawns[zoneId] zoneId keys are numbers, each zone's coord list is a table of {x, y} pairs where x and y are numbers in the 0–100 range. Rejects strings, nil, out-of-range coords, and malformed nested structures silently (no crash).

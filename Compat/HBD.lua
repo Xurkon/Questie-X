@@ -41,22 +41,10 @@ end)
 local HBD = {mapData = mapData}
 QuestieCompat.HBD = HBD
 
--- Ascension zone remapping: Sunstrider Isle (1241) and its ghost map (946) share
--- Eversong Woods' (1941) rendered area on Ascension's client. On Ascension,
--- the Sunstrider Isle map actually uses Eversong's coordinate space — not retail's
--- separate Sunstrider bounds. This means:
---   1. Visibility: zones sharing the same space should show each other's pins
---   2. Bounds: mapData[1241] must use Eversong's bounds so coordinate round-trips
---      produce correct positions on Ascension's Sunstrider map
---   3. Data: Questie spawn coords for Sunstrider (uiMapId=1241) are in the
---      33-38%/18-25% range, which maps to Sunstrider's location WITHIN Eversong
---
--- ZONE_REDIRECT: used by ResolveZone() for visibility logic (isSameZoneSpace).
--- NOTE: 1241 is NOT redirected to 1941. Map 1241 (Sunstrider) has its own
--- calibrated bounds that produce a different world coordinate space than
--- Eversong. Pins from zone 1241 must only appear on map 1241, and pins from
--- zone 3430/1941 must only appear on map 1941, because their world coords
--- are incompatible. The arrow handles 1241→1941 conversion internally.
+-- Ascension zone remapping: the ghost map 946 should be treated as Eversong
+-- (1941) for pin routing, but Sunstrider Isle (1241) must keep its native
+-- render target. Visibility between Sunstrider and Eversong is handled
+-- separately in HandleWorldMapPin() so we do not collapse the draw target.
 local ZONE_REDIRECT = {
     [946]  = 1941,  -- Ghost/transition map -> Eversong Woods (for Sunstrider loading)
 }
@@ -70,47 +58,64 @@ end
 -- Expose for external use (e.g. QuestieCompat coordinate calibration)
 HBD.ResolveZone = ResolveZone
 
--- Ascension bounds override: On Ascension, Sunstrider Isle (1241) uses Eversong
--- Woods' coordinate space, not retail's separate Sunstrider bounds. The retail
--- mapData[1241] bounds (510, 500, -6983.33, 9766.67) are incompatible with
--- Ascension's world coordinates — UnitPosition returns Eversong-scale values
--- like (503.4, 267.9) which produce zone coords of (-14.68, 18.99) when converted
--- through retail Sunstrider bounds. Using Eversong's bounds makes coordinate
--- round-trips work correctly and positions pins at their actual locations.
---
--- Ghost map 946 has all-zeros bounds in retail, which makes it unusable; redirect
--- to Eversong bounds as well (it shares the same rendered area on Ascension).
+-- Sunstrider calibration note:
+-- We have confirmed that 1241 is the correct uiMapId for Sunstrider Isle and
+-- 3431 is the matching areaId. The sample set we collected strongly suggests
+-- the standard Sunstrider rectangle is the correct fit for this client:
+--   width  ~= 510
+--   height ~= 500
+--   left   ~= -6983.33
+--   top    ~= 9766.67
+-- Keep this override in place, but if another path starts hiding townsfolk pins
+-- again, re-check the 1241/3431 resolution before touching the bounds.
 local ASCENSION_ZONE_BOUNDS = {
-    [1241] = { 1600.0, 1066.666666666667, -2721.0066, 8433.9360 },  -- Calibrated bounds for Sunstrider Isle
-    [946]  = { 4925.0, 3283.33333, -1824.6778, 8641.6666 },  -- Ghost map shares Eversong geometry
+    [1241] = { 510.0, 500.0, -6983.33, 9766.67 },
+    [946]  = { 510.0, 500.0, -6983.33, 9766.67 },
 }
 
 
--- Apply Ascension bounds overrides immediately
+-- Apply Ascension bounds overrides immediately.
 local _boundsApplied = false
 local function ApplyAscensionBounds()
     if _boundsApplied then return end
     _boundsApplied = true
-    
+
     if not RealHBD then
         pcall(function() RealHBD = LoadRealHBD() end)
     end
-    
     for zoneId, bounds in pairs(ASCENSION_ZONE_BOUNDS) do
         local data = mapData[zoneId]
         if data then
-            -- [HBD-Ascension] bounds override applied (debug disabled)
             data[1], data[2], data[3], data[4] = bounds[1], bounds[2], bounds[3], bounds[4]
-        else
-            -- [HBD-Ascension] WARNING: No mapData for zone (debug disabled)
         end
-        
-        -- Override the real HBD map data as well, because HBD-Pins bypasses QuestieCompat
         if RealHBD and RealHBD.mapData and RealHBD.mapData[zoneId] then
             local rData = RealHBD.mapData[zoneId]
             rData[1], rData[2], rData[3], rData[4] = bounds[1], bounds[2], bounds[3], bounds[4]
         end
     end
+end
+
+-- Debug helper for Sunstrider calibration.
+-- Future agents: use this only for map-fit work on Sunstrider Isle.
+-- areaId 3431 = Sunstrider Isle subzone, uiMapId 1241 = Sunstrider Isle map.
+-- It prints the world-space and zone-space values for a 1241 point so we can
+-- compare the source coords against the rendered pin location.
+function HBD:DebugSunstriderPoint(x, y)
+    local worldX, worldY, instanceId = self:GetWorldCoordinatesFromZone(x, y, 1241)
+    local zoneX, zoneY = nil, nil
+    if worldX and worldY then
+        zoneX, zoneY = self:GetZoneCoordinatesFromWorld(worldX, worldY, 1241)
+    end
+    print(string.format(
+        "[SunstriderDebug] zone=1241 input=%.4f,%.4f world=%s,%s inst=%s roundtrip=%s,%s",
+        x or -1,
+        y or -1,
+        tostring(worldX),
+        tostring(worldY),
+        tostring(instanceId),
+        tostring(zoneX),
+        tostring(zoneY)
+    ))
 end
 ApplyAscensionBounds()
 
@@ -142,9 +147,9 @@ end)
 --- @param zone uiMapID of the zone
 function HBD:GetWorldCoordinatesFromZone(x, y, zone)
     -- Ascension: mapData[946] has been overridden with Eversong bounds.
-    -- mapData[1241] has its own calibrated bounds that match the game engine's
-    -- Sunstrider coordinate space. Both convert through their own bounds —
-    -- no redirect needed here because _ResolveMapUiMapId passes 1241 through.
+    -- mapData[1241] keeps its own calibrated Sunstrider bounds. Do not force
+    -- 1241 through the ghost-map redirect here; visibility sharing is handled
+    -- separately in HandleWorldMapPin().
     local data = mapData[zone]
     if not data or data[1] == 0 or data[2] == 0 then
         -- Attempt to lazy-load the real HBD if we haven't yet
@@ -173,8 +178,8 @@ end
 --- @param allowOutOfBounds Allow coordinates to go beyond the current map (ie. outside of the 0-1 range), otherwise nil will be returned
 function HBD:GetZoneCoordinatesFromWorld(x, y, zone, allowOutOfBounds)
     -- Ascension: mapData[946] has been overridden with Eversong bounds.
-    -- mapData[1241] has its own calibrated bounds matching the engine's space.
-    -- No redirect needed — callers pass the correct zone directly.
+    -- mapData[1241] keeps its own calibrated Sunstrider bounds. Callers should
+    -- pass the real uiMapId they want to project, not the visibility alias.
     local data = mapData[zone]
     if not data or data[1] == 0 or data[2] == 0 then
         if not RealHBD then
@@ -277,6 +282,10 @@ function HBD:GetPlayerWorldPosition()
     local wx, wy, inst = HBD:GetWorldCoordinatesFromZone(x, y, uiMapID)
     _pwp_x, _pwp_y, _pwp_inst = wx, wy, inst
     _pwp_time = now
+    if _G.QuestieDebugPins then
+        print(string.format("[QD] GetPlayerWorldPosition: zoneX=%.4f zoneY=%.4f uiMapID=%s -> worldX=%s worldY=%s inst=%s",
+            x, y, tostring(uiMapID), tostring(wx), tostring(wy), tostring(inst)))
+    end
     if wx and wy then
         return wx, wy, inst
     end
@@ -672,10 +681,18 @@ local function HandleWorldMapPin(icon, data)
     -- Child-map / zone-redirect exception: if we're viewing a child map (e.g. Sunstrider 1241)
     -- and the pin belongs to a parent map (e.g. Eversong 1941) or a zone that shares the same
     -- coordinate space, SHOW_CURRENT pins should still be visible.
-    -- Also handles the reverse: pins tagged 1241/946 should show on 1941, and vice versa,
-    -- because these maps share the same rendered area on Ascension.
+    -- Sunstrider and Eversong share visibility, but 1241 must remain the actual render target.
     local effectiveUiMapID = ResolveZone(uiMapID)
     local effectiveDataUiMapID = ResolveZone(data.uiMapID)
+    local sharesSunstriderSpace = (
+        (uiMapID == 1241 and data.uiMapID == 1941) or
+        (uiMapID == 1941 and data.uiMapID == 1241) or
+        (uiMapID == 946 and data.uiMapID == 1241) or
+        (uiMapID == 1241 and data.uiMapID == 946) or
+        (uiMapID == 946 and data.uiMapID == 1941) or
+        (uiMapID == 1941 and data.uiMapID == 946) or
+        (effectiveUiMapID == 1941 and effectiveDataUiMapID == 1941 and (uiMapID == 1241 or data.uiMapID == 1241 or uiMapID == 946 or data.uiMapID == 946))
+    )
     local isChildMap = false
     local ancestorMapID = HBD.mapData[uiMapID] and HBD.mapData[uiMapID].parentMapID
     while ancestorMapID and HBD.mapData[ancestorMapID] do
@@ -687,7 +704,7 @@ local function HandleWorldMapPin(icon, data)
     end
     -- Zone-redirect equivalence: if the viewed map and pin's map redirect to the same
     -- target, they share the same coordinate space and should show each other's pins.
-    local isSameZoneSpace = (effectiveUiMapID == effectiveDataUiMapID)
+    local isSameZoneSpace = (effectiveUiMapID == effectiveDataUiMapID) or sharesSunstriderSpace
 
     if (Questie.db.profile.hideIconsOnContinents == true) and (HBD.mapData[uiMapID].mapType == Enum.UIMapType.Continent or uiMapID == 947) or (uiMapID ~= data.uiMapID and data.worldMapShowFlag == HBD_PINS_WORLDMAP_SHOW_CURRENT and not isChildMap and not isSameZoneSpace) then
         icon:Hide();

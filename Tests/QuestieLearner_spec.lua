@@ -134,6 +134,44 @@ describe("QuestieLearner", function()
         assert.is_true(entry2.ts >= ts1)    -- timestamp refreshed
     end)
 
+    it("should not double-scale already normalized GUID spawn coordinates", function()
+        local npcId = 15274
+        local unitGUID = "Creature-0-1234-567-89-15274-41298"
+
+        Questie.dbLearner.global.npcs = {
+            [npcId] = {
+                [1] = "Mana Wyrm",
+            },
+        }
+        Questie.dbLearner.global.settings.learnNpcs = true
+
+        QuestieLearner:_StoreGuidSpawnEvidence(npcId, unitGUID, 3431, 58.68, 43.19)
+
+        local entry = Questie.dbLearner.global.npcs[npcId][8][41298]
+        assert.is_not_nil(entry)
+        assert.are.equal(58.68, entry.x)
+        assert.are.equal(43.19, entry.y)
+    end)
+
+    it("should repair legacy 0-10000 GUID spawn coordinates before merging", function()
+        local npcId = 15274
+        local unitGUID = "Creature-0-1234-567-89-15274-41298"
+
+        Questie.dbLearner.global.npcs = {
+            [npcId] = {
+                [1] = "Mana Wyrm",
+            },
+        }
+        Questie.dbLearner.global.settings.learnNpcs = true
+
+        QuestieLearner:_StoreGuidSpawnEvidence(npcId, unitGUID, 3431, 5868, 4319)
+
+        local entry = Questie.dbLearner.global.npcs[npcId][8][41298]
+        assert.is_not_nil(entry)
+        assert.are.equal(58.68, entry.x)
+        assert.are.equal(43.19, entry.y)
+    end)
+
     --==========================================================================
     -- Existing test: spell cast learning
     --==========================================================================

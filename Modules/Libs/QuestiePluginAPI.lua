@@ -31,6 +31,56 @@ end
 local QuestiePlugin = {}
 QuestiePlugin.__index = QuestiePlugin
 
+local function _GetAscensionProtection(dbType)
+    local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
+    QuestieDB.ascensionOverrideKeys = QuestieDB.ascensionOverrideKeys or {}
+    QuestieDB.ascensionOverrideKeys[dbType] = QuestieDB.ascensionOverrideKeys[dbType] or {}
+    return QuestieDB.ascensionOverrideKeys[dbType]
+end
+
+local function _IsAscensionProtected(dbType, id, key)
+    local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
+    local protected = QuestieDB.ascensionOverrideKeys
+        and QuestieDB.ascensionOverrideKeys[dbType]
+        and QuestieDB.ascensionOverrideKeys[dbType][id]
+
+    return protected and protected[key] == true
+end
+
+local function _ProtectAscensionField(dbType, id, key)
+    local protectedByType = _GetAscensionProtection(dbType)
+    protectedByType[id] = protectedByType[id] or {}
+    protectedByType[id][key] = true
+end
+
+local function _MergeEntry(target, id, entry, sourceName, dbType)
+    if type(target) ~= "table" or type(entry) ~= "table" then return end
+
+    local existing = target[id]
+    if type(existing) ~= "table" then
+        target[id] = entry
+        if sourceName == "Ascension" then
+            local key = next(entry)
+            while key do
+                _ProtectAscensionField(dbType, id, key)
+                key = next(entry, key)
+            end
+        end
+        return
+    end
+
+    local key, value = next(entry)
+    while key do
+        if sourceName == "Ascension" or not _IsAscensionProtected(dbType, id, key) then
+            existing[key] = value
+            if sourceName == "Ascension" then
+                _ProtectAscensionField(dbType, id, key)
+            end
+        end
+        key, value = next(entry, key)
+    end
+end
+
 --- Registers a new Questie plugin
 ---@param pluginName string The unique name of the plugin
 ---@return table|nil plugin The initialized plugin object, or nil if already registered
@@ -104,7 +154,7 @@ function QuestiePlugin:InjectDatabase(dbType, data)
 
     local qid, entry = next(data)
     while qid do
-        targetOverride[qid] = entry
+        _MergeEntry(targetOverride, qid, entry, self.name, dbType)
         if type(qid) == "number" then
             count = count + 1
         end

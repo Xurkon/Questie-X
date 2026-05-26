@@ -79,6 +79,8 @@ ZoneDB.private.areaIdToUiMapId[3430] = 1941
 areaIdToUiMapId[3430] = 1941
 -- Sunstrider Isle (3431) uses its own map (1241) with calibrated bounds.
 -- Pins for Sunstrider NPCs (zone 1241 coords) must appear on map 1241, not 1941.
+-- Future agents: Sunstrider Isle uses areaId 3431 and uiMapId 1241; convert
+-- Eversong-derived source spawns into 1241 map space before injecting pins.
 ZoneDB.private.areaIdToUiMapId[3431] = 1241
 areaIdToUiMapId[3431] = 1241
 -- Allow drawing pins directly on Sunstrider Isle (uiMapId 1241) via areaId 1241.

@@ -2182,11 +2182,35 @@ local function _Asc_LoadIfString(data, label)
     return data
 end
 
-local function _Asc_MergeInto(dst, src)
+local function _Asc_ProtectField(dbType, id, key)
+    QuestieDB.ascensionOverrideKeys = QuestieDB.ascensionOverrideKeys or {}
+    QuestieDB.ascensionOverrideKeys[dbType] = QuestieDB.ascensionOverrideKeys[dbType] or {}
+    QuestieDB.ascensionOverrideKeys[dbType][id] = QuestieDB.ascensionOverrideKeys[dbType][id] or {}
+    QuestieDB.ascensionOverrideKeys[dbType][id][key] = true
+end
+
+local function _Asc_MergeInto(dst, src, dbType)
     if type(dst) ~= "table" or type(src) ~= "table" then return end
     local id, entry = next(src)
     while id do
-        dst[id] = entry -- overwrite = true
+        local existing = dst[id]
+        if type(existing) == "table" and type(entry) == "table" then
+            local key, value = next(entry)
+            while key do
+                existing[key] = value
+                _Asc_ProtectField(dbType, id, key)
+                key, value = next(entry, key)
+            end
+        else
+            dst[id] = entry
+            if type(entry) == "table" then
+                local key = next(entry)
+                while key do
+                    _Asc_ProtectField(dbType, id, key)
+                    key = next(entry, key)
+                end
+            end
+        end
         id, entry = next(src, id)
     end
 end
@@ -2196,7 +2220,7 @@ function QuestieDB:LoadAscensionQuestData()
     if not A then return end
     local data = _Asc_LoadIfString(A.questData, "AscensionDB.questData")
     QuestieDB.questDataOverrides = QuestieDB.questDataOverrides or {}
-    _Asc_MergeInto(QuestieDB.questDataOverrides, data)
+    _Asc_MergeInto(QuestieDB.questDataOverrides, data, "QUEST")
 end
 
 function QuestieDB:LoadAscensionNpcData()
@@ -2204,7 +2228,7 @@ function QuestieDB:LoadAscensionNpcData()
     if not A then return end
     local data = _Asc_LoadIfString(A.npcData, "AscensionDB.npcData")
     QuestieDB.npcDataOverrides = QuestieDB.npcDataOverrides or {}
-    _Asc_MergeInto(QuestieDB.npcDataOverrides, data)
+    _Asc_MergeInto(QuestieDB.npcDataOverrides, data, "NPC")
 end
 
 function QuestieDB:LoadAscensionObjectData()
@@ -2212,7 +2236,7 @@ function QuestieDB:LoadAscensionObjectData()
     if not A then return end
     local data = _Asc_LoadIfString(A.objectData, "AscensionDB.objectData")
     QuestieDB.objectDataOverrides = QuestieDB.objectDataOverrides or {}
-    _Asc_MergeInto(QuestieDB.objectDataOverrides, data)
+    _Asc_MergeInto(QuestieDB.objectDataOverrides, data, "OBJECT")
 end
 
 function QuestieDB:LoadAscensionItemData()
@@ -2220,7 +2244,7 @@ function QuestieDB:LoadAscensionItemData()
     if not A then return end
     local data = _Asc_LoadIfString(A.itemData, "AscensionDB.itemData")
     QuestieDB.itemDataOverrides = QuestieDB.itemDataOverrides or {}
-    _Asc_MergeInto(QuestieDB.itemDataOverrides, data)
+    _Asc_MergeInto(QuestieDB.itemDataOverrides, data, "ITEM")
 end
 
 

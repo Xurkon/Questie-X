@@ -32,6 +32,36 @@ local string_sub = string.sub
 local string_len = string.len
 local string_upper = string.upper
 
+local function IsAscensionProtected(dbType, id, key)
+    local protected = QuestieDB
+        and QuestieDB.ascensionOverrideKeys
+        and QuestieDB.ascensionOverrideKeys[dbType]
+        and QuestieDB.ascensionOverrideKeys[dbType][id]
+
+    return protected and protected[key] == true
+end
+
+local function NormalizeSpawnZoneKey(zoneKey)
+    -- Convert raw area IDs (e.g. 3431 from GetAreaID()) to the canonical map IDs
+    -- used by AscensionDB and the rendering system (e.g. 1241 for Sunstrider Isle).
+    -- ZoneDB.private.areaIdToUiMapId is the single source of truth for this mapping
+    -- (zoneDB.lua: 3431→1241, 3430→1941, 668→1238, etc.).  Using the same table
+    -- ensures learner-stored zone keys are always valid for DrawWorldIcon / HBD.
+    --
+    -- IMPORTANT: Never store raw area IDs (3430, 3431) in spawn data — the pin
+    -- rendering pipeline only knows about map IDs (1241, 1941).  Any future zone
+    -- additions must be registered in ZoneDB.private.areaIdToUiMapId first.
+    if ZoneDB and ZoneDB.private and ZoneDB.private.areaIdToUiMapId then
+        local mapped = ZoneDB.private.areaIdToUiMapId[zoneKey]
+        if mapped then return mapped end
+    end
+    return zoneKey
+end
+
+local function IsSunstriderNativeZone(zoneKey)
+    return zoneKey == 1241 or zoneKey == 3431
+end
+
 -- WoW API locals
 local UnitExists = UnitExists
 local UnitIsVisible = UnitIsVisible
@@ -79,6 +109,15 @@ local COORD_GRID = 2.0
 -- Set to 1 so that even a single kill/mouseover confirms a spawn location on
 -- Ascension, where NPC databases are incomplete and every data point matters.
 local MIN_CONFIDENCE_PINS = 1
+
+local function GetCoordGridForZone(zoneId)
+    -- Sunstrider's starter mobs are packed tightly; a 2% bucket collapses
+    -- distinct spawn points such as 58.68/43.19 and 59.11/44.00 into one pin.
+    if IsSunstriderNativeZone(zoneId) then
+        return 0.5
+    end
+    return COORD_GRID
+end
 
 _Learner.pendingNpcs    = {}
 _Learner.pendingQuests  = {}
@@ -138,6 +177,29 @@ local function GetPlayerCoords()
     return nil, nil
 end
 
+local function NormalizeCoordValue(value)
+    local coord = tonumber(value)
+    if not coord or coord <= 0 then return nil end
+
+    -- Native map APIs return 0-1, Questie stores 0-100, and a previous
+    -- learner path accidentally persisted 0-10000 values like 5868.
+    if coord <= 1 then
+        coord = coord * 100
+    elseif coord > 100 then
+        coord = coord / 100
+    end
+
+    if coord <= 0 or coord > 100 then return nil end
+    return floor(coord * 100 + 0.5) / 100
+end
+
+local function NormalizeCoordPair(x, y)
+    local nx = NormalizeCoordValue(x)
+    local ny = NormalizeCoordValue(y)
+    if not nx or not ny then return nil, nil end
+    return nx, ny
+end
+
 -- Returns the grid-bucket key for a coordinate so nearby points share the same slot
 local function CoordBucket(x, y)
     return floor(x / COORD_GRID) * COORD_GRID, floor(y / COORD_GRID) * COORD_GRID
@@ -145,10 +207,17 @@ end
 
 -- Inserts {x, y} into coordList only when no existing point falls in the same grid bucket
 local function InsertIfNewBucket(coordList, x, y, customGrid)
+    x, y = NormalizeCoordPair(x, y)
+    if not x or not y then return false end
+
     local grid = customGrid or COORD_GRID
     local bx, by = floor(x / grid) * grid, floor(y / grid) * grid
     for _, coord in ipairs(coordList) do
-        local cx, cy = floor(coord[1] / grid) * grid, floor(coord[2] / grid) * grid
+        local existingX, existingY = NormalizeCoordPair(coord[1], coord[2])
+        if existingX and existingY then
+            coord[1], coord[2] = existingX, existingY
+        end
+        local cx, cy = floor((existingX or coord[1]) / grid) * grid, floor((existingY or coord[2]) / grid) * grid
         if cx == bx and cy == by then return false end
     end
     table.insert(coordList, {x, y})
@@ -750,8 +819,10 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
     -- Never learn player-spawned totems
     if PLAYER_SPAWNED_NPC_SET[npcId] then return end
 
-    -- Use provided spawn coords (e.g. from kill event) or fall back to current player position
-    local zoneId = spawnZoneId or GetZoneId()
+    -- Use provided spawn coords (e.g. from kill event) or fall back to current player position.
+    -- Normalize area IDs → map IDs immediately so all storage uses the same key space
+    -- as AscensionDB (e.g. 3431 → 1241, 3430 → 1941).
+    local zoneId = NormalizeSpawnZoneKey(spawnZoneId or GetZoneId())
     local x, y
     if spawnX and spawnY then
         x, y = spawnX, spawnY
@@ -777,7 +848,7 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
     if x and y and zoneId and zoneId > 0 then
         existing[7] = existing[7] or {}
         existing[7][zoneId] = existing[7][zoneId] or {}
-        InsertIfNewBucket(existing[7][zoneId], x, y)
+        InsertIfNewBucket(existing[7][zoneId], x, y, GetCoordGridForZone(zoneId))
     end
 
     existing.ls = time() -- Update last seen
@@ -793,15 +864,15 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
         else
             -- Merge: fill missing fields; also overwrite empty-string names
             for k, v in pairs(existing) do
-                if ovr[k] == nil or (k == 1 and ovr[k] == "") then ovr[k] = v end
+                if not IsAscensionProtected("NPC", npcId, k) and (ovr[k] == nil or (k == 1 and ovr[k] == "")) then ovr[k] = v end
             end
             -- Always merge spawn coords
-            if existing[7] then
+            if existing[7] and not IsAscensionProtected("NPC", npcId, 7) then
                 ovr[7] = ovr[7] or {}
                 for zid, coords in pairs(existing[7]) do
                     ovr[7][zid] = ovr[7][zid] or {}
                     for _, coord in ipairs(coords) do
-                        InsertIfNewBucket(ovr[7][zid], coord[1], coord[2])
+                        InsertIfNewBucket(ovr[7][zid], coord[1], coord[2], GetCoordGridForZone(zid))
                     end
                 end
             end
@@ -831,9 +902,19 @@ end
 -- This is the per-spawn-instance identifier — different GUIDs for the same
 -- npcId indicate different spawn points (e.g. three boars at three corners
 -- of a field, not one boar teleporting around).
+-- IMPORTANT: Do not revert this to a single GUID format. Ascension clients
+-- may emit either dashed GUIDs or compact hex GUIDs ("0x..."), and both must
+-- remain supported or GUID-based learner evidence will silently stop storing.
 -- Format: "Creature-0-RR-RI-0-NNNNNNNN" where NNNNNNNN = spawn UID
 local function _ExtractSpawnUID(guid)
     if not guid or type(guid) ~= "string" then return nil end
+    -- Client-arg combat log GUIDs on Ascension commonly arrive as compact hex
+    -- strings (e.g. "0xF130003BAA009E40"). Use the low 24 bits so different
+    -- spawn instances of the same npcId still resolve to distinct evidence keys.
+    local hexTail = guid:match("^0x%x+(%x%x%x%x%x%x)$")
+    if hexTail then
+        return tonumber(hexTail, 16)
+    end
     -- Dash format: Creature-0-1234-567-89-21878-0000001234
     -- Last numeric segment after the 5th dash is the spawn UID
     local spawnUID = guid:match("^[^%-]+%-[^%-]+%-[^%-]+%-[^%-]+%-[^%-]+%-(%d+)$")
@@ -871,6 +952,11 @@ function QuestieLearner:_StoreGuidSpawnEvidence(npcId, dstGUID, zoneId, x, y)
     if not zoneId or zoneId <= 0 then return end
     if not x or not y or x <= 0 or y <= 0 then return end
 
+    -- Normalize area IDs → map IDs so evidence is keyed identically to AscensionDB.
+    -- Without this, kills on Sunstrider store under zone 3431 (area ID) while the
+    -- renderer expects zone 1241 (map ID), causing pins to silently not appear.
+    zoneId = NormalizeSpawnZoneKey(zoneId)
+
     local spawnUID = _ExtractSpawnUID(dstGUID)
     if not spawnUID then return end
 
@@ -880,10 +966,18 @@ function QuestieLearner:_StoreGuidSpawnEvidence(npcId, dstGUID, zoneId, x, y)
     local guidSpawns = _GetOrCreateGuidSpawnTable(learnedNpc)
     if not guidSpawns then return end
 
-    -- Normalize coords: same format as recentKills so Phase 3 merge is consistent
-    -- Formula: floor(v * 10000) / 100 — converts normalized 0-1 to scaled 0-100
-    local nx = floor(x * 10000) / 100
-    local ny = floor(y * 10000) / 100
+    -- Normalize coords to Questie's 0-100 map scale. NormalizeCoordPair handles all
+    -- three input formats: native 0-1, already-scaled 0-100, or buggy 0-10000.
+    local nx, ny = NormalizeCoordPair(x, y)
+    if not nx or not ny then return end
+
+    -- DEBUG: log raw x/y and normalized nx/ny being stored
+    -- Questie:Debug(Questie.DEBUG_LEARNER,
+        -- "_StoreGuidSpawnEvidence: npcId=", npcId,
+        -- "spawnUID=", spawnUID,
+        -- "x=", x, "y=", y,
+        -- "nx=", nx, "ny=", ny,
+        -- "zoneId=", zoneId)
 
     if guidSpawns[spawnUID] then
         -- Existing spawn UID: update position and timestamp
@@ -950,15 +1044,30 @@ local function _MergeSpawnEvidence(npcId)
 
     for spawnUID, entry in pairs(guidSpawns) do
         if entry and entry.zoneId and entry.x and entry.y then
-            -- Round to 2 decimal places for grouping
-            local rx = floor(entry.x * 100 + 0.5) / 100
-            local ry = floor(entry.y * 100 + 0.5) / 100
-            local key = entry.zoneId .. "|" .. rx .. "|" .. ry
-            if not evidence[key] then
-                evidence[key] = { zoneId = entry.zoneId, x = rx, y = ry, count = 0 }
+            local evidenceX, evidenceY = NormalizeCoordPair(entry.x, entry.y)
+            if not evidenceX or not evidenceY then
+                Questie:Debug(Questie.DEBUG_LEARNER,
+                    "[QuestieLearner] _MergeSpawnEvidence skipping invalid coords: spawnUID=", spawnUID,
+                    "entry.x=", tostring(entry.x), "entry.y=", tostring(entry.y))
+            else
+                entry.x = evidenceX
+                entry.y = evidenceY
+
+                -- Round to 2 decimal places for grouping
+                local rx = floor(evidenceX * 100 + 0.5) / 100
+                local ry = floor(evidenceY * 100 + 0.5) / 100
+                local key = entry.zoneId .. "|" .. rx .. "|" .. ry
+                -- DEBUG: log each entry being grouped
+                Questie:Debug(Questie.DEBUG_LEARNER,
+                    "[QuestieLearner] _MergeSpawnEvidence GROUPING: spawnUID=", spawnUID,
+                    "entry.x=", entry.x, "entry.y=", entry.y,
+                    "rx=", rx, "ry=", ry, "key=", key)
+                if not evidence[key] then
+                    evidence[key] = { zoneId = entry.zoneId, x = rx, y = ry, count = 0 }
+                end
+                evidence[key].count = evidence[key].count + 1
+                totalEvidence = totalEvidence + 1
             end
-            evidence[key].count = evidence[key].count + 1
-            totalEvidence = totalEvidence + 1
         end
     end
 
@@ -979,33 +1088,119 @@ local function _MergeSpawnEvidence(npcId)
     local topEvidence = evidence[topKey]
     local topPct = (topCount / totalEvidence) * 100
 
-    -- Only override if > 60% confidence AND spawn differs from static DB
-    if topPct <= 60 then
+    -- DEBUG: log topEvidence raw values to diagnose coordinate corruption
+    Questie:Debug(Questie.DEBUG_LEARNER,
+        "[QuestieLearner] _MergeSpawnEvidence DEBUG: topKey=", topKey,
+        "topEvidence.x=", topEvidence.x, "topEvidence.y=", topEvidence.y,
+        "topCount=", topCount, "totalEvidence=", totalEvidence)
+
+    -- Sunstrider Isle: zone IDs are now normalized via NormalizeSpawnZoneKey so
+    -- topEvidence.zoneId will be 1241 (map ID), not 3431 (area ID).
+    -- IsSunstriderNativeZone checks both to be safe against old saved data.
+    -- Confidence threshold is bypassed for Sunstrider because spawn points are
+    -- distributed across 5+ locations — no single point ever reaches 60% of kills.
+    local isSunstrider = IsSunstriderNativeZone(topEvidence.zoneId)
+    local confidenceThreshold = isSunstrider and 0 or 60
+
+    -- Only override if > confidence threshold AND spawn differs from static DB
+    if topPct <= confidenceThreshold then
         Questie:Debug(Questie.DEBUG_LEARNER,
             "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
             "top spawn", topCount .. "/" .. totalEvidence,
-            "= " .. floor(topPct + 0.5) .. "% — below 60%, no override")
-        return false
+            "= " .. floor(topPct + 0.5) .. "%" ..
+            (isSunstrider and " — Sunstrider, threshold bypassed" or (" — below " .. confidenceThreshold .. "%, no override")))
+        -- For Sunstrider, fall through and apply the learned spawn anyway
+        if not isSunstrider then
+            return false
+        end
     end
 
-    -- Check against static DB entry
+    if isSunstrider then
+        -- AscensionDB owns spawn data for known Sunstrider NPCs — never overwrite it.
+        -- Key 7 = spawns. Without this guard the learner would pollute the curated
+        -- AscensionDB coords with in-game kill evidence, causing wrong pin counts.
+        -- REGRESSION NOTE: If AscensionDB protection check is removed or disabled,
+        -- learner pins will reappear at wrong locations. Do not remove this guard.
+        if IsAscensionProtected("NPC", npcId, 7) then
+            Questie:Debug(Questie.DEBUG_LEARNER,
+                "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
+                "Sunstrider zone but AscensionDB owns spawns — skipping learner injection")
+            return false
+        end
+
+        -- topEvidence.zoneId is now a map ID (e.g. 1241) because NormalizeSpawnZoneKey
+        -- converted the area ID at storage time. This matches AscensionDB's key space
+        -- so DrawWorldIcon and HBD can resolve the coordinates correctly.
+        QuestieDB.npcDataOverrides[npcId] = QuestieDB.npcDataOverrides[npcId] or {}
+        QuestieDB.npcDataOverrides[npcId][7] = QuestieDB.npcDataOverrides[npcId][7] or {}
+        QuestieDB.npcDataOverrides[npcId][7][topEvidence.zoneId] = QuestieDB.npcDataOverrides[npcId][7][topEvidence.zoneId] or {}
+
+        local promoted = 0
+        local duplicates = 0
+        local zoneSpawns = QuestieDB.npcDataOverrides[npcId][7][topEvidence.zoneId]
+        local grid = GetCoordGridForZone(topEvidence.zoneId)
+        for _, spawnEvidence in pairs(evidence) do
+            if InsertIfNewBucket(zoneSpawns, spawnEvidence.x, spawnEvidence.y, grid) then
+                promoted = promoted + 1
+            else
+                duplicates = duplicates + 1
+            end
+        end
+
+        Questie:Debug(Questie.DEBUG_LEARNER,
+            "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
+            "promoted Sunstrider evidence groups", promoted,
+            "duplicates", duplicates,
+            "zone", tostring(topEvidence.zoneId))
+
+        if QuestieDB.private and QuestieDB.private.npcCache then
+            QuestieDB.private.npcCache[npcId] = nil
+        end
+
+        return promoted > 0 or duplicates > 0
+    end
+
+    -- Check against static DB + learner-promoted override entries.
+    -- After a previous promotion, QueryNPCSingle returns the override data,
+    -- so learner-promoted spawns would incorrectly "match static" and block
+    -- re-promotion. We must exclude overrides we wrote ourselves.
     local staticNPC = nil
-    if QuestieDB and QuestieDB.QueryNPC then
-        staticNPC = QuestieDB.QueryNPC(npcId, 1)
+    if QuestieDB and QuestieDB.QueryNPCSingle then
+        staticNPC = QuestieDB.QueryNPCSingle(npcId, "spawns")
     end
 
-    local staticSpawnList = staticNPC and staticNPC[7]
+    local staticSpawnList = staticNPC
     local staticSpawnsForZone = staticSpawnList and staticSpawnList[topEvidence.zoneId]
 
-    -- Check if top spawn matches any static spawn in the same zone
+    -- Collect spawns already promoted by the learner for this zone
+    local learnerOverrides = QuestieDB.npcDataOverrides
+        and QuestieDB.npcDataOverrides[npcId]
+        and QuestieDB.npcDataOverrides[npcId][7]
+        and QuestieDB.npcDataOverrides[npcId][7][topEvidence.zoneId]
+    local learnerOverrideSet = {}
+    if learnerOverrides then
+        for _, entry in ipairs(learnerOverrides) do
+            if entry and entry[1] and entry[2] then
+                local lx = floor(entry[1] * 100 + 0.5) / 100
+                local ly = floor(entry[2] * 100 + 0.5) / 100
+                learnerOverrideSet[lx .. "|" .. ly] = true
+            end
+        end
+    end
+
+    -- Check if top spawn matches any static spawn in the same zone,
+    -- excluding learner-promoted overrides (those should always be updatable)
     local matchesStatic = false
     if staticSpawnsForZone then
         for _, coord in ipairs(staticSpawnsForZone) do
             local sx = floor(coord[1] * 100 + 0.5) / 100
             local sy = floor(coord[2] * 100 + 0.5) / 100
-            if abs(sx - topEvidence.x) < 0.01 and abs(sy - topEvidence.y) < 0.01 then
-                matchesStatic = true
-                break
+            -- Skip learner-promoted entries — they are not "static"
+            if not learnerOverrideSet[sx .. "|" .. sy] then
+                if abs(sx - topEvidence.x) < 0.01 and abs(sy - topEvidence.y) < 0.01 then
+                    matchesStatic = true
+                    break
+                end
             end
         end
     end
@@ -1017,25 +1212,47 @@ local function _MergeSpawnEvidence(npcId)
         return false
     end
 
-    -- Override: inject top spawn into QuestieDB spawn overrides for this zone
-    if not QuestieDB.npcDataOverrides[npcId] then
-        QuestieDB.npcDataOverrides[npcId] = {}
-    end
-    if not QuestieDB.npcDataOverrides[npcId][7] then
-        QuestieDB.npcDataOverrides[npcId][7] = {}
-    end
-    if not QuestieDB.npcDataOverrides[npcId][7][topEvidence.zoneId] then
-        QuestieDB.npcDataOverrides[npcId][7][topEvidence.zoneId] = {}
-    end
+    -- Test mode: allow learned Sunstrider spawn evidence to overwrite live
+    -- override data even if AscensionDB owns the field. If this restores the
+    -- Mana Wyrm pins, the ownership gate is the thing blocking live updates.
+    --[[ if IsAscensionProtected("NPC", npcId, 7) then
+        Questie:Debug(Questie.DEBUG_LEARNER,
+            "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
+            "spawn override skipped because AscensionDB owns this NPC spawn field")
+        return false
+    end --]]
 
-    -- Insert as new spawn (InsertIfNewBucket deduplicates)
-    InsertIfNewBucket(QuestieDB.npcDataOverrides[npcId][7][topEvidence.zoneId],
-        topEvidence.x, topEvidence.y)
+    Questie:Debug(Questie.DEBUG_LEARNER,
+        "[QuestieLearner] _MergeSpawnEvidence promoting npcId", npcId,
+        "zone", tostring(topEvidence.zoneId),
+        "x", tostring(topEvidence.x),
+        "y", tostring(topEvidence.y),
+        "protected", tostring(IsAscensionProtected("NPC", npcId, 7)))
+
+    -- Insert as new spawn (InsertIfNewBucket deduplicates).
+    -- Only create zone table entry if insert succeeds — an empty zone override
+    -- {[3431] = {}} makes _MergeOverride's IsEmptyTable check fall through to
+    -- rawdata, bypassing learner data entirely (field is non-nil but empty).
+    local spawned = false
+    if topEvidence.x and topEvidence.y then
+        if not QuestieDB.npcDataOverrides[npcId] then
+            QuestieDB.npcDataOverrides[npcId] = {}
+        end
+        if not QuestieDB.npcDataOverrides[npcId][7] then
+            QuestieDB.npcDataOverrides[npcId][7] = {}
+        end
+        if not QuestieDB.npcDataOverrides[npcId][7][topEvidence.zoneId] then
+            QuestieDB.npcDataOverrides[npcId][7][topEvidence.zoneId] = {}
+        end
+        spawned = InsertIfNewBucket(QuestieDB.npcDataOverrides[npcId][7][topEvidence.zoneId],
+            topEvidence.x, topEvidence.y, GetCoordGridForZone(topEvidence.zoneId))
+    end
 
     Questie:Debug(Questie.DEBUG_LEARNER,
         "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
-        "overrode static DB — learned spawn (" .. topEvidence.x .. "," .. topEvidence.y .. ")",
-        "zone " .. topEvidence.zoneId .. " at " .. floor(topPct + 0.5) .. "% confidence")
+        "overrode static DB — learned spawn (" .. tostring(topEvidence.x) .. "," .. tostring(topEvidence.y) .. ")",
+        "zone " .. topEvidence.zoneId .. " at " .. floor(topPct + 0.5) .. "% confidence",
+        spawned and "SPAM" or "IGNORED_DUPLICATE")
 
     -- Clear npcCache so GetNPC returns fresh data
     if QuestieDB.private and QuestieDB.private.npcCache then
@@ -1092,7 +1309,7 @@ function QuestieLearner:LearnQuest(questId, data)
             QuestieDB.questDataOverrides[questId] = existing
         else
             for k, v in pairs(existing) do
-                if ovr[k] == nil then ovr[k] = v end
+                if ovr[k] == nil and not IsAscensionProtected("QUEST", questId, k) then ovr[k] = v end
             end
         end
     end
@@ -1130,7 +1347,7 @@ function QuestieLearner:LearnQuestGiver(questId, entityId, entityType, isStart)
     table.insert(list, entityId)
 
     -- Live injection into questDataOverrides so starters/finishers take effect without reload
-    if QuestieDB and QuestieDB.questDataOverrides then
+    if QuestieDB and QuestieDB.questDataOverrides and not IsAscensionProtected("QUEST", questId, field) then
         local ovr = QuestieDB.questDataOverrides[questId] or {}
         QuestieDB.questDataOverrides[questId] = ovr
         ovr[field] = ovr[field] or {}
@@ -1196,7 +1413,7 @@ function QuestieLearner:LearnQuestObjectiveNPC(questId, npcId, objText, objectiv
     end
 
     -- 2. Apply to live questDataOverrides immediately (no reload needed)
-    if QuestieDB and QuestieDB.questDataOverrides then
+    if QuestieDB and QuestieDB.questDataOverrides and not IsAscensionProtected("QUEST", questId, 10) then
         local ovr = QuestieDB.questDataOverrides[questId] or {}
         QuestieDB.questDataOverrides[questId] = ovr
         ovr[10] = ovr[10] or {}
@@ -1283,7 +1500,7 @@ function QuestieLearner:LearnItem(itemId, name, itemLevel, requiredLevel, itemCl
             QuestieDB.itemDataOverrides[itemId] = existing
         else
             for k, v in pairs(existing) do
-                if ovr[k] == nil then ovr[k] = v end
+                if ovr[k] == nil and not IsAscensionProtected("ITEM", itemId, k) then ovr[k] = v end
             end
         end
     end
@@ -1316,7 +1533,7 @@ function QuestieLearner:LearnItemDrop(itemId, npcId)
     table.insert(existing[2], npcId)
 
     -- Live injection: sync drop list to itemDataOverrides
-    if QuestieDB and QuestieDB.itemDataOverrides then
+    if QuestieDB and QuestieDB.itemDataOverrides and not IsAscensionProtected("ITEM", itemId, 2) then
         local ovr = QuestieDB.itemDataOverrides[itemId] or {}
         QuestieDB.itemDataOverrides[itemId] = ovr
         ovr[2] = ovr[2] or {}
@@ -1370,9 +1587,9 @@ function QuestieLearner:LearnObject(objectId, name)
             QuestieDB.objectDataOverrides[objectId] = existing
         else
             for k, v in pairs(existing) do
-                if ovr[k] == nil then ovr[k] = v end
+                if ovr[k] == nil and not IsAscensionProtected("OBJECT", objectId, k) then ovr[k] = v end
             end
-            if existing[4] then
+            if existing[4] and not IsAscensionProtected("OBJECT", objectId, 4) then
                 ovr[4] = ovr[4] or {}
                 for zid, coords in pairs(existing[4]) do
                     ovr[4][zid] = ovr[4][zid] or {}
@@ -1500,14 +1717,23 @@ function QuestieLearner:InjectLearnedData()
         if data[7] then
             local zonesToMigrate = {}
             for zoneKey, coords in pairs(data[7]) do
+                local originalZoneKey = zoneKey
+                zoneKey = NormalizeSpawnZoneKey(zoneKey)
+                -- Older Ascension learner data stored native Sunstrider coords
+                -- under parent areaId 3430 while [9] still identified the row as
+                -- Sunstrider. Move those coords to areaId 3431 so they render on
+                -- uiMapId 1241 instead of Eversong.
+                if originalZoneKey == 3430 and IsSunstriderNativeZone(data[9]) then
+                    zonesToMigrate[originalZoneKey] = 3431
+                end
                 -- If zoneKey looks like a uiMapId (a map ID rather than an areaId),
                 -- ZoneDB:GetAreaIdByUiMapId will return the corresponding areaId.
                 -- If it returns nil, zoneKey is already an areaId — no migration needed.
                 -- Skip very common areaIds that happen to look like small numbers.
-                if ZoneDB and ZoneDB.GetAreaIdByUiMapId then
+                if not zonesToMigrate[originalZoneKey] and ZoneDB and ZoneDB.GetAreaIdByUiMapId then
                     local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(zoneKey)
                     if maybeAreaId and maybeAreaId ~= zoneKey then
-                        zonesToMigrate[zoneKey] = maybeAreaId
+                        zonesToMigrate[originalZoneKey] = maybeAreaId
                     end
                 end
             end
@@ -1529,10 +1755,15 @@ function QuestieLearner:InjectLearnedData()
         if data[4] then
             local zonesToMigrate = {}
             for zoneKey, coords in pairs(data[4]) do
-                if ZoneDB and ZoneDB.GetAreaIdByUiMapId then
+                local originalZoneKey = zoneKey
+                zoneKey = NormalizeSpawnZoneKey(zoneKey)
+                if originalZoneKey == 3430 and IsSunstriderNativeZone(data[5]) then
+                    zonesToMigrate[originalZoneKey] = 3431
+                end
+                if not zonesToMigrate[originalZoneKey] and ZoneDB and ZoneDB.GetAreaIdByUiMapId then
                     local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(zoneKey)
                     if maybeAreaId and maybeAreaId ~= zoneKey then
-                        zonesToMigrate[zoneKey] = maybeAreaId
+                        zonesToMigrate[originalZoneKey] = maybeAreaId
                     end
                 end
             end
@@ -1558,7 +1789,8 @@ function QuestieLearner:InjectLearnedData()
     local fieldsFixed = 0
     for npcId, data in pairs(learned.npcs) do
         if type(data[9]) == "number" and ZoneDB and ZoneDB.GetAreaIdByUiMapId then
-            local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(data[9])
+            local normalizedZone = NormalizeSpawnZoneKey(data[9])
+            local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(normalizedZone)
             if maybeAreaId and maybeAreaId ~= data[9] then
                 Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] NPC", npcId, "zone field [9]", data[9], "->", maybeAreaId)
                 data[9] = maybeAreaId
@@ -1568,7 +1800,8 @@ function QuestieLearner:InjectLearnedData()
     end
     for objId, data in pairs(learned.objects) do
         if type(data[5]) == "number" and ZoneDB and ZoneDB.GetAreaIdByUiMapId then
-            local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(data[5])
+            local normalizedZone = NormalizeSpawnZoneKey(data[5])
+            local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(normalizedZone)
             if maybeAreaId and maybeAreaId ~= data[5] then
                 Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Object", objId, "zone field [5]", data[5], "->", maybeAreaId)
                 data[5] = maybeAreaId
@@ -1642,7 +1875,7 @@ function QuestieLearner:InjectLearnedData()
             npcCount = npcCount + 1
         else
             local existing = QuestieDB.npcDataOverrides[nid or npcId]
-            if data[7] then
+            if data[7] and not IsAscensionProtected("NPC", nid or npcId, 7) then
                 existing[7] = existing[7] or {}
                 for zoneId, coords in pairs(data[7]) do
                     existing[7][zoneId] = existing[7][zoneId] or {}
@@ -1653,7 +1886,7 @@ function QuestieLearner:InjectLearnedData()
             end
             -- Adopt other fields if missing
             for k, v in pairs(data) do
-                if k ~= "mc" and k ~= 7 and existing[k] == nil then
+                if k ~= "mc" and k ~= 7 and existing[k] == nil and not IsAscensionProtected("NPC", nid or npcId, k) then
                     existing[k] = v
                 end
             end
@@ -1776,20 +2009,22 @@ function QuestieLearner:InjectLearnedData()
                 if k ~= "mc" then
                     if k == 10 then
                         -- Special merge: add learned creatureObjective entries to [10][1]
-                        existing[10] = existing[10] or {}
-                        existing[10][1] = existing[10][1] or {}
-                        if type(v[1]) == "table" then
-                            for _, entry in ipairs(v[1]) do
-                                local found = false
-                                for _, ex in ipairs(existing[10][1]) do
-                                    if ex[1] == entry[1] then found = true; break end
-                                end
-                                if not found then
-                                    tinsert(existing[10][1], entry)
+                        if not IsAscensionProtected("QUEST", qid or questId, 10) then
+                            existing[10] = existing[10] or {}
+                            existing[10][1] = existing[10][1] or {}
+                            if type(v[1]) == "table" then
+                                for _, entry in ipairs(v[1]) do
+                                    local found = false
+                                    for _, ex in ipairs(existing[10][1]) do
+                                        if ex[1] == entry[1] then found = true; break end
+                                    end
+                                    if not found then
+                                        tinsert(existing[10][1], entry)
+                                    end
                                 end
                             end
                         end
-                    elseif existing[k] == nil then
+                    elseif existing[k] == nil and not IsAscensionProtected("QUEST", qid or questId, k) then
                         existing[k] = v
                     end
                 end
@@ -1831,7 +2066,7 @@ function QuestieLearner:InjectLearnedData()
             objectCount = objectCount + 1
         else
             local existing = QuestieDB.objectDataOverrides[oid or objectId]
-            if data[4] then
+            if data[4] and not IsAscensionProtected("OBJECT", oid or objectId, 4) then
                 existing[4] = existing[4] or {}
                 for zoneId, coords in pairs(data[4]) do
                     existing[4][zoneId] = existing[4][zoneId] or {}
@@ -1842,7 +2077,7 @@ function QuestieLearner:InjectLearnedData()
             end
             -- Adopt other fields
             for k, v in pairs(data) do
-                if k ~= "mc" and k ~= 4 and existing[k] == nil then
+                if k ~= "mc" and k ~= 4 and existing[k] == nil and not IsAscensionProtected("OBJECT", oid or objectId, k) then
                     existing[k] = v
                 end
             end
@@ -2438,8 +2673,8 @@ function QuestieLearner:LearnSpellCast(spellId, spellName, dstGUID, dstName)
                 for _, obj in pairs(quest.objectives) do
                     -- If the objective is a spell or requires this spell
                     if obj.type == "spell" and obj.text and obj.text:find(spellName, 1, true) then
-                        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Learning spell cast:", spellId, spellName, "on", dstName or "nil")
-                        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Found spell objective match for quest", questId)
+                        -- Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Learning spell cast:", spellId, spellName, "on", dstName or "nil")
+                        -- Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Found spell objective match for quest", questId)
                         local data = { [10] = { [1] = {} } }
                         if npcId then
                             tinsert(data[10][1], { npcId, spellName })
@@ -2526,7 +2761,7 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
     end
 
     -- Permanent minimal log: combat-log path, event, and target
-    Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] combat-log path=", path, " event=", eventType, " dstGUID=", dstGUID, " dstName=", dstName)
+    -- Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] combat-log path=", path, " event=", eventType, " dstGUID=", dstGUID, " dstName=", dstName)
 
     -- Vanilla: neither modern API nor legacy args available — throttle warning, do NOT disable permanently
     if not timestamp then
@@ -2556,7 +2791,7 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
     local now = time()
     local lastTs = _Learner.killDebounce and _Learner.killDebounce[dstGUID]
     if lastTs and (now - lastTs) < 5 then
-        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] kill dedupe suppressed duplicate event=", eventType, " dstGUID=", dstGUID)
+        -- Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] kill dedupe suppressed duplicate event=", eventType, " dstGUID=", dstGUID)
         return
     end
     _Learner.killDebounce = _Learner.killDebounce or {}
@@ -2613,7 +2848,7 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
     }
 
     if dstName and dstName ~= "" then
-        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Kill cached for correlation:", npcId, dstName, "@", tostring(px), tostring(py), "zone", tostring(zoneId))
+        -- Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Kill cached for correlation:", npcId, dstName, "@", tostring(px), tostring(py), "zone", tostring(zoneId))
     end
 
     -- Unconditionally map the spawn position for Ascension DB building
@@ -2621,14 +2856,36 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
 
     -- Phase 2: store per-GUID spawn evidence for weighted merge
     self:_StoreGuidSpawnEvidence(npcId, dstGUID, zoneId, px, py)
+    local guidSpawnsAfterStore = Questie.dbLearner.global.npcs[npcId]
+        and Questie.dbLearner.global.npcs[npcId][8]
+    if guidSpawnsAfterStore then
+        local guidCount = 0
+        for _ in pairs(guidSpawnsAfterStore) do guidCount = guidCount + 1 end
+        -- Questie:Debug(Questie.DEBUG_LEARNER,
+            -- "[QuestieLearner] GUID spawn evidence stored:",
+            -- npcId, dstName or name or "?",
+            -- "guidCount", guidCount,
+            -- "zone", tostring(zoneId),
+            -- "x", tostring(px),
+            -- "y", tostring(py))
+    else
+        -- Questie:Debug(Questie.DEBUG_LEARNER,
+            -- "[QuestieLearner] GUID spawn evidence missing after store:",
+            -- npcId, dstName or name or "?",
+            -- "zone", tostring(zoneId),
+            -- "x", tostring(px),
+            -- "y", tostring(py))
+    end
 
-    -- Phase 3: weighted merge when evidence count >= 3
+    -- Phase 3: weighted merge when evidence count is sufficient.
+    -- Temporarily lowered to 1 for Sunstrider/Mana Wyrm diagnostics so we can
+    -- verify the promotion path immediately.
     local guidSpawns = Questie.dbLearner.global.npcs[npcId]
         and Questie.dbLearner.global.npcs[npcId][8]
     if guidSpawns then
         local count = 0
         for _ in pairs(guidSpawns) do count = count + 1 end
-        if count >= 3 then
+        if count >= 1 then
             _MergeSpawnEvidence(npcId)
         end
     end
@@ -2806,7 +3063,7 @@ function QuestieLearner:PruneLearnedSpawnOutliers(threshold)
                         -- Check if static DB has anchors for this NPC+zone
                         local staticNPC = nil
                         if QuestieDB and QuestieDB.QueryNPC then
-                            staticNPC = QuestieDB.QueryNPC(npcId, 1)
+                            staticNPC = QuestieDB.QueryNPCSingle and QuestieDB.QueryNPCSingle(npcId, "spawns") or nil
                         end
 
                         if staticNPC and staticNPC[7] and staticNPC[7][zoneId] then
@@ -2913,7 +3170,7 @@ function QuestieLearner:OnQuestLogUpdate()
         local _, _, _, isHeader, _, _, _, questId = QuestieCompat.GetQuestLogTitle(i)
         if not isHeader and questId and questId > 0 then
             local numObj = GetNumQuestLeaderBoards and GetNumQuestLeaderBoards(i) or 0
-            Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] OnQuestLogUpdate scanning quest", questId, "logIdx", i, "numObj", numObj)
+            -- Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] OnQuestLogUpdate scanning quest", questId, "logIdx", i, "numObj", numObj)
             _Learner.prevObjCounts[questId] = _Learner.prevObjCounts[questId] or {}
             for j = 1, numObj do
                 local objText, objType, finished = GetQuestLogLeaderBoard(j, i)
@@ -2924,11 +3181,11 @@ function QuestieLearner:OnQuestLogUpdate()
                     local count = tonumber(objText:match(":?%s*(%d+)%s*/"))
                     local prev  = _Learner.prevObjCounts[questId][j]
 
-                    Questie:Debug(Questie.DEBUG_LEARNER,
-                        "[QuestieLearner] OnQuestLogUpdate quest", questId,
-                        "obj", j, "type:", tostring(objType),
-                        "count:", tostring(count), "prev:", tostring(prev),
-                        "text:", tostring(objText))
+                    -- Questie:Debug(Questie.DEBUG_LEARNER,
+                        -- "[QuestieLearner] OnQuestLogUpdate quest", questId,
+                        -- "obj", j, "type:", tostring(objType),
+                        -- "count:", tostring(count), "prev:", tostring(prev),
+                        -- "text:", tostring(objText))
 
                     -- Seed on first sight; only correlate on confirmed increase
                     if prev == nil then
@@ -3012,8 +3269,8 @@ local function _RegisterLearnedSpawnTooltipHook()
     if _tooltipHookRegistered then return end
     _tooltipHookRegistered = true
     GameTooltip:HookScript("OnTooltipSetUnit", function()
-        -- self == GameTooltip
-        local _, unitToken = self:GetUnit()
+        -- HookScript handlers do not reliably receive the frame as an argument on 3.3.5a.
+        local _, unitToken = GameTooltip:GetUnit()
         if unitToken then
             _AddLearnedSpawnTooltipLine(unitToken)
         end

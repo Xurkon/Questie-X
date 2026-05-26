@@ -1775,8 +1775,28 @@ _DrawObjectiveIcons = function(questId, iconsToDraw, objective, maxPerType)
 
     local iconCount, orderedList = _GetIconsSortedByDistance(iconsToDraw)
 
+    -- Dense kill objectives (like Sunstrider Isle mana wyrms) previously used
+    -- a lower clustering hotzone here. Leave the old behavior commented so we
+    -- can restore it quickly if we need to revisit consolidation again.
+    --[[
+    if iconCount >= 20 then
+        range = math.max(6, math.floor(range * 0.25))
+    elseif iconCount >= 12 then
+        range = math.max(10, math.floor(range * 0.4))
+    elseif iconCount >= 6 then
+        range = math.max(16, math.floor(range * 0.65))
+    end
+    --]]
+
     if orderedList[1] and orderedList[1].Icon == Questie.ICON_TYPE_OBJECT then -- new clustering / limit code should prevent problems, always show all object notes
         range = range * 0.2;                                                   -- Only use 20% of the default range.
+    end
+
+    -- Sunstrider Isle (uiMapID 1241) is a tiny starting area where AscensionDB
+    -- places individual spawn coords that should each show as a distinct pin.
+    -- Disable clustering entirely for this zone so all pins are visible.
+    if orderedList[1] and orderedList[1].zone == 1241 then
+        range = 0
     end
 
     local hotzones = QuestieMap.utils:CalcHotzones(orderedList, range, iconCount);
@@ -1869,35 +1889,29 @@ _GetIconsSortedByDistance = function(icons)
 end
 
 _DrawObjectiveWaypoints = function(objective, icon, iconPerZone)
-    local _, spawnData = next(objective.spawnList)
-    while _ do -- spawnData.Name, spawnData.Spawns
-        if spawnData.Waypoints then
-            local zone, waypoints = next(spawnData.Waypoints)
-            while zone do
-                local firstWaypoint = waypoints[1][1]
+    if not objective or not objective.spawnList then return end
 
-                if (not iconPerZone[zone]) and icon and firstWaypoint[1] ~= -1 and firstWaypoint[2] ~= -1 then              -- spawn an icon in this zone for the mob
-                    local iconMap, iconMini = QuestieMap:DrawWorldIcon(icon.data, zone, firstWaypoint[1],
-                        firstWaypoint[2])                                                                                   -- clustering code takes care of duplicates as long as min-dist is more than 0
+    for _, spawnData in pairs(objective.spawnList) do
+        if spawnData and spawnData.Waypoints then
+            for zone, waypoints in pairs(spawnData.Waypoints) do
+                local firstWaypoint = waypoints and waypoints[1] and waypoints[1][1]
 
+                if firstWaypoint and (not iconPerZone[zone]) and icon and firstWaypoint[1] ~= -1 and firstWaypoint[2] ~= -1 then
+                    local iconMap, iconMini = QuestieMap:DrawWorldIcon(icon.data, zone, firstWaypoint[1], firstWaypoint[2])
                     if iconMap and iconMini then
                         iconPerZone[zone] = { iconMap, firstWaypoint[1], firstWaypoint[2] }
-                        tinsert(objective.AlreadySpawned[icon.AlreadySpawnedId].mapRefs, iconMap);
-                        tinsert(objective.AlreadySpawned[icon.AlreadySpawnedId].minimapRefs, iconMini);
+                        tinsert(objective.AlreadySpawned[icon.AlreadySpawnedId].mapRefs, iconMap)
+                        tinsert(objective.AlreadySpawned[icon.AlreadySpawnedId].minimapRefs, iconMini)
                     end
                 end
 
                 local ipz = iconPerZone[zone]
-
                 if ipz then
                     QuestieMap:DrawWaypoints(ipz[1], waypoints, zone, spawnData.Hostile and { 1, 0.2, 0, 0.7 } or nil)
                 end
-                zone, waypoints = next(spawnData.Waypoints, zone)
             end
-
             Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest:_DrawObjectiveWaypoints]")
         end
-        _, spawnData = next(objective.spawnList, _)
     end
 end
 

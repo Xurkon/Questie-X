@@ -160,7 +160,36 @@ monster = function(npcId, objective)
             if learnedNpc then
                 local learnedSpawns = learnedNpc[7]
                 local threshold = ld.settings.minConfidencePins or 1
-                if learnedSpawns and next(learnedSpawns) and learnedNpc.mc and learnedNpc.mc >= threshold then
+                -- Do not override Ascension-curated spawn data with raw learner data.
+                -- AscensionDB hand-curates positions for Ascension-specific zones (e.g. Sunstrider)
+                -- which the learner can never improve upon, and the learner coords may be in the
+                -- wrong coordinate space due to Sunstrider/Eversong map-zone mismatch.
+                local ascProtected = QuestieDB.ascensionOverrideKeys
+                    and QuestieDB.ascensionOverrideKeys["NPC"]
+                    and QuestieDB.ascensionOverrideKeys["NPC"][npcId]
+                    and QuestieDB.ascensionOverrideKeys["NPC"][npcId][7]
+                if npcId == 15274 then
+                    -- Count spawn entries per zone key
+                    local spawnZones = ""
+                    if type(spawns) == "table" then
+                        for zk, coords in pairs(spawns) do
+                            spawnZones = spawnZones .. "z" .. tostring(zk) .. "=" .. tostring(type(coords) == "table" and #coords or "?") .. " "
+                        end
+                    end
+                    local learnedZones = ""
+                    if type(learnedSpawns) == "table" then
+                        for zk, coords in pairs(learnedSpawns) do
+                            learnedZones = learnedZones .. "z" .. tostring(zk) .. "=" .. tostring(type(coords) == "table" and #coords or "?") .. " "
+                        end
+                    end
+                    print(string.format("[QD] NPC 15274: dbSpawns={%s} learnedSpawns={%s} mc=%s threshold=%s ascProtected=%s -> uselearner=%s",
+                        spawnZones, learnedZones,
+                        tostring(learnedNpc.mc), tostring(threshold),
+                        tostring(ascProtected),
+                        tostring(learnedSpawns and next(learnedSpawns) and learnedNpc.mc and learnedNpc.mc >= threshold and not ascProtected)))
+                end
+                if learnedSpawns and next(learnedSpawns) and learnedNpc.mc and learnedNpc.mc >= threshold
+                        and not ascProtected then
                     Questie:Debug(Questie.DEBUG_DEVELOP, "[monster] Preferring learned spawns for NPC:", npcId, "(mc=" .. tostring(learnedNpc.mc) .. ")")
                     spawns = learnedSpawns
                     isLearned = true

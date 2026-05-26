@@ -209,12 +209,36 @@ local function UpdateMinimapPins(force)
 
     -- check for all values to be available (starting with 7.1.0, instances don't report coordinates)
     if not x or not y or (rotateMinimap and not facing) then
+        if _G.QuestieDebugPins then
+            print(string.format("[QD] UpdateMinimapPins: EARLY EXIT x=%s y=%s facing=%s", tostring(x), tostring(y), tostring(facing)))
+            _G.QuestieDebugPins = false
+        end
         minimapPinCount = 0
         for pin in pairs(activeMinimapPins) do
             pin:Hide()
             activeMinimapPins[pin] = nil
         end
         return
+    end
+
+    if _G.QuestieDebugPins then
+        local pinCount = 0
+        for _ in pairs(minimapPins) do pinCount = pinCount + 1 end
+        print(string.format("[QD] UpdateMinimapPins: player worldX=%.2f worldY=%.2f playerInst=%s mapID=%s totalPins=%d",
+            x, y, tostring(instanceID), tostring(mapID), pinCount))
+        local i = 0
+        for pin, data in pairs(minimapPins) do
+            i = i + 1
+            if i <= 10 then
+                local dist = math.abs(x - data.x) + math.abs(y - data.y)
+                local instMatch = instanceID == data.instanceID
+                local distPass = dist < 500
+                print(string.format("[QD]  Pin%d: pinX=%.2f pinY=%.2f pinInst=%s dist=%.1f instMatch=%s distPass=%s -> SHOW=%s",
+                    i, data.x, data.y, tostring(data.instanceID), dist,
+                    tostring(instMatch), tostring(distPass), tostring(instMatch and distPass)))
+            end
+        end
+        _G.QuestieDebugPins = false
     end
 
     local newScale = pins.Minimap:GetScale()

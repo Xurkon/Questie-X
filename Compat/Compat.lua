@@ -241,6 +241,17 @@ function QuestieCompat.GetCurrentUiMapID()
     if QuestieCompat.UiMapData and QuestieCompat.UiMapData[mapID] then
         return mapID
     end
+    -- Sunstrider safety net:
+    -- On Ascension, the client can land on the Sunstrider map while the classic
+    -- map lookup chain still falls through. Returning 946 here routes pins and
+    -- learner updates through the ghost-map path, which breaks redraws and can
+    -- keep objective pins stuck in the wrong place. Prefer the real Sunstrider
+    -- child map when we know the player is on that realm/zone.
+    if _G.IsAscensionServer and (GetRealZoneText and GetRealZoneText() == "Sunstrider Isle") then
+        return 1241
+    end
+    -- Non-Sunstrider fallback: preserve the legacy ghost-map behavior only when
+    -- we are not on the Ascension Sunstrider starting zone.
     return 946
 end
 
@@ -292,7 +303,40 @@ function QuestieCompat.GetCurrentPlayerPosition()
             end
         end
     end
-    return QuestieCompat.GetCurrentUiMapID(), x, y;
+    -- Detect coordinate-space mismatch: on subzones like Sunstrider Isle, SetMapToCurrentZone()
+    -- sets the displayed map to the parent zone (Eversong Woods), so GetPlayerMapPosition returns
+    -- parent-zone-relative 0-1 coords. GetCurrentUiMapID() returns the correct child-zone uiMapId
+    -- via the safety net. Convert the parent-zone coords to child-zone coords via world space.
+    local wantedUiMapId = QuestieCompat.GetCurrentUiMapID()
+    local actualMapAreaId = GetCurrentMapAreaID and GetCurrentMapAreaID()
+    if _G.QuestieDebugPins then
+        local dungeonLevel = GetCurrentMapDungeonLevel and GetCurrentMapDungeonLevel() or 0
+        local mappedId = actualMapAreaId and mapIdToUiMapId[actualMapAreaId + dungeonLevel / 10]
+        print(string.format("[QD] GetCurrentPlayerPosition: rawX=%.4f rawY=%.4f mapAreaID=%s dungeonLvl=%s mapIdToUiMapId->%s wantedUiMapId=%s",
+            x or -1, y or -1,
+            tostring(actualMapAreaId), tostring(dungeonLevel),
+            tostring(mappedId), tostring(wantedUiMapId)))
+    end
+    if actualMapAreaId then
+        local actualUiMapId = mapIdToUiMapId[actualMapAreaId + (GetCurrentMapDungeonLevel and GetCurrentMapDungeonLevel() / 10 or 0)]
+        if actualUiMapId and actualUiMapId ~= wantedUiMapId and QuestieCompat.HBD then
+            local worldX, worldY = QuestieCompat.HBD:GetWorldCoordinatesFromZone(x, y, actualUiMapId)
+            if _G.QuestieDebugPins then
+                print(string.format("[QD] coord-space remap: actualUiMapId=%s worldX=%s worldY=%s",
+                    tostring(actualUiMapId), tostring(worldX), tostring(worldY)))
+            end
+            if worldX and worldY then
+                local cx, cy = QuestieCompat.HBD:GetZoneCoordinatesFromWorld(worldX, worldY, wantedUiMapId, true)
+                if cx and cy then
+                    if _G.QuestieDebugPins then
+                        print(string.format("[QD] remapped to wantedZone: cx=%.4f cy=%.4f", cx, cy))
+                    end
+                    return wantedUiMapId, cx, cy
+                end
+            end
+        end
+    end
+    return wantedUiMapId, x, y;
 end
 
 -- wrapper used by QuestieCoords

@@ -712,9 +712,15 @@ local function _GetZoneName(zoneOrSort, questId, zoneNameOverride)
         elseif (zoneOrSort) < 0 then
             zoneName = TrackerUtils:GetCategoryNameByID(zoneOrSort)
         else
-            zoneName = "Unknown Zone"
-            Questie:Debug(Questie.DEBUG_CRITICAL, "[TrackerUtils:_GetZoneName] zoneOrSort", zoneOrSort, "of quest",
-                questId, "is not in the Database!")
+            -- zoneOrSort == 0: try quest log header as last resort before "Unknown Zone"
+            local logZone = GetQuestLogZoneName(questId)
+            if logZone then
+                zoneName = logZone
+            else
+                zoneName = "Unknown Zone"
+                Questie:Debug(Questie.DEBUG_CRITICAL, "[TrackerUtils:_GetZoneName] zoneOrSort", zoneOrSort, "of quest",
+                    questId, "is not in the Database!")
+            end
         end
     else
         if sortObj == "byComplete" then
@@ -837,7 +843,9 @@ function TrackerUtils:GetSortedQuestIds()
                 if not quest.SpecialObjectives then quest.SpecialObjectives = {} end
                 if not quest.ExtraObjectives then quest.ExtraObjectives = {} end
                 -- Use the quest log header walk (canonical 3.3.5 zone resolution)
-                if not quest.zoneName or quest.zoneName == "" then
+                -- Also run if zoneName is set but zoneOrSort is still 0 (e.g. GetAreaIdByZoneName
+                -- returned 0 for a valid zone name like "Sunstrider Isle", leaving zoneOrSort wrong).
+                if not quest.zoneName or quest.zoneName == "" or quest.zoneOrSort == 0 then
                     local logZone = GetQuestLogZoneName(capturedId)
                     if logZone then
                         quest.zoneName = logZone

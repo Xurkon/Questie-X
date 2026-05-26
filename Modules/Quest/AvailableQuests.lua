@@ -187,10 +187,9 @@ _CalculateAvailableQuests = function()
 
         if QuestieMap.questIdFrames[questId] then
             -- We already drew this quest so we might need to update the icon (config changed/level up)
+            -- Note: GetFramesForQuest returns string-keyed table, so iterate with pairs not numeric index.
             local frames = QuestieMap:GetFramesForQuest(questId)
-            local i = 1
-            while frames[i] do
-                local frame = frames[i]
+            for _, frame in pairs(frames) do
                 if frame and frame.data and frame.data.QuestData then
                     local newIcon = _GetQuestIcon(frame.data.QuestData)
 
@@ -198,7 +197,6 @@ _CalculateAvailableQuests = function()
                         frame:UpdateTexture(Questie.usedIcons[newIcon])
                     end
                 end
-                i = i + 1
             end
             return
         end

@@ -4,6 +4,22 @@
 
 ### Bug Fixes
 
+- **[Fix — Sunstrider Isle: 5 Mana Wyrm Pins Now Show Correctly]** Resolved two interacting bugs that caused only 2 pins (instead of 5) to appear for the "Slay Mana Wyrm" kill objective on Sunstrider Isle, and caused pin data to corrupt on subsequent mob kills.
+
+  - **Root Cause 1 — Learner bypassed AscensionDB protection in isSunstrider block**: `_MergeSpawnEvidence` in `QuestieLearner.lua` had an `isSunstrider` special case (lines 1106–1134) that wrote learner kill-evidence coords directly to `npcDataOverrides[npcId][7][3431]` WITHOUT checking `IsAscensionProtected`. This is the same bypass guard that the live-injection path (line 864) correctly checks. The result: after AscensionDB injected 5 clean coords at zone 1241, each kill event added zone 3431 learner coords that competed with (or replaced) the AscensionDB data, leaving `dbSpawns={z3431=2}` instead of `{z1241=5}`.
+    - **Fix (`QuestieLearner.lua`)**: Added `if IsAscensionProtected("NPC", npcId, 7) then return false end` at the top of the isSunstrider block. AscensionDB-owned NPCs are now completely immune to learner injection in this path.
+    - **REGRESSION WARNING**: Removing or disabling the `IsAscensionProtected` guard in `_MergeSpawnEvidence` will immediately reintroduce z3431 data pollution and restore the 2-pin bug.
+
+  - **Root Cause 2 — Clustering collapsed 4 of 5 spawns into 1 pin**: `_DrawObjectiveIcons` uses `clusterLevelHotzone = 50` yards as the pin clustering radius. Four of the five AscensionDB Mana Wyrm spawn coords are within 27 yards of each other, so they were collapsed into a single centroid pin. Only the outlier at `{57.78, 64.93}` (~94 yards away) remained separate, yielding 2 pins total from 5 coords.
+    - **Fix (`QuestieQuest.lua`)**: Added `if orderedList[1] and orderedList[1].zone == 1241 then range = 0 end` after the existing object-icon range reduction. Zone 1241 (Sunstrider Isle) is a tiny starter area where every spawn coord should be shown individually.
+
+- **[Fix — QuestieLearner Zone ID Normalization]** All learner spawn data was being stored under raw area IDs (e.g. `3431` for Sunstrider Isle) rather than the map IDs (`1241`) that AscensionDB, ZoneDB, and the pin rendering pipeline use. This caused learner pins for any NPC on Sunstrider to be silently dropped by `DrawWorldIcon`/HBD because `mapData[3431]` does not exist.
+  - **Root Cause**: `LearnNPC` and `_StoreGuidSpawnEvidence` stored the raw `spawnZoneId` (area ID from `GetAreaID()`) without converting it. `NormalizeSpawnZoneKey` only handled ghost map 946 and was never called at storage time.
+  - **Fix**: Rewrote `NormalizeSpawnZoneKey` to consult `ZoneDB.private.areaIdToUiMapId` — the same authoritative table used by AscensionDB — for all zone ID conversions. `LearnNPC` now calls it immediately after obtaining `zoneId`. `_StoreGuidSpawnEvidence` calls it before storing evidence. `_MergeSpawnEvidence` isSunstrider check updated from `topEvidence.zoneId == 3431` to `IsSunstriderNativeZone(topEvidence.zoneId)` since normalized zone IDs are now map IDs (1241) not area IDs (3431).
+  - **Result**: Learner spawns are now stored under map IDs matching AscensionDB's key space (`z1241`, `z1941`, etc.), ensuring consistent zone keys across both data sources and correct pin rendering for all zones.
+
+### Bug Fixes
+
 - **[Fix — Arrow Rendering: Single-Frame SetRotation]** Replaced the sprite sheet-based arrow rendering with a single-frame texture + `SetRotation()` for perfectly smooth rotation. The sprite sheet approach used 108 discrete frames (3.33° per step), causing visible jitter. The previous attempt to fix this with `SetRotation` sub-cell interpolation broke WoW's UV sampling and displayed the entire sprite sheet on screen.
   - **New arrow texture**: `Icons/arrow.tga` is now X-PLORE's `XPArrow4.tga` — a single 256×256 RGBA TGA with a blue neon arrow pointing UP at `SetRotation(0)`, centered at pixel (128,128) for clean pivot rotation.
   - **Removed all sprite sheet logic**: No more `ARROW_SHEET_*`, `ARROW_CELL_*`, `ARROW_TOTAL_CELLS`, `SetTexCoord` cell selection, or UV padding. Replaced with `ARROW_DISPLAY_SIZE` (single constant for on-screen pixel size) and `SetRotation(-angle)` for infinite angular resolution.

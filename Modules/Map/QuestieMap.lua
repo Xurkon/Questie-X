@@ -62,10 +62,10 @@ local function _ResolveMapUiMapId(uiMapId, x, y)
     if uiMapId == 946 then
         return 1941
     end
-    -- Map 1241 (Sunstrider Isle): the game engine returns player world
-    -- coordinates in Sunstrider space (mapData[1241] calibrated bounds).
-    -- Pins MUST also convert through mapData[1241] so they share the same
-    -- world space as the player on the minimap. Do NOT redirect to 1941.
+    -- Map 1241 (Sunstrider Isle) must keep its native render target so the
+    -- actual Sunstrider map can show pins too. Visibility is handled separately
+    -- through ResolveZone()/isSameZoneSpace logic, which keeps 1241 and 1941
+    -- linked without forcing the render target to the parent map.
     return uiMapId
 end
 

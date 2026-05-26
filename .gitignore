@@ -1,59 +1,56 @@
-# IDE
-.idea/
-.vscode/
-*.iml
-.DS_Store
-
 # Build artifacts
-*.zip
-*.log
-*.tmp
-*.bak
-*.bak*
-*.old
-luac.out
-*_HEAD.lua
+workflow/
+Tools/
 
-# Scripts
-*.py
-*.js
-*.ps1
-tmp_*.py
-release_notes.txt
+# Test files
+Tests/
+Modules/*_spec.lua
 
-# Docs
-!README.md
-!CHANGELOG.md
-!RELEASE_NOTES.md
-!LICENSE
-!Icons/MIT.txt
+# Dev notes and session artifacts
+docs/sunstrider-pin-fix.md
+docs/sunstrider-coordinate-collection.md
+docs/PROGRESS.md
+docs/testing-macros.md
+QUESTIE-LEARNER-HANDOFF.md
 
-# Dev files
+# Generated/lock files
+skills-lock.json
+
+# CodexBot artifacts
+.codex/
+
+# Agent/dev tooling
+.agent/
+.agents/
+.claude/
+.history/
+.kilocode/
+skills/
+scratch/
+
+# Lua/WoW dev artifacts
+.busted
+.luarc.json
+selene.toml
+Compat/Debug.lua
+Modules/Arrow/QuestieArrow.lua.bak4
+Modules/Arrow/QuestieArrow_HEAD.lua
+Questie-X-Turtle.toc
+Tooltip_772ebd1.lua
 coords.lua
 debug.lua
 debug_tooltip.lua
-Tooltip_772ebd1.lua
-verify_*.lua
-.history/
-Research/
-Tools/
-Tests/
-tests/
-.busted
-Makefile
-selene.toml
-wow_classic.yml
-workflow/
-__pycache__/
-.agents/
-.kilocode/
+luac.out
+release_notes.txt
 
-# Assets that shouldn't be in source
-# (Icons/* are needed for release)
-Questie-X-Turtle.toc
-skills-lock.json
-.luarc.json
-skills/
-scratch/
-workflow/
-.claude/skills/
+# Python artifacts
+__pycache__/
+cleanup_init.py
+tmp_*.py
+
+# Config
+wow_classic.yml
+
+# Dev scripts
+Makefile
+move_recompile.py

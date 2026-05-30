@@ -278,6 +278,11 @@ end
 -- for the player, including changing the current map zoom (if needed)
 -- https://wowpedia.fandom.com/wiki/API_C_Map.GetPlayerMapPosition?oldid=2167175
 function QuestieCompat.GetCurrentPlayerPosition()
+    local debugPins = _G.QuestieDebugPins
+    local visibleWorldMap = WorldMapFrame:IsVisible()
+    if not WorldMapFrame:IsVisible() then
+        SetMapToCurrentZone();
+    end
     local x, y = GetPlayerMapPosition("player");
     if (x <= 0 and y <= 0) then
         if (WorldMapFrame:IsVisible()) then
@@ -309,27 +314,37 @@ function QuestieCompat.GetCurrentPlayerPosition()
     -- via the safety net. Convert the parent-zone coords to child-zone coords via world space.
     local wantedUiMapId = QuestieCompat.GetCurrentUiMapID()
     local actualMapAreaId = GetCurrentMapAreaID and GetCurrentMapAreaID()
-    if _G.QuestieDebugPins then
-        local dungeonLevel = GetCurrentMapDungeonLevel and GetCurrentMapDungeonLevel() or 0
-        local mappedId = actualMapAreaId and mapIdToUiMapId[actualMapAreaId + dungeonLevel / 10]
-        print(string.format("[QD] GetCurrentPlayerPosition: rawX=%.4f rawY=%.4f mapAreaID=%s dungeonLvl=%s mapIdToUiMapId->%s wantedUiMapId=%s",
-            x or -1, y or -1,
-            tostring(actualMapAreaId), tostring(dungeonLevel),
-            tostring(mappedId), tostring(wantedUiMapId)))
-    end
     if actualMapAreaId then
         local actualUiMapId = mapIdToUiMapId[actualMapAreaId + (GetCurrentMapDungeonLevel and GetCurrentMapDungeonLevel() / 10 or 0)]
+        if debugPins then
+            print(string.format(
+                "[QD] PlayerPositionSource visibleMap=%s rawMapAreaID=%s dungeonLvl=%s actualUi=%s wantedUi=%s raw=(%s,%s) realZone=%s mapName=%s",
+                tostring(visibleWorldMap),
+                tostring(actualMapAreaId),
+                tostring(GetCurrentMapDungeonLevel and GetCurrentMapDungeonLevel() or nil),
+                tostring(actualUiMapId),
+                tostring(wantedUiMapId),
+                tostring(x),
+                tostring(y),
+                tostring(GetRealZoneText and GetRealZoneText() or nil),
+                tostring(GetMapInfo and GetMapInfo() or nil)
+            ))
+        end
         if actualUiMapId and actualUiMapId ~= wantedUiMapId and QuestieCompat.HBD then
             local worldX, worldY = QuestieCompat.HBD:GetWorldCoordinatesFromZone(x, y, actualUiMapId)
-            if _G.QuestieDebugPins then
-                print(string.format("[QD] coord-space remap: actualUiMapId=%s worldX=%s worldY=%s",
-                    tostring(actualUiMapId), tostring(worldX), tostring(worldY)))
-            end
             if worldX and worldY then
                 local cx, cy = QuestieCompat.HBD:GetZoneCoordinatesFromWorld(worldX, worldY, wantedUiMapId, true)
                 if cx and cy then
-                    if _G.QuestieDebugPins then
-                        print(string.format("[QD] remapped to wantedZone: cx=%.4f cy=%.4f", cx, cy))
+                    if debugPins then
+                        print(string.format(
+                            "[QD] PlayerPositionConverted actualUi=%s wantedUi=%s world=(%s,%s) converted=(%s,%s)",
+                            tostring(actualUiMapId),
+                            tostring(wantedUiMapId),
+                            tostring(worldX),
+                            tostring(worldY),
+                            tostring(cx),
+                            tostring(cy)
+                        ))
                     end
                     return wantedUiMapId, cx, cy
                 end
@@ -1806,6 +1821,14 @@ function QuestieCompat:ADDON_LOADED(event, addon)
         mapIdToUiMapId[data.mapID] = uiMapId
         uiMapId, data = next(QuestieCompat.UiMapData, uiMapId)
     end
+
+    -- Ascension uses different areaIds than WotLK (e.g. 3430 for Eversong instead of 463).
+    -- GetCurrentMapAreaID() returns 3430 on Ascension, but UiMapData only maps WotLK areaId 463.
+    -- Without these entries, the parent→child zone conversion in GetCurrentPlayerPosition()
+    -- cannot determine actualUiMapId and falls through, returning Eversong-zone coords tagged
+    -- as Sunstrider (1241) — causing minimap pin drift on child maps like Sunstrider Isle.
+    mapIdToUiMapId[3430] = 1941   -- Eversong Woods (Ascension areaId → uiMapId)
+    mapIdToUiMapId[3431] = 1241   -- Sunstrider Isle (Ascension areaId → uiMapId)
 
     local k, patterns = next(chatMessagePattern)
     while k do

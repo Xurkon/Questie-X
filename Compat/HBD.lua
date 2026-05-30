@@ -427,15 +427,18 @@ local function drawMinimapPin(pin, data)
     -- Throttled debug: print once per second max
     if _G.QuestieDebugMinimapPin and (not _G._QDPinDebugTime or (GetTime() - _G._QDPinDebugTime) > 1) then
         _G._QDPinDebugTime = GetTime()
+        -- Also trace zone->world for 1241 so we can see if the icon's stored zone coords are the culprit
+        local zoneWorldX, zoneWorldY, zoneInst = HBD:GetWorldCoordinatesFromZone(pin.x / 100, pin.y / 100, data.uiMapID)
+        local playerWX, playerWY, playerInst = HBD:GetPlayerWorldPosition()
         local finalX = (xDist / (mapRadius or 1)) * minimapWidth
         local finalY = (yDist / (mapRadius or 1)) * minimapHeight
         print(string.format(
-            "[QD] PIN uiMap=%s inst=%s pinW=(%.2f,%.2f) playerW=(%.2f,%.2f) dist=(%.2f,%.2f) mapRad=%.1f scale=(%.4f,%.4f) final=(%.2f,%.2f)",
-            tostring(data.uiMapID), tostring(data.instanceID),
+            "[QD] PIN uiMap=%s inst=%s/%s zoneXY=(%.4f,%.4f) zoneW=(%.2f,%.2f) dataW=(%.2f,%.2f) playerW=(%.2f,%.2f) dist=(%.2f,%.2f) mapRad=%.1f final=(%.2f,%.2f) float=%s",
+            tostring(data.uiMapID), tostring(data.instanceID), tostring(instanceID),
+            pin.x / 100, pin.y / 100, zoneWorldX or -1, zoneWorldY or -1,
             data.x, data.y, lastXY, lastYY,
             xDist, yDist, mapRadius or -1,
-            xDist / (mapRadius or 1), yDist / (mapRadius or 1),
-            finalX, finalY))
+            finalX, finalY, tostring(data.floatOnEdge)))
     end
 
     -- handle rotation

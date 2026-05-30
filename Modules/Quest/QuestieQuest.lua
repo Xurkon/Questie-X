@@ -480,6 +480,12 @@ local allianceTournamentMarkerQuests = { [13684] = true, [13685] = true, [13688]
 local hordeTournamentMarkerQuests = { [13691] = true, [13693] = true, [13694] = true, [13695] = true, [13696] = true,
     [13707] = true, [13708] = true, [13709] = true, [13710] = true, [13711] = true }
 
+local function _UnloadAcceptedAvailableFrames(questId)
+    if QuestiePlayer.currentQuestlog[questId] and QuestieDB.IsComplete(questId) ~= -1 then
+        QuestieMap:UnloadQuestFramesByDataType(questId, "available")
+    end
+end
+
 ---@param questId number
 function QuestieQuest:AcceptQuest(questId)
     local quest = QuestieDB.GetQuest(questId)
@@ -574,6 +580,11 @@ function QuestieQuest:AcceptQuest(questId)
                 function() QuestieQuest:PopulateObjectiveNotes(quest) end,
                 function() AvailableQuests.CalculateAndDrawAll() end,
                 function()
+                    C_Timer.After(0.5, function()
+                        _UnloadAcceptedAvailableFrames(questId)
+                    end)
+                end,
+                function()
                     QuestieCombatQueue:Queue(function()
                         QuestieTracker:Update()
                     end)
@@ -587,6 +598,10 @@ function QuestieQuest:AcceptQuest(questId)
         else
             Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest] AcceptQuest DUPLICATE - questId:", questId,
                 " Warning: Quest already exists in currentQuestlog, not processing!")
+            _UnloadAcceptedAvailableFrames(questId)
+            C_Timer.After(0.5, function()
+                _UnloadAcceptedAvailableFrames(questId)
+            end)
         end
     end
 end
@@ -721,8 +736,8 @@ function QuestieQuest:AbandonedQuest(questId)
     C_Timer.After(0.5, function()
         if QuestieMap.questIdFrames[questId] then
             Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest:AbandonedQuest] Lingering frames detected for quest:",
-                questId, "- forcing cleanup")
-            QuestieMap:UnloadQuestFrames(questId)
+                questId, "- removing non-available leftovers")
+            QuestieMap:UnloadQuestFramesExceptDataType(questId, "available")
         end
     end)
 
@@ -1567,7 +1582,7 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
         end
 
         -- Filter static spawns if prioritizeMyData is enabled and we have high-confidence learned data
-        if Questie.dbLearner and Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.prioritizeMyData then
+        if Questie.dbLearner and Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.enabled and Questie.dbLearner.global.settings.prioritizeMyData then
             local zone, _ = next(zones)
             while zone do
                 local suppressed = (objectiveData.Type == "monster" and QuestieDB.GetSuppressedNPCs(zone)) or (objectiveData.Type == "object" and QuestieDB.GetSuppressedObjects(zone))
@@ -1577,9 +1592,25 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
                         if suppressed[id] and spawnData.Spawns and spawnData.Spawns[zone] then
                             -- Only suppress if this isn't a learned spawn (learned spawns have .isLearned)
                             if not spawnData.isLearned then
-                                spawnData.Spawns[zone] = nil
-                                if not next(spawnData.Spawns) then
-                                    objective.spawnList[id] = nil
+                                -- Never suppress AscensionDB-owned spawns — these are hand-curated
+                                -- and must not be replaced by learner evidence.
+                                local ascProtected = QuestieDB.ascensionOverrideKeys
+                                    and QuestieDB.ascensionOverrideKeys["NPC"]
+                                    and QuestieDB.ascensionOverrideKeys["NPC"][id]
+                                    and QuestieDB.ascensionOverrideKeys["NPC"][id][7]
+                                if not ascProtected then
+                                    -- Clone to avoid mutating the shared npcDataOverrides table
+                                    -- (Spawns is a direct reference from QueryNPCSingle)
+                                    local clone = {}
+                                    for zk, zv in pairs(spawnData.Spawns) do
+                                        if zk ~= zone then
+                                            clone[zk] = zv
+                                        end
+                                    end
+                                    spawnData.Spawns = clone
+                                    if not next(spawnData.Spawns) then
+                                        objective.spawnList[id] = nil
+                                    end
                                 end
                             end
                         end
@@ -1894,20 +1925,25 @@ _DrawObjectiveWaypoints = function(objective, icon, iconPerZone)
     for _, spawnData in pairs(objective.spawnList) do
         if spawnData and spawnData.Waypoints then
             for zone, waypoints in pairs(spawnData.Waypoints) do
-                local firstWaypoint = waypoints and waypoints[1] and waypoints[1][1]
+                -- Safety: skip malformed waypoint entries (e.g. numbers instead of coordinate pairs)
+                if type(waypoints) ~= "table" or type(waypoints[1]) ~= "table" then
+                    Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest:_DrawObjectiveWaypoints] Skipping malformed waypoints for zone", zone, "type(waypoints[1])=", type(waypoints[1]))
+                else
+                    local firstWaypoint = waypoints[1]
 
-                if firstWaypoint and (not iconPerZone[zone]) and icon and firstWaypoint[1] ~= -1 and firstWaypoint[2] ~= -1 then
-                    local iconMap, iconMini = QuestieMap:DrawWorldIcon(icon.data, zone, firstWaypoint[1], firstWaypoint[2])
-                    if iconMap and iconMini then
-                        iconPerZone[zone] = { iconMap, firstWaypoint[1], firstWaypoint[2] }
-                        tinsert(objective.AlreadySpawned[icon.AlreadySpawnedId].mapRefs, iconMap)
-                        tinsert(objective.AlreadySpawned[icon.AlreadySpawnedId].minimapRefs, iconMini)
+                    if firstWaypoint and (not iconPerZone[zone]) and icon and firstWaypoint[1] ~= -1 and firstWaypoint[2] ~= -1 then
+                        local iconMap, iconMini = QuestieMap:DrawWorldIcon(icon.data, zone, firstWaypoint[1], firstWaypoint[2])
+                        if iconMap and iconMini then
+                            iconPerZone[zone] = { iconMap, firstWaypoint[1], firstWaypoint[2] }
+                            tinsert(objective.AlreadySpawned[icon.AlreadySpawnedId].mapRefs, iconMap)
+                            tinsert(objective.AlreadySpawned[icon.AlreadySpawnedId].minimapRefs, iconMini)
+                        end
                     end
-                end
 
-                local ipz = iconPerZone[zone]
-                if ipz then
-                    QuestieMap:DrawWaypoints(ipz[1], waypoints, zone, spawnData.Hostile and { 1, 0.2, 0, 0.7 } or nil)
+                    local ipz = iconPerZone[zone]
+                    if ipz then
+                        QuestieMap:DrawWaypoints(ipz[1], waypoints, zone, spawnData.Hostile and { 1, 0.2, 0, 0.7 } or nil)
+                    end
                 end
             end
             Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest:_DrawObjectiveWaypoints]")

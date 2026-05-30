@@ -332,19 +332,18 @@ function QuestieCompat.GetCurrentPlayerPosition()
         end
         if actualUiMapId and actualUiMapId ~= wantedUiMapId and QuestieCompat.HBD then
             local worldX, worldY = QuestieCompat.HBD:GetWorldCoordinatesFromZone(x, y, actualUiMapId)
+            if debugPins then
+                print(string.format(
+                    "[QD] CONV raw=(%.6f,%.6f) actualUi=%s→world=(%s,%s)",
+                    x, y, tostring(actualUiMapId), tostring(worldX), tostring(worldY)))
+            end
             if worldX and worldY then
                 local cx, cy = QuestieCompat.HBD:GetZoneCoordinatesFromWorld(worldX, worldY, wantedUiMapId, true)
                 if cx and cy then
                     if debugPins then
                         print(string.format(
-                            "[QD] PlayerPositionConverted actualUi=%s wantedUi=%s world=(%s,%s) converted=(%s,%s)",
-                            tostring(actualUiMapId),
-                            tostring(wantedUiMapId),
-                            tostring(worldX),
-                            tostring(worldY),
-                            tostring(cx),
-                            tostring(cy)
-                        ))
+                            "[QD] CONV2 world=(%s,%s) wantedUi=%s→zone=(%.6f,%.6f)",
+                            tostring(worldX), tostring(worldY), tostring(wantedUiMapId), cx, cy))
                     end
                     return wantedUiMapId, cx, cy
                 end
@@ -1887,4 +1886,69 @@ function QuestieCompat:ADDON_LOADED(event, addon)
         table.insert(MBF.db.profile.MinimapIcons, "QuestieFrame")
         MBF:fillDropdowns()
     end
+end
+
+-- One-shot minimap drift diagnostic
+SLASH_QUESTIEDRIFT1 = "/qdrift"
+SlashCmdList["QUESTIEDRIFT"] = function()
+    local HBD = QuestieCompat.HBD
+    if not HBD then print("[QD] HBD not loaded"); return end
+
+    -- Player position chain
+    local uiMapID, px, py = QuestieCompat.GetCurrentPlayerPosition()
+    print(string.format("[QD] GetCurrentPlayerPosition: uiMap=%s px=%.6f py=%.6f", tostring(uiMapID), px or -1, py or -1))
+
+    if px and py and uiMapID then
+        local wx, wy, inst = HBD:GetWorldCoordinatesFromZone(px, py, uiMapID)
+        print(string.format("[QD] Player world: HBD:GetWorldCoordinatesFromZone(%s,%.6f,%s) = (%s,%s,%s)",
+            tostring(uiMapID), px, tostring(py), tostring(wx), tostring(wy), tostring(inst)))
+
+        -- If on child map (1241), also check parent conversion
+        if uiMapID == 1241 then
+            -- What if we used 1941 directly?
+            local wx2, wy2, inst2 = HBD:GetWorldCoordinatesFromZone(px, py, 1941)
+            print(string.format("[QD] Player world via 1941: HBD:GetWorldCoordinatesFromZone(1941,%.6f,%s) = (%s,%s,%s)",
+                px, tostring(py), tostring(wx2), tostring(wy2), tostring(inst2)))
+
+            -- Zone coords from world back to 1241
+            if wx and wy then
+                local zx, zy = HBD:GetZoneCoordinatesFromWorld(wx, wy, 1241, true)
+                print(string.format("[QD] Player zone->world->zone: GetZoneCoordinatesFromWorld(%.2f,%.2f,1241) = (%s,%s)",
+                    wx, wy, tostring(zx), tostring(zy)))
+            end
+        end
+    end
+
+    -- Pin data: find first minimap pin with uiMapID
+    local pins = QuestieCompat.HBDPins and QuestieCompat.HBDPins.minimapPins
+    if pins then
+        local count = 0
+        for pin, data in pairs(pins) do
+            if data.uiMapID and count < 3 then
+                count = count + 1
+                print(string.format("[QD] Pin#%d: uiMap=%s pinWorld=(%.2f,%.2f) inst=%s floatOnEdge=%s",
+                    count, tostring(data.uiMapID), data.x or -1, data.y or -1, tostring(data.instanceID), tostring(data.floatOnEdge)))
+                -- Convert pin zone center to world to verify bounds
+                if data.uiMapID then
+                    local cx, cy = HBD:GetWorldCoordinatesFromZone(0.5, 0.5, data.uiMapID)
+                    if cx then
+                        print(string.format("[QD] Pin#%d zone center(0.5,0.5) -> world=(%.2f,%.2f)", count, cx, cy))
+                    end
+                end
+            end
+        end
+        print(string.format("[QD] Total active minimap pins: %d", count))
+    else
+        print("[QD] No minimapPins table found")
+    end
+
+    -- Check mapIdToUiMapId entries
+    print(string.format("[QD] mapIdToUiMapId[3430]=%s mapIdToUiMapId[463]=%s mapIdToUiMapId[3431]=%s",
+        tostring(mapIdToUiMapId[3430]), tostring(mapIdToUiMapId[463]), tostring(mapIdToUiMapId[3431])))
+
+    -- Check current map area
+    local areaId = GetCurrentMapAreaID and GetCurrentMapAreaID()
+    local mapLvl = GetCurrentMapDungeonLevel and GetCurrentMapDungeonLevel()
+    print(string.format("[QD] GetCurrentMapAreaID=%s dungeonLevel=%s composite=%s",
+        tostring(areaId), tostring(mapLvl), tostring(areaId and (areaId + (mapLvl or 0)/10))))
 end

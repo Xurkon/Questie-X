@@ -424,6 +424,17 @@ local lastZoom, lastFacing, lastXY, lastYY
 local function drawMinimapPin(pin, data)
     local xDist, yDist = lastXY - data.x, lastYY - data.y
 
+    -- Throttled debug: print once per second max
+        if _G.QuestieDebugPins and data.uiMapID and (not _G._QDPinDebugTime or (GetTime() - _G._QDPinDebugTime) > 1) then
+            _G._QDPinDebugTime = GetTime()
+            print(string.format(
+                "[QD] PIN uiMap=%s pinW=(%.2f,%.2f) playerW=(%.2f,%.2f) dist=(%.2f,%.2f) mapRad=%.1f diff=(%.4f,%.4f)",
+                tostring(data.uiMapID),
+                data.x, data.y, lastXY, lastYY,
+                xDist, yDist, mapRadius or -1,
+                xDist / (mapRadius or 1), yDist / (mapRadius or 1)))
+        end
+
     -- handle rotation
     if rotateMinimap then
         local dx, dy = xDist, yDist

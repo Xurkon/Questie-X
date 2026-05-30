@@ -571,7 +571,7 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
     iconMinimap.texture:SetVertexColor(colorsMinimap[1], colorsMinimap[2], colorsMinimap[3], 1);
     iconMinimap.miniMapIcon = true;
 
-    QuestieMap:QueueDraw(QuestieMap.ICON_MINIMAP_TYPE, Questie, iconMinimap, iconMinimap.UiMapID, x / 100, y / 100, true, iconMinimap.UiMapID ~= 1241);
+    QuestieMap:QueueDraw(QuestieMap.ICON_MINIMAP_TYPE, Questie, iconMinimap, iconMinimap.UiMapID, x / 100, y / 100, true, true);
     tinsert(QuestieMap.manualFrames[typ][data.id], iconMinimap:GetName())
 
     if (not Questie.db.profile.enabled) then
@@ -630,7 +630,7 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
         return nil, nil
     end
 
-    local floatOnEdge = uiMapId ~= 1241
+    local floatOnEdge = true
 
     ---@type IconFrame
     local iconMap = QuestieFramePool:GetFrame()

@@ -278,7 +278,7 @@ end
 -- for the player, including changing the current map zoom (if needed)
 -- https://wowpedia.fandom.com/wiki/API_C_Map.GetPlayerMapPosition?oldid=2167175
 function QuestieCompat.GetCurrentPlayerPosition()
-    local debugPins = _G.QuestieDebugPins
+    local debugPins = _G.QuestieDebugPlayerPosition
     local visibleWorldMap = WorldMapFrame:IsVisible()
     if not WorldMapFrame:IsVisible() then
         SetMapToCurrentZone();
@@ -1951,4 +1951,46 @@ SlashCmdList["QUESTIEDRIFT"] = function()
     local mapLvl = GetCurrentMapDungeonLevel and GetCurrentMapDungeonLevel()
     print(string.format("[QD] GetCurrentMapAreaID=%s dungeonLevel=%s composite=%s",
         tostring(areaId), tostring(mapLvl), tostring(areaId and (areaId + (mapLvl or 0)/10))))
+end
+
+local function ToggleQuestieDebug(flagName, label)
+    local newState = not _G[flagName]
+    _G[flagName] = newState
+    print(string.format("[QD] %s=%s", label, tostring(newState)))
+end
+
+local function SetQuestieDebugGroup(state)
+    _G.QuestieDebugPlayerPosition = state
+    _G.QuestieDebugPlayerWorld = state
+    _G.QuestieDebugMinimapGate = state
+    _G.QuestieDebugMinimapPin = state
+    print(string.format(
+        "[QD] ALL pos=%s world=%s gate=%s pin=%s",
+        tostring(state), tostring(state), tostring(state), tostring(state)))
+end
+
+SLASH_QUESTIEDEBUGPOS1 = "/qdbgpos"
+SlashCmdList["QUESTIEDEBUGPOS"] = function()
+    ToggleQuestieDebug("QuestieDebugPlayerPosition", "PlayerPosition")
+end
+
+SLASH_QUESTIEDEBUGWORLD1 = "/qdbgworld"
+SlashCmdList["QUESTIEDEBUGWORLD"] = function()
+    ToggleQuestieDebug("QuestieDebugPlayerWorld", "PlayerWorld")
+end
+
+SLASH_QUESTIEDEBUGGATE1 = "/qdbggate"
+SlashCmdList["QUESTIEDEBUGGATE"] = function()
+    ToggleQuestieDebug("QuestieDebugMinimapGate", "MinimapGate")
+end
+
+SLASH_QUESTIEDEBUGPIN1 = "/qdbgpin"
+SlashCmdList["QUESTIEDEBUGPIN"] = function()
+    ToggleQuestieDebug("QuestieDebugMinimapPin", "MinimapPin")
+end
+
+SLASH_QUESTIEDEBUGALL1 = "/qdbgall"
+SlashCmdList["QUESTIEDEBUGALL"] = function()
+    local anyOff = not (_G.QuestieDebugPlayerPosition and _G.QuestieDebugPlayerWorld and _G.QuestieDebugMinimapGate and _G.QuestieDebugMinimapPin)
+    SetQuestieDebugGroup(anyOff)
 end

@@ -105,6 +105,34 @@ function QuestieMap:UnloadQuestFrames(questId, iconType)
     end
 end
 
+function QuestieMap:UnloadQuestFramesByDataType(questId, dataType)
+    if QuestieMap.questIdFrames[questId] then
+        for _, frame in pairs(QuestieMap:GetFramesForQuest(questId)) do
+            if frame and frame.data and frame.data.Type == dataType then
+                frame:Unload()
+            end
+        end
+
+        if not next(QuestieMap.questIdFrames[questId]) then
+            QuestieMap.questIdFrames[questId] = nil
+        end
+    end
+end
+
+function QuestieMap:UnloadQuestFramesExceptDataType(questId, dataType)
+    if QuestieMap.questIdFrames[questId] then
+        for _, frame in pairs(QuestieMap:GetFramesForQuest(questId)) do
+            if frame and ((not frame.data) or frame.data.Type ~= dataType) then
+                frame:Unload()
+            end
+        end
+
+        if not next(QuestieMap.questIdFrames[questId]) then
+            QuestieMap.questIdFrames[questId] = nil
+        end
+    end
+end
+
 --Get the frames for manual note, this returns all of the frames/spawns
 ---@param id number @The ID of the NPC (>0) or object (<0)
 function QuestieMap:GetManualFrames(id, typ)
@@ -270,6 +298,25 @@ end
 
 function QuestieMap:QueueDraw(drawType, ...)
     if (not isDrawQueueDisabled) then
+        if _G.QuestieDebugPins then
+            local args = { ... }
+            local frame = args[2]
+            local data = frame and frame.data
+            local label = data and (data.Name or data.name or data.Title)
+            local questId = data and (data.Id or data.id)
+            if label == "Mana Wyrm" or questId == 8325 then
+                print(string.format(
+                    "[QD] QueueDraw type=%s frame=%s label=%s quest=%s mini=%s ui=%s area=%s",
+                    tostring(drawType),
+                    tostring(frame and frame:GetName()),
+                    tostring(label),
+                    tostring(questId),
+                    tostring(frame and frame.miniMapIcon),
+                    tostring(frame and frame.UiMapID),
+                    tostring(frame and frame.AreaID)
+                ))
+            end
+        end
         if (drawType == QuestieMap.ICON_MAP_TYPE) then
             tinsert(mapDrawQueue, { ... });
         elseif (drawType == QuestieMap.ICON_MINIMAP_TYPE) then
@@ -299,6 +346,28 @@ function QuestieMap.ProcessQueue()
         if minimapDrawCall then
             local frame = minimapDrawCall[2];
             HBDPins:AddMinimapIconMap(tunpack(minimapDrawCall));
+            if _G.QuestieDebugPins then
+                local data = frame and frame.data
+                local label = data and (data.Name or data.name or data.Title)
+                local questId = data and (data.Id or data.id)
+                if label == "Mana Wyrm" or questId == 8325 then
+                    local point1, rel1, point2, xOff, yOff = frame:GetPoint()
+                    print(string.format(
+                        "[QD] ProcessQueue minimap frame=%s label=%s quest=%s shown=%s hidden=%s parent=%s point=(%s,%s,%s,%s,%s)",
+                        tostring(frame:GetName()),
+                        tostring(label),
+                        tostring(questId),
+                        tostring(frame:IsShown()),
+                        tostring(frame.hidden),
+                        tostring(frame:GetParent() and frame:GetParent():GetName() or frame:GetParent()),
+                        tostring(point1),
+                        tostring(rel1 and rel1.GetName and rel1:GetName() or rel1),
+                        tostring(point2),
+                        tostring(xOff),
+                        tostring(yOff)
+                    ))
+                end
+            end
             QuestieMap.utils:SetDrawOrder(frame);
         end
 
@@ -502,7 +571,7 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
     iconMinimap.texture:SetVertexColor(colorsMinimap[1], colorsMinimap[2], colorsMinimap[3], 1);
     iconMinimap.miniMapIcon = true;
 
-    QuestieMap:QueueDraw(QuestieMap.ICON_MINIMAP_TYPE, Questie, iconMinimap, iconMinimap.UiMapID, x / 100, y / 100, true, true);
+    QuestieMap:QueueDraw(QuestieMap.ICON_MINIMAP_TYPE, Questie, iconMinimap, iconMinimap.UiMapID, x / 100, y / 100, true, iconMinimap.UiMapID ~= 1241);
     tinsert(QuestieMap.manualFrames[typ][data.id], iconMinimap:GetName())
 
     if (not Questie.db.profile.enabled) then
@@ -561,7 +630,7 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
         return nil, nil
     end
 
-    local floatOnEdge = true
+    local floatOnEdge = uiMapId ~= 1241
 
     ---@type IconFrame
     local iconMap = QuestieFramePool:GetFrame()

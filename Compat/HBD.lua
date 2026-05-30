@@ -282,7 +282,7 @@ function HBD:GetPlayerWorldPosition()
     local wx, wy, inst = HBD:GetWorldCoordinatesFromZone(x, y, uiMapID)
     _pwp_x, _pwp_y, _pwp_inst = wx, wy, inst
     _pwp_time = now
-    if _G.QuestieDebugPins then
+    if _G.QuestieDebugPlayerWorld then
         print(string.format("[QD] GetPlayerWorldPosition: zoneX=%.4f zoneY=%.4f uiMapID=%s -> worldX=%s worldY=%s inst=%s",
             x, y, tostring(uiMapID), tostring(wx), tostring(wy), tostring(inst)))
     end
@@ -425,15 +425,18 @@ local function drawMinimapPin(pin, data)
     local xDist, yDist = lastXY - data.x, lastYY - data.y
 
     -- Throttled debug: print once per second max
-        if _G.QuestieDebugPins and data.uiMapID and (not _G._QDPinDebugTime or (GetTime() - _G._QDPinDebugTime) > 1) then
-            _G._QDPinDebugTime = GetTime()
-            print(string.format(
-                "[QD] PIN uiMap=%s pinW=(%.2f,%.2f) playerW=(%.2f,%.2f) dist=(%.2f,%.2f) mapRad=%.1f diff=(%.4f,%.4f)",
-                tostring(data.uiMapID),
-                data.x, data.y, lastXY, lastYY,
-                xDist, yDist, mapRadius or -1,
-                xDist / (mapRadius or 1), yDist / (mapRadius or 1)))
-        end
+    if _G.QuestieDebugMinimapPin and data.uiMapID and (not _G._QDPinDebugTime or (GetTime() - _G._QDPinDebugTime) > 1) then
+        _G._QDPinDebugTime = GetTime()
+        local finalX = (xDist / (mapRadius or 1)) * minimapWidth
+        local finalY = (yDist / (mapRadius or 1)) * minimapHeight
+        print(string.format(
+            "[QD] PIN uiMap=%s inst=%s/%s pinW=(%.2f,%.2f) playerW=(%.2f,%.2f) dist=(%.2f,%.2f) mapRad=%.1f scale=(%.4f,%.4f) final=(%.2f,%.2f)",
+            tostring(data.uiMapID), tostring(data.instanceID), tostring(lastInstanceId),
+            data.x, data.y, lastXY, lastYY,
+            xDist, yDist, mapRadius or -1,
+            xDist / (mapRadius or 1), yDist / (mapRadius or 1),
+            finalX, finalY))
+    end
 
     -- handle rotation
     if rotateMinimap then
@@ -560,13 +563,48 @@ local function UpdateMinimapPins(force)
             mapCos = cos(facing)
         end
 
+        local debugGateCount = 0
+        local debugPinCount = 0
+        local debugActiveCount = 0
+        local sunCount, sunMinX, sunMaxX, sunMinY, sunMaxY = 0, nil, nil, nil, nil
+        for _ in pairs(minimapPins) do debugPinCount = debugPinCount + 1 end
+        for _ in pairs(activeMinimapPins) do debugActiveCount = debugActiveCount + 1 end
+
         for pin, data in pairs(minimapPins) do
-            if instanceID == data.instanceID and math.abs(x-data.x) + math.abs(y-data.y) < 500 then -- questie specific fix
+            if data.uiMapID == 1241 then
+                sunCount = sunCount + 1
+                sunMinX = sunMinX and min(sunMinX, data.x) or data.x
+                sunMaxX = sunMaxX and max(sunMaxX, data.x) or data.x
+                sunMinY = sunMinY and min(sunMinY, data.y) or data.y
+                sunMaxY = sunMaxY and max(sunMaxY, data.y) or data.y
+            end
+            local dist = math.abs(x-data.x) + math.abs(y-data.y)
+            if _G.QuestieDebugMinimapGate and data.uiMapID == 1241 and debugGateCount < 3 then
+                debugGateCount = debugGateCount + 1
+                print(string.format(
+                    "[QD] SUN#%d total=%d active=%d label=%s uiMap=%s inst=%s/%s dist=%.2f pass=%s float=%s pinW=(%.2f,%.2f) playerW=(%.2f,%.2f)",
+                    debugGateCount, debugPinCount, debugActiveCount,
+                    tostring(data.label or data.Name or data.name or data.Title or data.id or data.Id),
+                    tostring(data.uiMapID), tostring(data.instanceID), tostring(instanceID),
+                    dist,
+                    tostring(instanceID == data.instanceID and dist < 500),
+                    tostring(data.floatOnEdge),
+                    data.x, data.y, x, y))
+            end
+            if instanceID == data.instanceID and dist < 500 then
                 activeMinimapPins[pin] = data
                 data.keep = true
                 -- draw the pin (this may reset data.keep if outside of the map)
                 drawMinimapPin(pin, data)
             end
+        end
+
+        if _G.QuestieDebugMinimapGate and sunCount > 0 then
+            print(string.format(
+                "[QD] SUNSUM total=%d active=%d count=%d x=[%.2f,%.2f] y=[%.2f,%.2f] mapRad=%.1f size=(%.1f,%.1f)",
+                debugPinCount, debugActiveCount, sunCount,
+                sunMinX or -1, sunMaxX or -1, sunMinY or -1, sunMaxY or -1,
+                mapRadius or -1, minimapWidth or -1, minimapHeight or -1))
         end
 
         minimapPinCount = 0

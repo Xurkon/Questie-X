@@ -425,13 +425,13 @@ local function drawMinimapPin(pin, data)
     local xDist, yDist = lastXY - data.x, lastYY - data.y
 
     -- Throttled debug: print once per second max
-    if _G.QuestieDebugMinimapPin and data.uiMapID and (not _G._QDPinDebugTime or (GetTime() - _G._QDPinDebugTime) > 1) then
+    if _G.QuestieDebugMinimapPin and (not _G._QDPinDebugTime or (GetTime() - _G._QDPinDebugTime) > 1) then
         _G._QDPinDebugTime = GetTime()
         local finalX = (xDist / (mapRadius or 1)) * minimapWidth
         local finalY = (yDist / (mapRadius or 1)) * minimapHeight
         print(string.format(
-            "[QD] PIN uiMap=%s inst=%s/%s pinW=(%.2f,%.2f) playerW=(%.2f,%.2f) dist=(%.2f,%.2f) mapRad=%.1f scale=(%.4f,%.4f) final=(%.2f,%.2f)",
-            tostring(data.uiMapID), tostring(data.instanceID), tostring(lastInstanceId),
+            "[QD] PIN uiMap=%s inst=%s pinW=(%.2f,%.2f) playerW=(%.2f,%.2f) dist=(%.2f,%.2f) mapRad=%.1f scale=(%.4f,%.4f) final=(%.2f,%.2f)",
+            tostring(data.uiMapID), tostring(data.instanceID),
             data.x, data.y, lastXY, lastYY,
             xDist, yDist, mapRadius or -1,
             xDist / (mapRadius or 1), yDist / (mapRadius or 1),

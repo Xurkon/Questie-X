@@ -59,18 +59,14 @@ end
 HBD.ResolveZone = ResolveZone
 
 -- Sunstrider calibration note:
--- We have confirmed that 1241 is the correct uiMapId for Sunstrider Isle and
--- 3431 is the matching areaId. The sample set we collected strongly suggests
--- the standard Sunstrider rectangle is the correct fit for this client:
---   width  ~= 510
---   height ~= 500
---   left   ~= -6983.33
---   top    ~= 9766.67
--- Keep this override in place, but if another path starts hiding townsfolk pins
--- again, re-check the 1241/3431 resolution before touching the bounds.
+-- 1241 is the correct uiMapId for Sunstrider Isle and 3431 is the matching
+-- areaId. The map texture itself is roughly 510x500, but the Ascension minimap
+-- radius is in live-world yards. Using 510x500 compresses all objective
+-- distances and makes nearby pins look glued to the player. Match the existing
+-- QuestieCompat calibrated pseudo-world scale instead.
 local ASCENSION_ZONE_BOUNDS = {
-    [1241] = { 510.0, 500.0, -6983.33, 9766.67 },
-    [946]  = { 510.0, 500.0, -6983.33, 9766.67 },
+    [1241] = { 1353.0, 1353.0, -6983.33, 9766.67 },
+    [946]  = { 1353.0, 1353.0, -6983.33, 9766.67 },
 }
 
 
@@ -119,20 +115,12 @@ function HBD:DebugSunstriderPoint(x, y)
 end
 ApplyAscensionBounds()
 
--- One-shot debug: print mapData bounds for key zones on PLAYER_LOGIN
+-- Re-apply Ascension bounds once the player has logged in.
 local _boundsDebugPrinted = false
 local function PrintBoundsDebug()
     if _boundsDebugPrinted then return end
     _boundsDebugPrinted = true
     ApplyAscensionBounds()
-    for _, id in ipairs({1241, 946, 1941}) do
-        local d = mapData[id]
-        if d then
-            -- [HBD-Bounds] debug disabled
-        else
-            -- [HBD-Bounds] no mapData (debug disabled)
-        end
-    end
 end
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
@@ -282,10 +270,6 @@ function HBD:GetPlayerWorldPosition()
     local wx, wy, inst = HBD:GetWorldCoordinatesFromZone(x, y, uiMapID)
     _pwp_x, _pwp_y, _pwp_inst = wx, wy, inst
     _pwp_time = now
-    if _G.QuestieDebugPins then
-        print(string.format("[QD] GetPlayerWorldPosition: zoneX=%.4f zoneY=%.4f uiMapID=%s -> worldX=%s worldY=%s inst=%s",
-            x, y, tostring(uiMapID), tostring(wx), tostring(wy), tostring(inst)))
-    end
     if wx and wy then
         return wx, wy, inst
     end
@@ -420,20 +404,266 @@ local minimapPinCount, queueFullUpdate = 0, false
 ---@type unknown, MinimapShapes?
 local minimapScale, minimapShape, mapRadius, minimapWidth, minimapHeight, mapSin, mapCos
 local lastZoom, lastFacing, lastXY, lastYY
+local lastDebugPinPoints = setmetatable({}, { __mode = "k" })
+local lastDebugPinScreens = setmetatable({}, { __mode = "k" })
+local lastDebugPlayerWorldX, lastDebugPlayerWorldY
 
-local function drawMinimapPin(pin, data)
+local function _GetMinimapViewRadius()
+    if pins.Minimap and pins.Minimap.GetViewRadius then
+        return pins.Minimap:GetViewRadius()
+    end
+end
+
+local function _IsDebuggableMinimapPin(pin, data, distance, passesCutoff)
+    if not pin or not data then return false end
+    if passesCutoff then return true end
+    if data.uiMapID == 1241 or data.uiMapID == 1941 or data.uiMapID == 946 then return true end
+    if distance and distance < 150 then return true end
+
+    local iconData = pin.data
+    local label = iconData and (iconData.Name or iconData.name or iconData.Title)
+    if label and string.find(string.lower(label), "mana", 1, true) then return true end
+    if iconData and (iconData.Type == "available" or iconData.Type == "complete") then return true end
+
+    local id = iconData and (iconData.Id or iconData.id or iconData.questId or iconData.QuestId or iconData.ObjectiveTargetId)
+    return id == 8345 or id == 8346 or id == 15274 or id == 15278 or id == 15295
+end
+
+local function _GetMinimapPinDelta(data)
     local xDist, yDist = lastXY - data.x, lastYY - data.y
 
-    -- handle rotation
     if rotateMinimap then
         local dx, dy = xDist, yDist
         xDist = dx*mapCos - dy*mapSin
         yDist = dx*mapSin + dy*mapCos
     end
 
-    -- adapt delta position to the map radius
-    local diffX = xDist / mapRadius
-    local diffY = yDist / mapRadius
+    return xDist, yDist
+end
+
+local function _GetMinimapPinScreenMetrics(data)
+    local xDist, yDist = _GetMinimapPinDelta(data)
+    local centerDist = mapRadius and mapRadius > 0 and math.sqrt(xDist*xDist + yDist*yDist) / mapRadius or nil
+    local screenX = mapRadius and mapRadius > 0 and (xDist / mapRadius) * minimapWidth or nil
+    local screenY = mapRadius and mapRadius > 0 and -(yDist / mapRadius) * minimapHeight or nil
+    return xDist, yDist, centerDist, screenX, screenY
+end
+
+local function _DebugMinimapPin(pin, data, index, playerX, playerY, playerInstanceID, distance, passesCutoff, cutoff)
+    local iconData = pin and pin.data
+    local label = iconData and (iconData.Name or iconData.name or iconData.Title or iconData.Id or iconData.id) or "?"
+    local questId = iconData and (iconData.questId or iconData.QuestId or iconData.Id or iconData.id) or "?"
+    local targetId = iconData and (iconData.ObjectiveTargetId or iconData.objectiveTargetId or iconData.TargetId or iconData.targetId) or "?"
+    local pinMapX = pin and pin.x or "?"
+    local pinMapY = pin and pin.y or "?"
+    local parent = pin and pin:GetParent()
+    local point1, rel1, point2, xOff, yOff
+    if pin and pin.GetPoint then
+        point1, rel1, point2, xOff, yOff = pin:GetPoint()
+    end
+    local xDist, yDist, centerDist, screenX, screenY = _GetMinimapPinScreenMetrics(data)
+
+    print(string.format(
+        "[QD] MinimapPin #%d label=%s type=%s quest=%s target=%s ui=%s area=%s map=(%s,%s) world=(%s,%s) player=(%s,%s) inst=%s/%s dist=%s cutoff=%s pass=%s edge=%s delta=(%s,%s) center=%s screen=(%s,%s) shown=%s hidden=%s parent=%s point=(%s,%s,%s,%s,%s)",
+        index,
+        tostring(label),
+        tostring(iconData and iconData.Type or "?"),
+        tostring(questId),
+        tostring(targetId),
+        tostring(data.uiMapID),
+        tostring(pin and pin.AreaID or "?"),
+        tostring(pinMapX),
+        tostring(pinMapY),
+        tostring(data.x),
+        tostring(data.y),
+        tostring(playerX),
+        tostring(playerY),
+        tostring(data.instanceID),
+        tostring(playerInstanceID),
+        tostring(distance),
+        tostring(cutoff),
+        tostring(passesCutoff),
+        tostring(data.onEdge),
+        tostring(xDist),
+        tostring(yDist),
+        tostring(centerDist),
+        tostring(screenX),
+        tostring(screenY),
+        tostring(pin and pin.IsShown and pin:IsShown() or nil),
+        tostring(pin and pin.hidden),
+        tostring(parent and parent.GetName and parent:GetName() or parent),
+        tostring(point1),
+        tostring(rel1 and rel1.GetName and rel1:GetName() or rel1),
+        tostring(point2),
+        tostring(xOff),
+        tostring(yOff)
+    ))
+end
+
+local function _DebugAnyMinimapPin(pin, data, index, label)
+    local iconData = pin and pin.data
+    local parent = pin and pin:GetParent()
+    local point1, rel1, point2, xOff, yOff
+    if pin and pin.GetPoint then
+        point1, rel1, point2, xOff, yOff = pin:GetPoint()
+    end
+    print(string.format(
+        "[QD] %s #%d label=%s type=%s ui=%s area=%s shown=%s hidden=%s parent=%s point=(%s,%s,%s,%s,%s) keep=%s edge=%s dataKeep=%s dataOnEdge=%s",
+        label,
+        index,
+        tostring(iconData and (iconData.Name or iconData.name or iconData.Title or iconData.Id or iconData.id) or "?"),
+        tostring(iconData and iconData.Type or "?"),
+        tostring(data and data.uiMapID),
+        tostring(pin and pin.AreaID or "?"),
+        tostring(pin and pin.IsShown and pin:IsShown() or nil),
+        tostring(pin and pin.hidden),
+        tostring(parent and parent.GetName and parent:GetName() or parent),
+        tostring(point1),
+        tostring(rel1 and rel1.GetName and rel1:GetName() or rel1),
+        tostring(point2),
+        tostring(xOff),
+        tostring(yOff),
+        tostring(pin and pin.shouldBeShowing),
+        tostring(pin and pin.onEdge),
+        tostring(data and data.keep),
+        tostring(data and data.onEdge)
+    ))
+end
+
+local function _ComputeZoneSpaceDiff(data, pinWorldX, pinWorldY, playerWorldX, playerWorldY)
+    -- For pins on child maps (like Sunstrider 1241 inside Eversong 1941),
+    -- Ascension's GetPlayerMapPosition returns Eversong-relative coords, but
+    -- GetWorldCoordinatesFromZone(childZone) treats them as child-relative,
+    -- producing a wrong player world position.
+    --
+    -- Strategy: work entirely in the parent (Eversong/1941) zone space:
+    --   1. Recover player's Eversong zone coords by reversing the (wrong)
+    --      1241-bounds conversion: ep = (left_1241 - playerWorldX) / width_1241
+    --   2. Convert pin's stored 1241 zone coord to Eversong zone coord:
+    --      pin 1241-zone → 1241-world (via 1241 bounds) → 1941-zone (via 1941 bounds)
+    --   3. Delta in Eversong zone-space, scale to pixels.
+    local uiMapID = data and data.uiMapID
+    local zoneX = data and data.zoneX
+    local zoneY = data and data.zoneY
+    if not uiMapID or not zoneX or not zoneY then return nil end
+
+    -- Get the child-map bounds
+    local childMd = mapData[uiMapID]
+    if not childMd or childMd[1] == 0 or childMd[2] == 0 then
+        if RealHBD and RealHBD.mapData then
+            childMd = RealHBD.mapData[uiMapID]
+        end
+    end
+    if not childMd or childMd[1] == 0 or childMd[2] == 0 then return nil end
+
+    local childLeft, childTop = childMd[3], childMd[4]
+    local childWidth, childHeight = childMd[1], childMd[2]
+
+    -- Determine parent/common zone (Eversong 1941 for Sunstrider 1241)
+    local parentZone = ZONE_REDIRECT[uiMapID]
+    if not parentZone then
+        parentZone = (uiMapID == 1241) and 1941 or uiMapID
+    end
+
+    -- Get the parent zone bounds
+    local parentMd = mapData[parentZone]
+    if not parentMd or parentMd[1] == 0 or parentMd[2] == 0 then
+        if RealHBD and RealHBD.mapData then
+            parentMd = RealHBD.mapData[parentZone]
+        end
+    end
+    if not parentMd or parentMd[1] == 0 or parentMd[2] == 0 then return nil end
+
+    local parentLeft, parentTop = parentMd[3], parentMd[4]
+    local parentWidth, parentHeight = parentMd[1], parentMd[2]
+
+    -- Step 1: Recover player's actual Eversong zone coords.
+    -- playerWorldX was computed as childLeft - childWidth * ep (where ep is the
+    -- Eversong zone coord that GetPlayerMapPosition returned). Reverse it.
+    local playerEX = (childLeft - playerWorldX) / childWidth
+    local playerEY = (childTop - playerWorldY) / childHeight
+
+    -- Step 2: Convert pin's 1241 zone coord to Eversong world,
+    --         then to Eversong zone coord
+    local pinWorldX_child = childLeft - childWidth * zoneX
+    local pinWorldY_child = childTop - childHeight * zoneY
+
+    local pinEX = (parentLeft - pinWorldX_child) / parentWidth
+    local pinEY = (parentTop - pinWorldY_child) / parentHeight
+
+    -- Clamp to valid range
+    if pinEX < -0.5 or pinEX > 1.5 or pinEY < -0.5 or pinEY > 1.5 then
+        -- Pin is too far from the parent zone to be meaningful
+        return nil
+    end
+
+    -- Step 3: Delta in Eversong zone-space
+    local dX = pinEX - playerEX
+    local dY = pinEY - playerEY
+
+    -- Convert to minimap offset.
+    -- Eversong zone delta * parentWidth = world-yard delta.
+    -- Normalize by mapRadius, scale to pixel half-width.
+    local mapRad = (mapRadius and mapRadius > 0) and mapRadius or 1
+    local diffX = dX * (parentWidth / mapRad)
+    local diffY = dY * (parentHeight / mapRad)
+
+    return diffX, diffY
+end
+
+local function drawMinimapPin(pin, data)
+    local xDist, yDist = _GetMinimapPinDelta(data)
+
+    -- Try zone-space projection when the pin has uiMapID and zone coords.
+    -- This avoids the world-coordinate conversion path that depends on
+    -- ASCENSION_ZONE_BOUNDS being perfectly calibrated.
+    local zDiffX, zDiffY
+    if data and data.uiMapID and data.zoneX and data.zoneY and lastXY and lastYY then
+        zDiffX, zDiffY = _ComputeZoneSpaceDiff(
+            data, data.x, data.y, lastXY, lastYY)
+    end
+
+    -- Debug: trace pin projection when QuestieDebugPins is enabled
+    if _G.QuestieDebugPins and pin and data then
+        local iconData = pin.data
+        local label = iconData and (iconData.Name or iconData.name or iconData.Title or "?") or "?"
+        local pinType = iconData and iconData.Type or "?"
+        -- Only print for available/complete quest pins (the ? and ! markers)
+        if pinType == "available" or pinType == "complete" or pinType == "turnin" then
+            local diffX_debug = mapRadius and mapRadius ~= 0 and (xDist / mapRadius) or 0
+            local diffY_debug = mapRadius and mapRadius ~= 0 and (yDist / mapRadius) or 0
+            local mmpw = minimapWidth or 0
+            local mmph = minimapHeight or 0
+            local screenX_debug = diffX_debug * mmpw
+            local screenY_debug = -diffY_debug * mmph
+            if zDiffX then
+                print(string.format(
+                    "[QD] drawPin ZONE label=%s type=%s zDiff=(%.4f,%.4f) zScreen=(%.1f,%.1f) | world delta=(%.2f,%.2f) diff=(%.4f,%.4f)",
+                    tostring(label), tostring(pinType),
+                    zDiffX, zDiffY, zDiffX * mmpw, -zDiffY * mmph,
+                    xDist, yDist, diffX_debug, diffY_debug))
+            else
+                print(string.format(
+                    "[QD] drawPin label=%s type=%s pinWorld=(%.2f,%.2f) playerWorld=(%.2f,%.2f) delta=(%.2f,%.2f) diff=(%.4f,%.4f) radius=%.2f screen=(%.1f,%.1f)",
+                    tostring(label), tostring(pinType),
+                    data.x or 0, data.y or 0,
+                    lastXY or 0, lastYY or 0,
+                    xDist, yDist,
+                    diffX_debug, diffY_debug,
+                    mapRadius or 0,
+                    screenX_debug, screenY_debug))
+            end
+        end
+    end
+
+    -- Use zone-space diff if available, otherwise fall back to world-space
+    local diffX, diffY
+    if zDiffX and zDiffY then
+        diffX, diffY = zDiffX, zDiffY
+    else
+        diffX = xDist / mapRadius
+        diffY = yDist / mapRadius
+    end
 
     -- different minimap shapes
     ---@type boolean|number
@@ -484,7 +714,21 @@ local function _GetEffectiveMinimapPlayerWorldPosition()
     -- position must also be in HBD world coords. The calibrated pseudo-world
     -- space (used by the arrow) has a different origin/scale on Ascension and
     -- must never be mixed with minimap pin positions.
-    return HBD:GetPlayerWorldPosition()
+    local wx, wy, inst = HBD:GetPlayerWorldPosition()
+    if _G.QuestieDebugPins and wx and wy then
+        local px, py = pins.Minimap:GetCenter()
+        local indoors = IsIndoor and IsIndoor() or false
+        local viewRadius = _GetMinimapViewRadius()
+        local zoom = pins.Minimap and pins.Minimap:GetZoom() or 0
+        local shape = GetMinimapShape and GetMinimapShape() or "?"
+        local mmpw = pins.Minimap:GetWidth() and (pins.Minimap:GetWidth() / 2) or 0
+        local mmph = pins.Minimap:GetHeight() and (pins.Minimap:GetHeight() / 2) or 0
+        print(string.format(
+            "[QD] PlayerPos world=(%.2f,%.2f) viewRadius=%.2f zoom=%d shape=%s indoors=%s mmpSize=(%.1f,%.1f)",
+            wx, wy, viewRadius or -1, zoom, tostring(shape), tostring(indoors), mmpw, mmph
+        ))
+    end
+    return wx, wy, inst
 end
 
 local function UpdateMinimapPins(force)
@@ -524,7 +768,10 @@ local function UpdateMinimapPins(force)
         minimapShape = GetMinimapShape and minimap_shapes[GetMinimapShape() or "ROUND"]
         minimapWidth = pins.Minimap:GetWidth() / 2
         minimapHeight = pins.Minimap:GetHeight() / 2
-        if MinimapRadiusAPI then
+        local viewRadius = _GetMinimapViewRadius()
+        if viewRadius then
+            mapRadius = viewRadius
+        elseif MinimapRadiusAPI then
             mapRadius = C_Minimap.GetViewRadius()
         else
             local sizeTable = minimap_size[indoors] or minimap_size.outdoor
@@ -549,12 +796,122 @@ local function UpdateMinimapPins(force)
             mapCos = cos(facing)
         end
 
+        local debugPins = _G.QuestieDebugPins
+        local debugPinIndex = 0
+        if debugPins then
+            _G.QuestieDebugPins = false
+            print(string.format("[QD] UpdateMinimapPins playerWorld=(%s,%s) inst=%s zoom=%s radius=%s size=(%s,%s) rotate=%s totalPins=%s",
+                tostring(x), tostring(y), tostring(instanceID), tostring(zoom), tostring(mapRadius),
+                tostring(minimapWidth), tostring(minimapHeight), tostring(rotateMinimap), tostring(minimapPinCount)))
+        end
+        local playerMoveX, playerMoveY
+        if debugPins and lastDebugPlayerWorldX and lastDebugPlayerWorldY then
+            playerMoveX = x - lastDebugPlayerWorldX
+            playerMoveY = y - lastDebugPlayerWorldY
+        end
+        if debugPins then
+            lastDebugPlayerWorldX, lastDebugPlayerWorldY = x, y
+        end
+
+        local debugDeferredPins = {}
+        local debugDeferredCount = 0
+        local debugLimit = _G.QuestieDebugPinLimit or 8
         for pin, data in pairs(minimapPins) do
-            if instanceID == data.instanceID and math.abs(x-data.x) + math.abs(y-data.y) < 500 then -- questie specific fix
+            -- Use the live minimap radius when the client exposes it. Sunstrider
+            -- uses inflated pseudo-world bounds for placement, so mapData size is
+            -- no longer a good visibility cutoff there.
+            local cutoff = mapRadius and (mapRadius * 1.05) or 500
+            if not _GetMinimapViewRadius() and data.uiMapID and HBD.mapData[data.uiMapID] then
+                local w, h = HBD.mapData[data.uiMapID][1], HBD.mapData[data.uiMapID][2]
+                if w and h and w > 0 and h > 0 then
+                    cutoff = math.max(100, math.min(500, math.sqrt(w*w + h*h) * 0.15))
+                end
+            end
+            local rawXDist, rawYDist = x - data.x, y - data.y
+            local distance = math.sqrt(rawXDist*rawXDist + rawYDist*rawYDist)
+            local passesCutoff = instanceID == data.instanceID and distance <= cutoff
+            if debugPins and debugPinIndex < debugLimit and passesCutoff then
+                debugPinIndex = debugPinIndex + 1
+                _DebugMinimapPin(pin, data, debugPinIndex, x, y, instanceID, distance, passesCutoff, cutoff)
+            elseif debugPins and _IsDebuggableMinimapPin(pin, data, distance, passesCutoff) then
+                debugDeferredCount = debugDeferredCount + 1
+                debugDeferredPins[debugDeferredCount] = {pin, data, distance, passesCutoff, cutoff}
+            end
+            if debugPins and pin and data then
+                local _, _, _, screenX, screenY = _GetMinimapPinScreenMetrics(data)
+                local lastScreen = lastDebugPinScreens[pin]
+                if lastScreen and screenX and screenY then
+                    print(string.format(
+                        "[QD] PinMotion name=%s pass=%s playerMove=(%s,%s) screenMove=(%s,%s) screenNow=(%s,%s) screenPrev=(%s,%s)",
+                        tostring(pin:GetName()),
+                        tostring(passesCutoff),
+                        tostring(playerMoveX),
+                        tostring(playerMoveY),
+                        tostring(screenX - lastScreen[1]),
+                        tostring(screenY - lastScreen[2]),
+                        tostring(screenX),
+                        tostring(screenY),
+                        tostring(lastScreen[1]),
+                        tostring(lastScreen[2])
+                    ))
+                end
+                if screenX and screenY then
+                    lastDebugPinScreens[pin] = { screenX, screenY }
+                end
+            end
+            if passesCutoff then -- questie specific fix
                 activeMinimapPins[pin] = data
                 data.keep = true
                 -- draw the pin (this may reset data.keep if outside of the map)
                 drawMinimapPin(pin, data)
+                if debugPins and pin and pin.GetPoint then
+                    local point1, rel1, point2, xOff, yOff = pin:GetPoint()
+                    local pointKey = table.concat({
+                        tostring(point1),
+                        tostring(rel1 and rel1.GetName and rel1:GetName() or rel1),
+                        tostring(point2),
+                        tostring(xOff),
+                        tostring(yOff)
+                    }, "|")
+                    if lastDebugPinPoints[pin] ~= pointKey then
+                        print(string.format(
+                            "[QD] PinAnchorChanged name=%s point=(%s,%s,%s,%s,%s) shown=%s hidden=%s parent=%s",
+                            tostring(pin:GetName()),
+                            tostring(point1),
+                            tostring(rel1 and rel1.GetName and rel1:GetName() or rel1),
+                            tostring(point2),
+                            tostring(xOff),
+                            tostring(yOff),
+                            tostring(pin:IsShown()),
+                            tostring(pin.hidden),
+                            tostring(pin:GetParent() and pin:GetParent():GetName() or pin:GetParent())
+                        ))
+                        lastDebugPinPoints[pin] = pointKey
+                    end
+                end
+            else
+                pin:Hide()
+                data.onEdge = nil
+                data.keep = nil
+                activeMinimapPins[pin] = nil
+            end
+        end
+
+        if debugPins then
+            local i = 1
+            while debugPinIndex < debugLimit and i <= debugDeferredCount do
+                local entry = debugDeferredPins[i]
+                debugPinIndex = debugPinIndex + 1
+                _DebugMinimapPin(entry[1], entry[2], debugPinIndex, x, y, instanceID, entry[3], entry[4], entry[5])
+                i = i + 1
+            end
+            if debugPinIndex == 0 then
+                local fallbackIndex = 0
+                for pin, data in pairs(minimapPins) do
+                    fallbackIndex = fallbackIndex + 1
+                    if fallbackIndex > debugLimit then break end
+                    _DebugAnyMinimapPin(pin, data, fallbackIndex, "MinimapPinState")
+                end
             end
         end
 
@@ -567,6 +924,9 @@ local function UpdateMinimapPins(force)
                 minimapPinCount = minimapPinCount + 1
                 data.keep = nil
             end
+        end
+        if debugPins then
+            print("[QD] QuestieDebugPins complete; set QuestieDebugPins=true again for another one-shot trace.")
         end
     end
 end
@@ -609,7 +969,10 @@ local function UpdateMinimapIconPosition()
 
     if x ~= lastXY or y ~= lastYY or facing ~= lastFacing or refresh then
         -- update radius of the map
-        if MinimapRadiusAPI then
+        local viewRadius = _GetMinimapViewRadius()
+        if viewRadius then
+            mapRadius = viewRadius
+        elseif MinimapRadiusAPI then
             mapRadius = C_Minimap.GetViewRadius()
         else
             local sizeTable = minimap_size[indoors] or minimap_size.outdoor
@@ -641,7 +1004,7 @@ local function UpdateMinimapIconPosition()
 end
 
 local function UpdateMinimapZoom()
-    if not MinimapRadiusAPI then
+    if not _GetMinimapViewRadius() and not MinimapRadiusAPI then
         local zoom = pins.Minimap:GetZoom()
         if GetCVar("minimapZoom") == GetCVar("minimapInsideZoom") then
             pins.Minimap:SetZoom(zoom < 2 and zoom + 1 or zoom - 1)
@@ -920,11 +1283,21 @@ function pins:AddMinimapIconMap(ref, icon, uiMapID, x, y, showInParentZone, floa
     local xCoord, yCoord, instanceID = HBD:GetWorldCoordinatesFromZone(x, y, uiMapID)
     if not xCoord then return end
 
+    -- Sunstrider is small enough that edge-floating objective pins read like
+    -- player-following pins. Hide out-of-radius pins instead.
+    if uiMapID == 1241 then
+        floatOnEdge = false
+    end
+
     self:AddMinimapIconWorld(ref, icon, instanceID, xCoord, yCoord, floatOnEdge)
 
     -- store extra information
     minimapPins[icon].uiMapID = uiMapID
     minimapPins[icon].showInParentZone = showInParentZone
+    -- store original 0-1 zone coords so drawMinimapPin can compute a
+    -- zone-space delta without going through world-conversion bounds
+    minimapPins[icon].zoneX = x
+    minimapPins[icon].zoneY = y
 end
 
 --- Check if a floating minimap icon is on the edge of the map

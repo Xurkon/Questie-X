@@ -153,6 +153,9 @@ _CalculateAvailableQuests = function()
             _DrawChildQuests(questId, currentQuestlog, completedQuests)
 
             if QuestieDB.IsComplete(questId) ~= -1 then -- The quest in the quest log is not failed, so we don't show it as available
+                QuestieMap:UnloadQuestFramesByDataType(questId, "available")
+                QuestieTooltips:RemoveQuest(questId)
+                availableQuests[questId] = nil
                 return
             end
         end

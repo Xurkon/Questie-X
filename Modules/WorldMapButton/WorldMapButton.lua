@@ -15,8 +15,36 @@ local KButtons = QuestieCompat.KButtons or LibStub("Krowi_WorldMapButtons-1.4")
 
 local mapButton
 
+local function _PositionMapButton()
+    if not mapButton then return end
+
+    local anchor = WorldMapDetailFrame or WorldMapButton or WorldMapFrame
+    mapButton:SetParent(anchor)
+    mapButton:ClearAllPoints()
+    if IsAddOnLoaded and IsAddOnLoaded("Mapster") then
+        mapButton:SetPoint("TOPRIGHT", anchor, "TOPRIGHT", -50, -72.3)
+    else
+        mapButton:SetPoint("TOPRIGHT", anchor, "TOPRIGHT", -50, -40)
+    end
+    mapButton:SetFrameLevel(99)
+end
+
+local function _RefreshMapButtonVisibility()
+    if not mapButton then return end
+
+    _PositionMapButton()
+    if Questie.db.profile.mapShowHideEnabled and WorldMapFrame:IsVisible() then
+        mapButton:Show()
+    else
+        mapButton:Hide()
+    end
+end
+
 function WorldMapButton.Initialize()
     mapButton = KButtons:Add("QuestieWorldMapButtonTemplate", "BUTTON")
+    _RefreshMapButtonVisibility()
+    WorldMapFrame:HookScript("OnShow", _RefreshMapButtonVisibility)
+    WorldMapFrame:HookScript("OnHide", _RefreshMapButtonVisibility)
 
     Questie.WorldMap = {
         Button = mapButton
@@ -25,11 +53,8 @@ end
 
 ---@param shouldShow boolean
 function WorldMapButton.Toggle(shouldShow)
-    if shouldShow then
-        mapButton:Show()
-    else
-        mapButton:Hide()
-    end
+    Questie.db.profile.mapShowHideEnabled = shouldShow
+    _RefreshMapButtonVisibility()
 end
 
 QuestieWorldMapButtonMixin = {

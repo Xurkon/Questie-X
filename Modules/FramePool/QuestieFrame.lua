@@ -438,6 +438,23 @@ end
 --- This is needed because HBD will show the icons again after switching zones and stuff like that
 function _Qframe:FakeHide()
     if not self.hidden then
+        if _G.QuestieDebugPins and self.miniMapIcon then
+            local parent = self:GetParent()
+            local point1, rel1, point2, xOff, yOff = self:GetPoint()
+            print(string.format(
+                "[QD] FakeHide name=%s shown=%s hidden=%s should=%s parent=%s point=(%s,%s,%s,%s,%s)",
+                tostring(self:GetName()),
+                tostring(self:IsShown()),
+                tostring(self.hidden),
+                tostring(self.shouldBeShowing),
+                tostring(parent and parent.GetName and parent:GetName() or parent),
+                tostring(point1),
+                tostring(rel1 and rel1.GetName and rel1:GetName() or rel1),
+                tostring(point2),
+                tostring(xOff),
+                tostring(yOff)
+            ))
+        end
         self.shouldBeShowing = self:IsShown();
         self._show = self.Show;
         self.Show = function()
@@ -460,6 +477,23 @@ end
 --- This is needed because HBD will show the icons again after switching zones and stuff like that
 function _Qframe:FakeShow()
     if self.hidden then
+        if _G.QuestieDebugPins and self.miniMapIcon then
+            local parent = self:GetParent()
+            local point1, rel1, point2, xOff, yOff = self:GetPoint()
+            print(string.format(
+                "[QD] FakeShow name=%s shown=%s hidden=%s should=%s parent=%s point=(%s,%s,%s,%s,%s)",
+                tostring(self:GetName()),
+                tostring(self:IsShown()),
+                tostring(self.hidden),
+                tostring(self.shouldBeShowing),
+                tostring(parent and parent.GetName and parent:GetName() or parent),
+                tostring(point1),
+                tostring(rel1 and rel1.GetName and rel1:GetName() or rel1),
+                tostring(point2),
+                tostring(xOff),
+                tostring(yOff)
+            ))
+        end
         self.hidden = false
         self.Show = self._show;
         self.Hide = self._hide;

@@ -26,6 +26,30 @@ local function _GetIconScaleForLoot()
     return Questie.db.profile.lootScale or 1
 end
 
+local function _CountUniqueSpawnPositions(spawns)
+    if type(spawns) ~= "table" then return 0 end
+
+    local seen = {}
+    local count = 0
+    for _, coords in pairs(spawns) do
+        if type(coords) == "table" then
+            for _, coord in ipairs(coords) do
+                local x = coord and coord[1]
+                local y = coord and coord[2]
+                if x and y then
+                    local key = tostring(x) .. "," .. tostring(y)
+                    if not seen[key] then
+                        seen[key] = true
+                        count = count + 1
+                    end
+                end
+            end
+        end
+    end
+
+    return count
+end
+
 
 ---@class SpawnListBase
 ---@field Name string
@@ -155,7 +179,7 @@ monster = function(npcId, objective)
     -- replace retail positions (e.g. format migration gaps, timing issues).
     if Questie.IsAscension and Questie.dbLearner and Questie.dbLearner.global then
         local ld = Questie.dbLearner.global
-        if ld.settings and ld.settings.prioritizeMyData then
+        if ld.settings and ld.settings.enabled and ld.settings.prioritizeMyData then
             local learnedNpc = ld.npcs and ld.npcs[npcId]
             if learnedNpc then
                 local learnedSpawns = learnedNpc[7]
@@ -168,28 +192,9 @@ monster = function(npcId, objective)
                     and QuestieDB.ascensionOverrideKeys["NPC"]
                     and QuestieDB.ascensionOverrideKeys["NPC"][npcId]
                     and QuestieDB.ascensionOverrideKeys["NPC"][npcId][7]
-                if npcId == 15274 then
-                    -- Count spawn entries per zone key
-                    local spawnZones = ""
-                    if type(spawns) == "table" then
-                        for zk, coords in pairs(spawns) do
-                            spawnZones = spawnZones .. "z" .. tostring(zk) .. "=" .. tostring(type(coords) == "table" and #coords or "?") .. " "
-                        end
-                    end
-                    local learnedZones = ""
-                    if type(learnedSpawns) == "table" then
-                        for zk, coords in pairs(learnedSpawns) do
-                            learnedZones = learnedZones .. "z" .. tostring(zk) .. "=" .. tostring(type(coords) == "table" and #coords or "?") .. " "
-                        end
-                    end
-                    print(string.format("[QD] NPC 15274: dbSpawns={%s} learnedSpawns={%s} mc=%s threshold=%s ascProtected=%s -> uselearner=%s",
-                        spawnZones, learnedZones,
-                        tostring(learnedNpc.mc), tostring(threshold),
-                        tostring(ascProtected),
-                        tostring(learnedSpawns and next(learnedSpawns) and learnedNpc.mc and learnedNpc.mc >= threshold and not ascProtected)))
-                end
+                local hasReliableLearnedSpawns = _CountUniqueSpawnPositions(learnedSpawns) > 1
                 if learnedSpawns and next(learnedSpawns) and learnedNpc.mc and learnedNpc.mc >= threshold
-                        and not ascProtected then
+                        and hasReliableLearnedSpawns and not ascProtected then
                     Questie:Debug(Questie.DEBUG_DEVELOP, "[monster] Preferring learned spawns for NPC:", npcId, "(mc=" .. tostring(learnedNpc.mc) .. ")")
                     spawns = learnedSpawns
                     isLearned = true

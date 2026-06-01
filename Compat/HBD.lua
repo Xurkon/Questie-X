@@ -41,10 +41,26 @@ end)
 local HBD = {mapData = mapData}
 QuestieCompat.HBD = HBD
 
--- Ascension zone remapping: the ghost map 946 should be treated as Eversong
--- (1941) for pin routing, but Sunstrider Isle (1241) must keep its native
--- render target. Visibility between Sunstrider and Eversong is handled
--- separately in HandleWorldMapPin() so we do not collapse the draw target.
+-- Ascension zone remapping: Sunstrider Isle (1241) and its ghost map (946) share
+-- Eversong Woods' (1941) rendered area on Ascension's client. On Ascension,
+-- the Sunstrider Isle map actually uses Eversong's coordinate space — not retail's
+-- separate Sunstrider bounds. This means:
+--   1. Visibility: zones sharing the same space should show each other's pins
+--   2. Bounds: mapData[1241] must use Eversong's bounds so coordinate round-trips
+--      produce correct positions on Ascension's Sunstrider map
+--   3. Data: Questie spawn coords for Sunstrider (uiMapId=1241) are in the
+--      33-38%/18-25% range, which maps to Sunstrider's location WITHIN Eversong
+--
+-- ZONE_REDIRECT: used by ResolveZone() for visibility logic (isSameZoneSpace).
+-- NOTE: 1241 is NOT redirected to 1941. Map 1241 (Sunstrider) has its own
+-- calibrated bounds that produce a different world coordinate space than
+-- Eversong. Cross-map pin visibility (1241 pin showing on 1941 map, and vice
+-- versa) works because QuestieMap.lua's DrawWorldIcon uses _ResolveMapUiMapId()
+-- to register pins against the resolved parent map, and HBD's mapData[1241]
+-- shares Eversong's bounds on Ascension — so the simplified isSameZoneSpace
+-- check (effectiveUiMapID == effectiveDataUiMapID) passes for both maps.
+-- Do not remove 1241 from the redirect table or split its bounds from 1941
+-- without also re-introducing the sharesSunstriderSpace chain.
 local ZONE_REDIRECT = {
     [946]  = 1941,  -- Ghost/transition map -> Eversong Woods (for Sunstrider loading)
 }
@@ -58,64 +74,47 @@ end
 -- Expose for external use (e.g. QuestieCompat coordinate calibration)
 HBD.ResolveZone = ResolveZone
 
--- Sunstrider calibration note:
--- We have confirmed that 1241 is the correct uiMapId for Sunstrider Isle and
--- 3431 is the matching areaId. The sample set we collected strongly suggests
--- the standard Sunstrider rectangle is the correct fit for this client:
---   width  ~= 510
---   height ~= 500
---   left   ~= -6983.33
---   top    ~= 9766.67
--- Keep this override in place, but if another path starts hiding townsfolk pins
--- again, re-check the 1241/3431 resolution before touching the bounds.
+-- Ascension bounds override: On Ascension, Sunstrider Isle (1241) uses Eversong
+-- Woods' coordinate space, not retail's separate Sunstrider bounds. The retail
+-- mapData[1241] bounds (510, 500, -6983.33, 9766.67) are incompatible with
+-- Ascension's world coordinates — UnitPosition returns Eversong-scale values
+-- like (503.4, 267.9) which produce zone coords of (-14.68, 18.99) when converted
+-- through retail Sunstrider bounds. Using Eversong's bounds makes coordinate
+-- round-trips work correctly and positions pins at their actual locations.
+--
+-- Ghost map 946 has all-zeros bounds in retail, which makes it unusable; redirect
+-- to Eversong bounds as well (it shares the same rendered area on Ascension).
 local ASCENSION_ZONE_BOUNDS = {
-    [1241] = { 510.0, 500.0, -6983.33, 9766.67 },
-    [946]  = { 510.0, 500.0, -6983.33, 9766.67 },
+    [1241] = { 1600.0, 1066.666666666667, -2721.0066, 8433.9360 },  -- Calibrated bounds for Sunstrider Isle
+    [946]  = { 4925.0, 3283.33333, -1824.6778, 8641.6666 },  -- Ghost map shares Eversong geometry
 }
 
 
--- Apply Ascension bounds overrides immediately.
+-- Apply Ascension bounds overrides immediately
 local _boundsApplied = false
 local function ApplyAscensionBounds()
     if _boundsApplied then return end
     _boundsApplied = true
-
+    
     if not RealHBD then
         pcall(function() RealHBD = LoadRealHBD() end)
     end
+    
     for zoneId, bounds in pairs(ASCENSION_ZONE_BOUNDS) do
         local data = mapData[zoneId]
         if data then
+            -- [HBD-Ascension] bounds override applied (debug disabled)
             data[1], data[2], data[3], data[4] = bounds[1], bounds[2], bounds[3], bounds[4]
+        else
+            -- [HBD-Ascension] WARNING: No mapData for zone (debug disabled)
         end
+        
+        -- Override the real HBD map data as well, because HBD-Pins bypasses QuestieCompat
         if RealHBD and RealHBD.mapData and RealHBD.mapData[zoneId] then
             local rData = RealHBD.mapData[zoneId]
             rData[1], rData[2], rData[3], rData[4] = bounds[1], bounds[2], bounds[3], bounds[4]
         end
     end
-end
-
--- Debug helper for Sunstrider calibration.
--- Future agents: use this only for map-fit work on Sunstrider Isle.
--- areaId 3431 = Sunstrider Isle subzone, uiMapId 1241 = Sunstrider Isle map.
--- It prints the world-space and zone-space values for a 1241 point so we can
--- compare the source coords against the rendered pin location.
-function HBD:DebugSunstriderPoint(x, y)
-    local worldX, worldY, instanceId = self:GetWorldCoordinatesFromZone(x, y, 1241)
-    local zoneX, zoneY = nil, nil
-    if worldX and worldY then
-        zoneX, zoneY = self:GetZoneCoordinatesFromWorld(worldX, worldY, 1241)
-    end
-    print(string.format(
-        "[SunstriderDebug] zone=1241 input=%.4f,%.4f world=%s,%s inst=%s roundtrip=%s,%s",
-        x or -1,
-        y or -1,
-        tostring(worldX),
-        tostring(worldY),
-        tostring(instanceId),
-        tostring(zoneX),
-        tostring(zoneY)
-    ))
 end
 ApplyAscensionBounds()
 
@@ -147,9 +146,9 @@ end)
 --- @param zone uiMapID of the zone
 function HBD:GetWorldCoordinatesFromZone(x, y, zone)
     -- Ascension: mapData[946] has been overridden with Eversong bounds.
-    -- mapData[1241] keeps its own calibrated Sunstrider bounds. Do not force
-    -- 1241 through the ghost-map redirect here; visibility sharing is handled
-    -- separately in HandleWorldMapPin().
+    -- mapData[1241] has its own calibrated bounds that match the game engine's
+    -- Sunstrider coordinate space. Both convert through their own bounds —
+    -- no redirect needed here because _ResolveMapUiMapId passes 1241 through.
     local data = mapData[zone]
     if not data or data[1] == 0 or data[2] == 0 then
         -- Attempt to lazy-load the real HBD if we haven't yet
@@ -178,8 +177,8 @@ end
 --- @param allowOutOfBounds Allow coordinates to go beyond the current map (ie. outside of the 0-1 range), otherwise nil will be returned
 function HBD:GetZoneCoordinatesFromWorld(x, y, zone, allowOutOfBounds)
     -- Ascension: mapData[946] has been overridden with Eversong bounds.
-    -- mapData[1241] keeps its own calibrated Sunstrider bounds. Callers should
-    -- pass the real uiMapId they want to project, not the visibility alias.
+    -- mapData[1241] has its own calibrated bounds matching the engine's space.
+    -- No redirect needed — callers pass the correct zone directly.
     local data = mapData[zone]
     if not data or data[1] == 0 or data[2] == 0 then
         if not RealHBD then
@@ -282,10 +281,6 @@ function HBD:GetPlayerWorldPosition()
     local wx, wy, inst = HBD:GetWorldCoordinatesFromZone(x, y, uiMapID)
     _pwp_x, _pwp_y, _pwp_inst = wx, wy, inst
     _pwp_time = now
-    if _G.QuestieDebugPlayerWorld then
-        print(string.format("[QD] GetPlayerWorldPosition: zoneX=%.4f zoneY=%.4f uiMapID=%s -> worldX=%s worldY=%s inst=%s",
-            x, y, tostring(uiMapID), tostring(wx), tostring(wy), tostring(inst)))
-    end
     if wx and wy then
         return wx, wy, inst
     end
@@ -343,6 +338,10 @@ local minimapPinRegistry = {}
 local worldmapPins = {}
 local worldmapPinRegistry = {}
 
+-- 3.3.5a: C_Minimap.GetViewRadius does NOT exist. Use Minimap:GetViewRadius() (native 3.3.5a API).
+-- C_Minimap path is kept as secondary fallback in case some custom client adds it.
+local MinimapRadiusAPI = (C_Minimap and C_Minimap.GetViewRadius) or Minimap.GetViewRadius
+
 local pins = {
     Minimap = Minimap,
     updateFrame = CreateFrame("Frame"),
@@ -364,12 +363,15 @@ local minimap_size = {
         [5] = 50,  -- 6
     },
     outdoor = {
-        [0] = 466 + 2/3, -- scale
-        [1] = 400,       -- 7/6
-        [2] = 333 + 1/3, -- 1.4
-        [3] = 266 + 2/6, -- 1.75
-        [4] = 200,       -- 7/3
-        [5] = 133 + 1/3, -- 3.5
+        -- Ascension (Warcraft Reborn) calibrated values.
+        -- Zoom 5 base value 250.
+        -- Each lower zoom level multiplies by 1.2 (standard WoW zoom step ratio).
+        [0] = 622.08,  -- zoom5 * 1.2^5
+        [1] = 518.40,  -- zoom5 * 1.2^4
+        [2] = 432.00,  -- zoom5 * 1.2^3
+        [3] = 360.00,  -- zoom5 * 1.2^2
+        [4] = 300.00,  -- zoom5 * 1.2^1
+        [5] = 250.00,  -- base value
     },
 }
 
@@ -423,23 +425,6 @@ local lastZoom, lastFacing, lastXY, lastYY
 
 local function drawMinimapPin(pin, data)
     local xDist, yDist = lastXY - data.x, lastYY - data.y
-
-    -- Throttled debug: print once per second max
-    if _G.QuestieDebugMinimapPin and (not _G._QDPinDebugTime or (GetTime() - _G._QDPinDebugTime) > 1) then
-        _G._QDPinDebugTime = GetTime()
-        -- Also trace zone->world for 1241 so we can see if the icon's stored zone coords are the culprit
-        local zoneWorldX, zoneWorldY, zoneInst = HBD:GetWorldCoordinatesFromZone(pin.x / 100, pin.y / 100, data.uiMapID)
-        local playerWX, playerWY, playerInst = HBD:GetPlayerWorldPosition()
-        local finalX = (xDist / (mapRadius or 1)) * minimapWidth
-        local finalY = (yDist / (mapRadius or 1)) * minimapHeight
-        print(string.format(
-            "[QD] PIN uiMap=%s inst=%s/%s zoneXY=(%.4f,%.4f) zoneW=(%.2f,%.2f) dataW=(%.2f,%.2f) playerW=(%.2f,%.2f) dist=(%.2f,%.2f) mapRad=%.1f final=(%.2f,%.2f) float=%s",
-            tostring(data.uiMapID), tostring(data.instanceID), tostring(instanceID),
-            pin.x / 100, pin.y / 100, zoneWorldX or -1, zoneWorldY or -1,
-            data.x, data.y, lastXY, lastYY,
-            xDist, yDist, mapRadius or -1,
-            finalX, finalY, tostring(data.floatOnEdge)))
-    end
 
     -- handle rotation
     if rotateMinimap then
@@ -539,25 +524,46 @@ local function UpdateMinimapPins(force)
     if x ~= lastXY or y ~= lastYY or diffZoom or facing ~= lastFacing or force then
         -- minimap information
         minimapShape = GetMinimapShape and minimap_shapes[GetMinimapShape() or "ROUND"]
-        minimapWidth = pins.Minimap:GetWidth() / 2
-        minimapHeight = pins.Minimap:GetHeight() / 2
+        -- Compute mapRadius and width/height from the same minimap_size table each frame.
+        -- Both values must stay in sync regardless of UI scale changes.
+        -- mapRadius: used for diffX/diffY normalization in drawMinimapPin
+        -- minimapWidth/minimapHeight: used for pixel offset in SetPoint
         if MinimapRadiusAPI then
-            mapRadius = C_Minimap.GetViewRadius()
+            mapRadius = MinimapRadiusAPI(Minimap)
         else
             local sizeTable = minimap_size[indoors] or minimap_size.outdoor
-			local size = sizeTable[zoom]
-				or sizeTable[5]
-				or sizeTable[4]
-				or sizeTable[3]
-				or sizeTable[2]
-				or sizeTable[1]
-				or sizeTable[0]
-
-			mapRadius = size / 2
+            local size = sizeTable[zoom]
+                or sizeTable[5] or sizeTable[4] or sizeTable[3]
+                or sizeTable[2] or sizeTable[1] or sizeTable[0]
+            mapRadius = size / 2
         end
+        -- minimapWidth = actual half-width of the visible minimap frame in screen pixels.
+        -- diffX (yards) / mapRadius (yards in viewport) * minimapWidth (pixels) = correct screen offset.
+        -- No additional scaling needed when mapRadius comes from the live API.
+        minimapWidth  = pins.Minimap:GetWidth()  * pins.Minimap:GetScale() / 2
+        minimapHeight = pins.Minimap:GetHeight() * pins.Minimap:GetScale() / 2
 
-        -- update upvalues for icon placement
-        lastZoom = zoom
+        --[[ DEBUG: One-shot per (zoom, indoors, diffZoom) — shows pixel math state
+        if not _G.QuestieDebugPinMath then _G.QuestieDebugPinMath = {} end
+        local dbgKey = zoom .. ":" .. (indoors or "?") .. ":" .. tostring(diffZoom)
+        if not _G.QuestieDebugPinMath[dbgKey] then
+            _G.QuestieDebugPinMath[dbgKey] = true
+            print("QDMATH:", dbgKey,
+                "mw="..math.floor(minimapWidth),
+                "mh="..math.floor(minimapHeight),
+                "mapR="..math.floor(mapRadius),
+                "ratio="..math.floor((minimapWidth/mapRadius)*100)/100)
+        end
+        --]]
+
+        local px, py = x, y
+        local pInst = instanceID
+        --[[ DEBUG: One-shot on first UpdateMinimapPins entry
+        if not _G.QuestieDebugPinMath.entering then
+            _G.QuestieDebugPinMath.entering = true
+            print("UPDATE entering")
+        end
+        --]]
         lastFacing = facing
         lastXY, lastYY = x, y
 
@@ -566,48 +572,13 @@ local function UpdateMinimapPins(force)
             mapCos = cos(facing)
         end
 
-        local debugGateCount = 0
-        local debugPinCount = 0
-        local debugActiveCount = 0
-        local sunCount, sunMinX, sunMaxX, sunMinY, sunMaxY = 0, nil, nil, nil, nil
-        for _ in pairs(minimapPins) do debugPinCount = debugPinCount + 1 end
-        for _ in pairs(activeMinimapPins) do debugActiveCount = debugActiveCount + 1 end
-
         for pin, data in pairs(minimapPins) do
-            if data.uiMapID == 1241 then
-                sunCount = sunCount + 1
-                sunMinX = sunMinX and min(sunMinX, data.x) or data.x
-                sunMaxX = sunMaxX and max(sunMaxX, data.x) or data.x
-                sunMinY = sunMinY and min(sunMinY, data.y) or data.y
-                sunMaxY = sunMaxY and max(sunMaxY, data.y) or data.y
-            end
-            local dist = math.abs(x-data.x) + math.abs(y-data.y)
-            if _G.QuestieDebugMinimapGate and data.uiMapID == 1241 and debugGateCount < 3 then
-                debugGateCount = debugGateCount + 1
-                print(string.format(
-                    "[QD] SUN#%d total=%d active=%d label=%s uiMap=%s inst=%s/%s dist=%.2f pass=%s float=%s pinW=(%.2f,%.2f) playerW=(%.2f,%.2f)",
-                    debugGateCount, debugPinCount, debugActiveCount,
-                    tostring(data.label or data.Name or data.name or data.Title or data.id or data.Id),
-                    tostring(data.uiMapID), tostring(data.instanceID), tostring(instanceID),
-                    dist,
-                    tostring(instanceID == data.instanceID and dist < 500),
-                    tostring(data.floatOnEdge),
-                    data.x, data.y, x, y))
-            end
-            if instanceID == data.instanceID and dist < 500 then
+            if instanceID == data.instanceID and math.abs(x-data.x) + math.abs(y-data.y) < 500 then -- questie specific fix
                 activeMinimapPins[pin] = data
                 data.keep = true
                 -- draw the pin (this may reset data.keep if outside of the map)
                 drawMinimapPin(pin, data)
             end
-        end
-
-        if _G.QuestieDebugMinimapGate and sunCount > 0 then
-            print(string.format(
-                "[QD] SUNSUM total=%d active=%d count=%d x=[%.2f,%.2f] y=[%.2f,%.2f] mapRad=%.1f size=(%.1f,%.1f)",
-                debugPinCount, debugActiveCount, sunCount,
-                sunMinX or -1, sunMaxX or -1, sunMinY or -1, sunMaxY or -1,
-                mapRadius or -1, minimapWidth or -1, minimapHeight or -1))
         end
 
         minimapPinCount = 0
@@ -624,7 +595,24 @@ local function UpdateMinimapPins(force)
 end
 
 local function UpdateMinimapIconPosition()
-    -- get the current map  zoom
+    -- we have no active minimap pins, just return early
+    if minimapPinCount == 0 then return end
+
+    local x, y = _GetEffectiveMinimapPlayerWorldPosition()
+
+    --[[ DEBUG: per-frame player world X trace — fires on first 5 calls then on x change
+    if not _G.QuestieDebugPinMath.iconCalled then
+        _G.QuestieDebugPinMath.iconCalled = 0
+        _G.QuestieDebugPinMath.iconCalled_lastXY = -9999
+    end
+    _G.QuestieDebugPinMath.iconCalled = _G.QuestieDebugPinMath.iconCalled + 1
+    local call = _G.QuestieDebugPinMath.iconCalled
+    if call <= 5 or x ~= _G.QuestieDebugPinMath.iconCalled_lastXY then
+        print("ICON", call, "x=", x and math.floor(x*100)/100, "lastXY=", lastXY and math.floor(lastXY*100)/100, "diffX=", x and (x-lastXY) and math.floor((x-lastXY)*100)/100 or "nil", "zoom=", zoom)
+    end
+    _G.QuestieDebugPinMath.iconCalled_lastXY = x
+    --]]
+
     local zoom = pins.Minimap:GetZoom()
     local diffZoom = zoom ~= lastZoom
     -- if the map zoom changed, run a full update sweep
@@ -632,11 +620,6 @@ local function UpdateMinimapIconPosition()
         UpdateMinimapPins()
         return
     end
-
-    -- we have no active minimap pins, just return early
-    if minimapPinCount == 0 then return end
-
-    local x, y = _GetEffectiveMinimapPlayerWorldPosition()
 
     -- for rotating minimap support
     local facing
@@ -660,22 +643,44 @@ local function UpdateMinimapIconPosition()
     end
 
     if x ~= lastXY or y ~= lastYY or facing ~= lastFacing or refresh then
-        -- update radius of the map
+        -- Use mapRadius for width/height to stay self-consistent with the minimap_size
+        -- lookup table. GetWidth() returns scaled size which diverges from mapRadius
+        -- when UI/interface scale changes, causing drift at different zoom levels.
         if MinimapRadiusAPI then
-            mapRadius = C_Minimap.GetViewRadius()
+            mapRadius = MinimapRadiusAPI(Minimap)
         else
             local sizeTable = minimap_size[indoors] or minimap_size.outdoor
 			local size = sizeTable[zoom]
-				or sizeTable[5]
-				or sizeTable[4]
-				or sizeTable[3]
-				or sizeTable[2]
-				or sizeTable[1]
-				or sizeTable[0]
+			or sizeTable[5]
+			or sizeTable[4]
+			or sizeTable[3]
+			or sizeTable[2]
+			or sizeTable[1]
+			or sizeTable[0]
 
 			mapRadius = size / 2
         end
-        -- update upvalues for icon placement
+        -- minimapWidth = actual half-width of the visible minimap frame in screen pixels.
+        minimapWidth  = pins.Minimap:GetWidth()  * pins.Minimap:GetScale() / 2
+        minimapHeight = pins.Minimap:GetHeight() * pins.Minimap:GetScale() / 2
+
+        --[[ DEBUG: One-shot per (zoom, indoors) per-pin — shows ratio stability across zooms
+        if not _G.QuestieDebugPinMath.pinMath then _G.QuestieDebugPinMath.pinMath = {} end
+        local pmKey = zoom .. ":" .. (indoors or "?")
+        if not _G.QuestieDebugPinMath.pinMath[pmKey] then
+            _G.QuestieDebugPinMath.pinMath[pmKey] = true
+            -- diffX = xDist / mapRadius, then final = diffX * minimapWidth
+            -- If mapRadius changes but minimapWidth doesn't, the multiplier (minimapWidth/mapRadius) changes per zoom
+            -- If both change proportionally, multiplier stays near 1.0
+            print("QDMATH:", pmKey,
+                "mw="..math.floor(minimapWidth),
+                "mh="..math.floor(minimapHeight),
+                "mapR="..math.floor(mapRadius),
+                "ratio="..math.floor((minimapWidth/mapRadius)*100)/100)
+        end
+        --]]
+
+        -- Compute pixel offset for this pin
         lastXY, lastYY = x, y
         lastFacing = facing
 
@@ -733,18 +738,10 @@ local function HandleWorldMapPin(icon, data)
     -- Child-map / zone-redirect exception: if we're viewing a child map (e.g. Sunstrider 1241)
     -- and the pin belongs to a parent map (e.g. Eversong 1941) or a zone that shares the same
     -- coordinate space, SHOW_CURRENT pins should still be visible.
-    -- Sunstrider and Eversong share visibility, but 1241 must remain the actual render target.
+    -- Also handles the reverse: pins tagged 1241/946 should show on 1941, and vice versa,
+    -- because these maps share the same rendered area on Ascension.
     local effectiveUiMapID = ResolveZone(uiMapID)
     local effectiveDataUiMapID = ResolveZone(data.uiMapID)
-    local sharesSunstriderSpace = (
-        (uiMapID == 1241 and data.uiMapID == 1941) or
-        (uiMapID == 1941 and data.uiMapID == 1241) or
-        (uiMapID == 946 and data.uiMapID == 1241) or
-        (uiMapID == 1241 and data.uiMapID == 946) or
-        (uiMapID == 946 and data.uiMapID == 1941) or
-        (uiMapID == 1941 and data.uiMapID == 946) or
-        (effectiveUiMapID == 1941 and effectiveDataUiMapID == 1941 and (uiMapID == 1241 or data.uiMapID == 1241 or uiMapID == 946 or data.uiMapID == 946))
-    )
     local isChildMap = false
     local ancestorMapID = HBD.mapData[uiMapID] and HBD.mapData[uiMapID].parentMapID
     while ancestorMapID and HBD.mapData[ancestorMapID] do
@@ -756,7 +753,7 @@ local function HandleWorldMapPin(icon, data)
     end
     -- Zone-redirect equivalence: if the viewed map and pin's map redirect to the same
     -- target, they share the same coordinate space and should show each other's pins.
-    local isSameZoneSpace = (effectiveUiMapID == effectiveDataUiMapID) or sharesSunstriderSpace
+    local isSameZoneSpace = (effectiveUiMapID == effectiveDataUiMapID)
 
     if (Questie.db.profile.hideIconsOnContinents == true) and (HBD.mapData[uiMapID].mapType == Enum.UIMapType.Continent or uiMapID == 947) or (uiMapID ~= data.uiMapID and data.worldMapShowFlag == HBD_PINS_WORLDMAP_SHOW_CURRENT and not isChildMap and not isSameZoneSpace) then
         icon:Hide();

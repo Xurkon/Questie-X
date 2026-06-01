@@ -4,6 +4,7 @@ Tools/
 
 # Test files
 Tests/
+tests/
 Modules/*_spec.lua
 
 # Dev notes and session artifacts
@@ -11,6 +12,7 @@ docs/sunstrider-pin-fix.md
 docs/sunstrider-coordinate-collection.md
 docs/PROGRESS.md
 docs/testing-macros.md
+handoff.md
 QUESTIE-LEARNER-HANDOFF.md
 
 # Generated/lock files
@@ -54,3 +56,16 @@ wow_classic.yml
 # Dev scripts
 Makefile
 move_recompile.py
+
+# Minimap drift investigation scripts (legacy — see tests/ for archived copies)
+drift_test.lua
+drift_verification.lua
+spawn_calibration.lua
+debug_coords.lua
+minimap_calibration.lua
+radius_debug.lua
+diagnostic_minimap_drift.lua
+elvui_debug.lua
+elvui_terrain_audit.lua
+Compat/HBD.lua.backup
+Compat/HBD.lua.bak

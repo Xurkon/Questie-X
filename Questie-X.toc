@@ -20,6 +20,7 @@
 ## X-WOW_PROJECT_ID: 11
 # Loader module
 Modules\Libs\QuestieLoader.lua
+Modules\QuestieSlash.lua
 # Plugin API
 Modules\Libs\QuestiePluginAPI.lua
 # COMPATIBILITY

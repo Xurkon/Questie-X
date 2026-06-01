@@ -22,10 +22,222 @@ local l10n = QuestieLoader:ImportModule("l10n")
 ---@type QuestieCombatQueue
 local QuestieCombatQueue = QuestieLoader:ImportModule("QuestieCombatQueue")
 
+local function _fmt(v)
+    if v == nil then return "nil" end
+    if type(v) == "number" then return string.format("%.4f", v) end
+    return tostring(v)
+end
+
+local function _dumpFrame(name, frame)
+    if not frame then
+        print(string.format("%s: nil", name))
+        return
+    end
+
+    local p1, r1, p2, x, y = frame:GetPoint()
+    print(string.format(
+        "%s: %s size=%.1fx%.1f scale=%.4f eff=%.4f visible=%s strata=%s level=%s point=(%s,%s,%s,%.1f,%.1f)",
+        name,
+        frame:GetName() or tostring(frame),
+        frame:GetWidth() or 0,
+        frame:GetHeight() or 0,
+        frame.GetScale and frame:GetScale() or 0,
+        frame.GetEffectiveScale and frame:GetEffectiveScale() or 0,
+        tostring(frame:IsShown()),
+        tostring(frame.GetFrameStrata and frame:GetFrameStrata() or "?"),
+        tostring(frame.GetFrameLevel and frame:GetFrameLevel() or "?"),
+        tostring(p1), tostring(r1 and r1.GetName and r1:GetName() or r1), tostring(p2), x or 0, y or 0
+    ))
+end
+
+local function _dumpMaskState(frame)
+    if not frame then
+        return
+    end
+
+    local mask = nil
+    if frame.GetMaskTexture then
+        pcall(function()
+            mask = frame:GetMaskTexture()
+        end)
+    end
+
+    local tex = nil
+    if frame.GetTexture then
+        pcall(function()
+            tex = frame:GetTexture()
+        end)
+    end
+
+    local shape = GetMinimapShape and GetMinimapShape() or "UNKNOWN"
+    local isSquare = tostring(shape) == "SQUARE"
+    print(string.format(
+        "Minimap mask/texture: mask=%s texture=%s shape=%s square=%s",
+        tostring(mask),
+        tostring(tex),
+        tostring(shape),
+        tostring(isSquare)
+    ))
+end
+
+local function QuestieTerrainDebug()
+    print("=== MINIMAP TERRAIN DEBUG ===")
+    _dumpFrame("Minimap", Minimap)
+    _dumpFrame("MinimapCluster", MinimapCluster)
+    _dumpFrame("MinimapZoomIn", MinimapZoomIn)
+    _dumpFrame("MinimapZoomOut", MinimapZoomOut)
+    _dumpFrame("MinimapBorderTop", MinimapBorderTop)
+    _dumpFrame("MinimapBackdrop", MinimapBackdrop)
+    _dumpFrame("MinimapNorthTag", MinimapNorthTag)
+    _dumpFrame("MinimapCompassTexture", MinimapCompassTexture)
+    _dumpMaskState(Minimap)
+
+    local mmHolder = _G.MMHolder
+    _dumpFrame("MMHolder", mmHolder)
+
+    local parent = Minimap and Minimap:GetParent()
+    local depth = 0
+    while parent and depth < 5 do
+        _dumpFrame(string.format("Parent[%d]", depth + 1), parent)
+        parent = parent:GetParent()
+        depth = depth + 1
+    end
+
+    local elvUIEnabled = _G.ElvUI ~= nil or _G.ElvDB ~= nil
+    print("")
+    print("Interpretation:")
+    print(string.format("- ElvUI detected: %s", tostring(elvUIEnabled)))
+    print("- If Minimap uses MMHolder plus a square mask/shape, ElvUI's minimap module is active.")
+    print("- If anchors are stock but the terrain still misaligns, the likely bug is ElvUI's mask/texture path, not Questie pin math.")
+end
+
+local function QuestieRadiusDebug()
+    local m = Minimap
+    if not m then
+        print("=== MINIMAP RADIUS DEBUG ===")
+        print("Minimap frame not available")
+        return
+    end
+
+    local function fmt(v)
+        if v == nil then return "nil" end
+        if type(v) == "number" then return string.format("%.4f", v) end
+        return tostring(v)
+    end
+
+    local zoom = m:GetZoom() or -1
+    local width = m:GetWidth() or 0
+    local height = m:GetHeight() or 0
+    local scale = m:GetScale() or 0
+    local effScale = m.GetEffectiveScale and m:GetEffectiveScale() or 0
+    local shape = GetMinimapShape and GetMinimapShape() or "UNKNOWN"
+
+    print("=== MINIMAP RADIUS DEBUG ===")
+    print(string.format("Zoom level: %d", zoom))
+    print(string.format("Shape: %s", tostring(shape)))
+    print(string.format("Minimap size: %.1f x %.1f", width, height))
+    print(string.format("Minimap scale: %.4f (effective %.4f)", scale, effScale))
+    print(string.format("Visible: %s", tostring(m:IsVisible())))
+
+    local function getFallbackRadius(isOutdoor)
+        local outdoor = {[0]=466 + 2/3, [1]=400, [2]=333 + 1/3, [3]=266 + 2/3, [4]=200, [5]=133 + 1/3}
+        local indoor  = {[0]=300, [1]=240, [2]=180, [3]=120, [4]=80,  [5]=50}
+        local tableRef = isOutdoor and outdoor or indoor
+        return (tableRef[zoom] or 0) / 2
+    end
+
+    if m.GetViewRadius then
+        print(string.format("Minimap:GetViewRadius() = %s", fmt(m:GetViewRadius())))
+    else
+        print("Minimap:GetViewRadius() = NOT AVAILABLE")
+    end
+
+    if C_Minimap and C_Minimap.GetViewRadius then
+        print(string.format("C_Minimap.GetViewRadius() = %s", fmt(C_Minimap.GetViewRadius())))
+    else
+        print("C_Minimap.GetViewRadius() = NOT AVAILABLE")
+    end
+
+    local zoomCVar = tonumber(GetCVar("minimapZoom") or "0") or 0
+    local insideZoomCVar = tonumber(GetCVar("minimapInsideZoom") or "0") or 0
+    local indoors = zoomCVar == zoom and "outdoor" or "indoor"
+    print(string.format("CVar minimapZoom=%d minimapInsideZoom=%d => addon fallback treats current state as %s", zoomCVar, insideZoomCVar, indoors))
+    print(string.format("Fallback outdoor radius[%d] = %.2f", zoom, getFallbackRadius(true)))
+    print(string.format("Fallback indoor  radius[%d] = %.2f", zoom, getFallbackRadius(false)))
+
+    local HBDPins = QuestieCompat and QuestieCompat.HBDPins
+    if HBDPins then
+        local activeCount = 0
+        for _ in pairs(HBDPins.activeMinimapPins or {}) do
+            activeCount = activeCount + 1
+        end
+        print(string.format("Questie HBDPins activeMinimapPins: %d", activeCount))
+
+        local printed = 0
+        print("--- SAMPLE PIN METRICS ---")
+        for pin, data in pairs(HBDPins.activeMinimapPins or {}) do
+            printed = printed + 1
+            if printed > 8 then break end
+
+            local _, _, _, xOff, yOff = pin:GetPoint()
+            local px = xOff or 0
+            local py = yOff or 0
+            local screenDist = math.sqrt(px * px + py * py)
+            local radiusPx = math.min(width, height) * 0.5
+            local radiusNorm = radiusPx > 0 and (screenDist / radiusPx) or 0
+            local edgePx = radiusPx * 0.9
+            local edgeErr = screenDist - edgePx
+            local onEdge = data.onEdge and true or false
+            local shown = pin.IsShown and pin:IsShown() or false
+            local iconData = pin.data or {}
+            local label = iconData.Name or iconData.name or iconData.Title or "unknown"
+            local questId = iconData.Id or iconData.id or iconData.questId or "?"
+
+            print(string.format(
+                "[%d] %s q=%s shown=%s edge=%s world=%.2f,%.2f dist=%.3f screen=%.1f,%.1f |px|=%.1f norm=%.3f edgePx=%.1f edgeErr=%.1f",
+                printed, label, questId, tostring(shown), tostring(onEdge),
+                data.x or 0, data.y or 0, data.distanceFromMinimapCenter or 0,
+                px, py, screenDist, radiusNorm, edgePx, edgeErr
+            ))
+        end
+    else
+        print("QuestieCompat.HBDPins = NOT AVAILABLE")
+    end
+
+    local parent = m:GetParent()
+    print(string.format("Minimap parent: %s (size %.0fx%.0f scale %.2f)",
+        parent and parent:GetName() or "nil",
+        parent and parent:GetWidth() or 0,
+        parent and parent:GetHeight() or 0,
+        parent and parent:GetScale() or 0))
+
+    print("")
+    print("Interpretation:")
+    print("- If Minimap:GetViewRadius() and C_Minimap.GetViewRadius() match the fallback, radius is not the drift source.")
+    print("- If the sample pin screen error stays near 0.0, Questie's projection math is internally consistent.")
+    print("- If radius is correct but the terrain still looks offset, the remaining issue is texture/layout alignment, not pin math.")
+end
+
+_G.QuestieRadiusDebug = QuestieRadiusDebug
+_G.QuestieTerrainDebug = QuestieTerrainDebug
 
 function QuestieSlash.RegisterSlashCommands()
     Questie:RegisterChatCommand("questieclassic", QuestieSlash.HandleCommands)
     Questie:RegisterChatCommand("questie", QuestieSlash.HandleCommands)
+    Questie:RegisterChatCommand("radiusdebug", function()
+        if _G.QuestieRadiusDebug then
+            _G.QuestieRadiusDebug()
+        else
+            print("[Questie] radius debug unavailable")
+        end
+    end)
+    Questie:RegisterChatCommand("terraindebug", function()
+        if _G.QuestieTerrainDebug then
+            _G.QuestieTerrainDebug()
+        else
+            print("[Questie] terrain debug unavailable")
+        end
+    end)
 end
 
 function QuestieSlash.HandleCommands(input)

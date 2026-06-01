@@ -21,6 +21,23 @@ function QuestieMap.utils:SetDrawOrder(frame)
         local frameLevel = Minimap:GetFrameLevel() + 7
         local frameStrata = Minimap:GetFrameStrata()
         local parent = _G["QuestieFrameGroup"] or Minimap
+        if _G.QuestieDebugPins then
+            local point1, rel1, point2, xOff, yOff = frame:GetPoint()
+            print(string.format(
+                "[QD] SetDrawOrder minimap name=%s parent=%s level=%s strata=%s shown=%s hidden=%s point=(%s,%s,%s,%s,%s)",
+                tostring(frame:GetName()),
+                tostring(parent and parent.GetName and parent:GetName() or parent),
+                tostring(frameLevel),
+                tostring(frameStrata),
+                tostring(frame:IsShown()),
+                tostring(frame.hidden),
+                tostring(point1),
+                tostring(rel1 and rel1.GetName and rel1:GetName() or rel1),
+                tostring(point2),
+                tostring(xOff),
+                tostring(yOff)
+            ))
+        end
         frame:SetParent(parent)
         frame:SetFrameStrata(frameStrata)
         frame:SetFrameLevel(frameLevel)

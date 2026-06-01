@@ -23,9 +23,65 @@ local function IsEmptyTable(val)
     return type(val) == "table" and next(val) == nil
 end
 
+local function CopySpawnTable(spawns)
+    if type(spawns) ~= "table" then
+        return spawns
+    end
+
+    local copied = {}
+    for zoneId, coords in pairs(spawns) do
+        local zoneCoords = {}
+        for _, coord in ipairs(coords or {}) do
+            if type(coord) == "table" then
+                zoneCoords[#zoneCoords + 1] = { coord[1], coord[2] }
+            end
+        end
+        copied[zoneId] = zoneCoords
+    end
+    return copied
+end
+
+local function MergeSpawnTables(baseSpawns, overrideSpawns)
+    if type(baseSpawns) ~= "table" then
+        return CopySpawnTable(overrideSpawns)
+    end
+    if type(overrideSpawns) ~= "table" then
+        return CopySpawnTable(baseSpawns)
+    end
+
+    local merged = CopySpawnTable(baseSpawns)
+    for zoneId, coords in pairs(overrideSpawns) do
+        merged[zoneId] = merged[zoneId] or {}
+        for _, coord in ipairs(coords or {}) do
+            local exists = false
+            for _, existing in ipairs(merged[zoneId]) do
+                if existing[1] == coord[1] and existing[2] == coord[2] then
+                    exists = true
+                    break
+                end
+            end
+            if not exists then
+                merged[zoneId][#merged[zoneId] + 1] = { coord[1], coord[2] }
+            end
+        end
+    end
+    return merged
+end
+
 local function _MergeOverride(result, override, rawdata, keyMap)
     for stringKey, intKey in pairs(keyMap) do
-        if override[stringKey] ~= nil then
+        local overrideValue = override[stringKey]
+        if overrideValue == nil then
+            overrideValue = override[intKey]
+        end
+
+        if stringKey == "spawns" then
+            if overrideValue ~= nil and not IsEmptyTable(overrideValue) then
+                result[stringKey] = MergeSpawnTables(rawdata and rawdata[intKey], overrideValue)
+            elseif rawdata then
+                result[stringKey] = CopySpawnTable(rawdata[intKey])
+            end
+        elseif override[stringKey] ~= nil then
             result[stringKey] = override[stringKey]
         elseif override[intKey] ~= nil and not IsEmptyTable(override[intKey]) then
             result[stringKey] = override[intKey]
@@ -689,7 +745,7 @@ end
 function QuestieDB.GetSuppressedNPCs(zoneId)
     local suppressed = {}
     local ld = Questie.dbLearner.global
-    if ld and ld.settings and ld.settings.prioritizeMyData and ld.npcs then
+    if ld and ld.settings and ld.settings.enabled and ld.settings.prioritizeMyData and ld.npcs then
         local threshold = ld.settings.minConfidencePins or 2
         local npcId, entry = next(ld.npcs)
         while npcId do
@@ -711,7 +767,7 @@ end
 function QuestieDB.GetSuppressedObjects(zoneId)
     local suppressed = {}
     local ld = Questie.dbLearner.global
-    if ld and ld.settings and ld.settings.prioritizeMyData and ld.objects then
+    if ld and ld.settings and ld.settings.enabled and ld.settings.prioritizeMyData and ld.objects then
         local threshold = ld.settings.minConfidencePins or 2
         local objId, entry = next(ld.objects)
         while objId do

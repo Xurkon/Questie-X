@@ -200,6 +200,16 @@ local function NormalizeCoordPair(x, y)
     return nx, ny
 end
 
+local function CopyWithoutField(data, skippedKey)
+    local copy = {}
+    for key, value in pairs(data) do
+        if key ~= skippedKey then
+            copy[key] = value
+        end
+    end
+    return copy
+end
+
 -- Returns the grid-bucket key for a coordinate so nearby points share the same slot
 local function CoordBucket(x, y)
     return floor(x / COORD_GRID) * COORD_GRID, floor(y / COORD_GRID) * COORD_GRID
@@ -222,6 +232,29 @@ local function InsertIfNewBucket(coordList, x, y, customGrid)
     end
     table.insert(coordList, {x, y})
     return true
+end
+
+local function CountUniqueSpawnPositions(spawns)
+    if type(spawns) ~= "table" then return 0 end
+
+    local seen = {}
+    local count = 0
+    for _, coords in pairs(spawns) do
+        if type(coords) == "table" then
+            for _, coord in ipairs(coords) do
+                local x, y = NormalizeCoordPair(coord[1], coord[2])
+                if x and y then
+                    local key = tostring(x) .. "," .. tostring(y)
+                    if not seen[key] then
+                        seen[key] = true
+                        count = count + 1
+                    end
+                end
+            end
+        end
+    end
+
+    return count
 end
 
 -- Detects if the current map is a "Micro-Dungeon" (small interior map)
@@ -845,7 +878,7 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
     if zoneId        and zoneId > 0 and not existing[9]  then existing[9]  = zoneId end
     if factionString and not existing[13] then existing[13] = factionString end
     if subName       and not existing[14] then existing[14] = subName end
-    if x and y and zoneId and zoneId > 0 then
+    if spawnX and spawnY and x and y and zoneId and zoneId > 0 then
         existing[7] = existing[7] or {}
         existing[7][zoneId] = existing[7][zoneId] or {}
         InsertIfNewBucket(existing[7][zoneId], x, y, GetCoordGridForZone(zoneId))
@@ -857,10 +890,15 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
     local threshold = (Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.minConfidencePins) or MIN_CONFIDENCE_PINS
 
     -- Live injection: update npcDataOverrides only if confidence threshold is met
-    if existing.mc >= threshold and QuestieDB and QuestieDB.npcDataOverrides then
+    -- and only if the NPC has actual spawn data from kills (not just player-position fallback)
+    if existing.mc >= threshold and QuestieDB and QuestieDB.npcDataOverrides and existing[7] and next(existing[7]) then
         local ovr = QuestieDB.npcDataOverrides[npcId]
         if not ovr then
-            QuestieDB.npcDataOverrides[npcId] = existing
+            if IsAscensionProtected("NPC", npcId, 7) then
+                QuestieDB.npcDataOverrides[npcId] = CopyWithoutField(existing, 7)
+            else
+                QuestieDB.npcDataOverrides[npcId] = existing
+            end
         else
             -- Merge: fill missing fields; also overwrite empty-string names
             for k, v in pairs(existing) do
@@ -1053,10 +1091,8 @@ local function _MergeSpawnEvidence(npcId)
                 entry.x = evidenceX
                 entry.y = evidenceY
 
-                -- Round to 2 decimal places for grouping
-                local rx = floor(evidenceX * 100 + 0.5) / 100
-                local ry = floor(evidenceY * 100 + 0.5) / 100
-                local key = entry.zoneId .. "|" .. rx .. "|" .. ry
+                local rx, ry = NormalizeCoordPair(evidenceX, evidenceY)
+                local key = entry.zoneId .. "|" .. tostring(rx) .. "|" .. tostring(ry)
                 -- DEBUG: log each entry being grouped
                 Questie:Debug(Questie.DEBUG_LEARNER,
                     "[QuestieLearner] _MergeSpawnEvidence GROUPING: spawnUID=", spawnUID,
@@ -1138,10 +1174,17 @@ local function _MergeSpawnEvidence(npcId)
         local promoted = 0
         local duplicates = 0
         local zoneSpawns = QuestieDB.npcDataOverrides[npcId][7][topEvidence.zoneId]
-        local grid = GetCoordGridForZone(topEvidence.zoneId)
+        local seen = {}
         for _, spawnEvidence in pairs(evidence) do
-            if InsertIfNewBucket(zoneSpawns, spawnEvidence.x, spawnEvidence.y, grid) then
-                promoted = promoted + 1
+            local sx, sy = NormalizeCoordPair(spawnEvidence.x, spawnEvidence.y)
+            if sx and sy and not seen[sx..","..sy] then
+                seen[sx..","..sy] = true
+                local grid = GetCoordGridForZone(topEvidence.zoneId)
+                if InsertIfNewBucket(zoneSpawns, sx, sy, grid) then
+                    promoted = promoted + 1
+                else
+                    duplicates = duplicates + 1
+                end
             else
                 duplicates = duplicates + 1
             end
@@ -1211,16 +1254,6 @@ local function _MergeSpawnEvidence(npcId)
             "top spawn matches static DB — no override needed")
         return false
     end
-
-    -- Test mode: allow learned Sunstrider spawn evidence to overwrite live
-    -- override data even if AscensionDB owns the field. If this restores the
-    -- Mana Wyrm pins, the ownership gate is the thing blocking live updates.
-    --[[ if IsAscensionProtected("NPC", npcId, 7) then
-        Questie:Debug(Questie.DEBUG_LEARNER,
-            "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
-            "spawn override skipped because AscensionDB owns this NPC spawn field")
-        return false
-    end --]]
 
     Questie:Debug(Questie.DEBUG_LEARNER,
         "[QuestieLearner] _MergeSpawnEvidence promoting npcId", npcId,
@@ -1650,6 +1683,11 @@ end
 
 function QuestieLearner:InjectLearnedData()
     if not EnsureLearnedData() then return end
+    if not self:IsEnabled() then
+        QuestieLearner.data = Questie.dbLearner.global
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] InjectLearnedData skipped because learner is disabled")
+        return
+    end
 
     local learned = Questie.dbLearner.global
     -- Migrate old-format NPC data ([4]=spawns, [5]=zoneId) to new format ([7]=spawns, [9]=zoneId)
@@ -1848,6 +1886,26 @@ function QuestieLearner:InjectLearnedData()
         Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Purged", purgedNpcs, "invalid NPCs from learned data")
     end
 
+    -- Versioned cleanup: strip spawns from NPCs learned via quest giver/finisher
+    -- fallback (player position stored as spawn by LearnNPC). These have only
+    -- a single spawn position regardless of confidence — real kill NPCs
+    -- accumulate spawns at multiple distinct locations.
+    local fallbackSpawnCleanupVersion = 2
+    if (learned._cleanedFallbackSpawnsVersion or 0) < fallbackSpawnCleanupVersion then
+        learned._cleanedFallbackSpawns = true
+        learned._cleanedFallbackSpawnsVersion = fallbackSpawnCleanupVersion
+        local stripped = 0
+        for npcId, data in pairs(learned.npcs) do
+            if data[7] and CountUniqueSpawnPositions(data[7]) <= 1 then
+                data[7] = nil
+                stripped = stripped + 1
+            end
+        end
+        if stripped > 0 then
+            Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Stripped fallback spawns from", stripped, "NPCs")
+        end
+    end
+
     -- Purge Object entries that duplicate NPC entries (mobs learned as both NPC and Object).
     -- NPC data is richer (has names, quest IDs), so keep the NPC version and remove the Object.
     local dupObjectsRemoved = 0
@@ -1871,19 +1929,13 @@ function QuestieLearner:InjectLearnedData()
         end
         self:Sanitize(data)
         if not QuestieDB.npcDataOverrides[nid or npcId] then
-            QuestieDB.npcDataOverrides[nid or npcId] = data
+            -- Spawn evidence is promoted through _MergeSpawnEvidence, where
+            -- AscensionDB ownership is known. Injecting [7] here runs too early
+            -- and can pollute curated plugin spawn tables.
+            QuestieDB.npcDataOverrides[nid or npcId] = CopyWithoutField(data, 7)
             npcCount = npcCount + 1
         else
             local existing = QuestieDB.npcDataOverrides[nid or npcId]
-            if data[7] and not IsAscensionProtected("NPC", nid or npcId, 7) then
-                existing[7] = existing[7] or {}
-                for zoneId, coords in pairs(data[7]) do
-                    existing[7][zoneId] = existing[7][zoneId] or {}
-                    for _, coord in ipairs(coords) do
-                        InsertIfNewBucket(existing[7][zoneId], coord[1], coord[2])
-                    end
-                end
-            end
             -- Adopt other fields if missing
             for k, v in pairs(data) do
                 if k ~= "mc" and k ~= 7 and existing[k] == nil and not IsAscensionProtected("NPC", nid or npcId, k) then
@@ -2921,18 +2973,6 @@ end
 --- Uses a two-pass pattern so deletion always happens after traversal.
 ---@param spawnTable table  The [zoneId] sub-table containing learned coords
 ---@return table, number    Array of keys to remove, count of keys
-local function _CollectOutlierKeys(spawnTable)
-    local keys = {}
-    local n = 0
-    local coord = next(spawnTable)
-    while coord do
-        n = n + 1
-        keys[n] = coord
-        coord = next(spawnTable, coord)
-    end
-    return keys, n
-end
-
 --- Prune wildly outlying learned spawn coords for a single NPC+zone entry.
 --- Only operates on QuestieLearner learned data (dbLearner.global.npcs / .objects).
 --- Never deletes static DB or AscensionDB spawns.
@@ -2949,11 +2989,13 @@ local function _PruneSpawnOutliers(spawnTable, zoneId, threshold)
     -- Pass 1: collect all points into a flat array
     local learnedPoints = {}
     local n = 0
-    local coord = next(spawnTable)
-    while coord do
-        n = n + 1
-        learnedPoints[n] = { coord[1], coord[2] }
-        coord = next(spawnTable, coord)
+    local coordKey, coord = next(spawnTable)
+    while coordKey do
+        if type(coord) == "table" and coord[1] and coord[2] then
+            n = n + 1
+            learnedPoints[n] = { coord[1], coord[2] }
+        end
+        coordKey, coord = next(spawnTable, coordKey)
     end
 
     if n < 4 then return false end
@@ -3004,21 +3046,36 @@ local function _PruneSpawnOutliers(spawnTable, zoneId, threshold)
     -- Pass 2: identify outlier keys (collect before deleting)
     local toRemove = {}
     local rmCount = 0
-    coord = next(spawnTable)
-    while coord do
-        local dx = abs(coord[1] - medianX)
-        local dy = abs(coord[2] - medianY)
-        if dx > pruneX or dy > pruneY then
-            rmCount = rmCount + 1
-            toRemove[rmCount] = coord
+    coordKey, coord = next(spawnTable)
+    while coordKey do
+        if type(coord) == "table" and coord[1] and coord[2] then
+            local dx = abs(coord[1] - medianX)
+            local dy = abs(coord[2] - medianY)
+            if dx > pruneX or dy > pruneY then
+                rmCount = rmCount + 1
+                toRemove[rmCount] = coordKey
+            end
         end
-        coord = next(spawnTable, coord)
+        coordKey, coord = next(spawnTable, coordKey)
     end
 
-    -- Pass 3: delete in second pass (no mid-iteration table mutation)
+    table.sort(toRemove, function(a, b)
+        if type(a) == "number" and type(b) == "number" then
+            return a > b
+        end
+        return tostring(a) > tostring(b)
+    end)
+
+    -- Pass 3: delete in second pass (no mid-iteration table mutation).
+    -- Numeric spawn arrays must be compacted so ipairs/# keep seeing later rows.
     local removed = 0
     for i = 1, rmCount do
-        spawnTable[toRemove[i]] = nil
+        local key = toRemove[i]
+        if type(key) == "number" then
+            table.remove(spawnTable, key)
+        else
+            spawnTable[key] = nil
+        end
         removed = removed + 1
     end
 
@@ -3061,22 +3118,24 @@ function QuestieLearner:PruneLearnedSpawnOutliers(threshold)
                         local changed = false
 
                         -- Check if static DB has anchors for this NPC+zone
-                        local staticNPC = nil
+                        local staticSpawns = nil
                         if QuestieDB and QuestieDB.QueryNPC then
-                            staticNPC = QuestieDB.QueryNPCSingle and QuestieDB.QueryNPCSingle(npcId, "spawns") or nil
+                            staticSpawns = QuestieDB.QueryNPCSingle and QuestieDB.QueryNPCSingle(npcId, "spawns") or nil
                         end
 
-                        if staticNPC and staticNPC[7] and staticNPC[7][zoneId] then
+                        if staticSpawns and staticSpawns[zoneId] then
                             -- Static anchor path: build centroid from static spawns
-                            local sc = staticNPC[7][zoneId]
-                            local si = next(sc)
+                            local sc = staticSpawns[zoneId]
+                            local si, staticCoord = next(sc)
                             local sn = 0
                             local sumX, sumY = 0, 0
                             while si do
-                                sn = sn + 1
-                                sumX = sumX + sc[si][1]
-                                sumY = sumY + sc[si][2]
-                                si = next(sc, si)
+                                if type(staticCoord) == "table" and staticCoord[1] and staticCoord[2] then
+                                    sn = sn + 1
+                                    sumX = sumX + staticCoord[1]
+                                    sumY = sumY + staticCoord[2]
+                                end
+                                si, staticCoord = next(sc, si)
                             end
 
                             if sn > 0 then
@@ -3086,18 +3145,31 @@ function QuestieLearner:PruneLearnedSpawnOutliers(threshold)
                                 -- Collect outlier keys first, delete second
                                 local toRemove = {}
                                 local rmCount = 0
-                                local coord = next(zoneSpawns)
-                                while coord do
-                                    local dx = abs(coord[1] - anchorX)
-                                    local dy = abs(coord[2] - anchorY)
-                                    if dx > threshold or dy > threshold then
-                                        rmCount = rmCount + 1
-                                        toRemove[rmCount] = coord
+                                local coordKey, coord = next(zoneSpawns)
+                                while coordKey do
+                                    if type(coord) == "table" and coord[1] and coord[2] then
+                                        local dx = abs(coord[1] - anchorX)
+                                        local dy = abs(coord[2] - anchorY)
+                                        if dx > threshold or dy > threshold then
+                                            rmCount = rmCount + 1
+                                            toRemove[rmCount] = coordKey
+                                        end
                                     end
-                                    coord = next(zoneSpawns, coord)
+                                    coordKey, coord = next(zoneSpawns, coordKey)
                                 end
+                                table.sort(toRemove, function(a, b)
+                                    if type(a) == "number" and type(b) == "number" then
+                                        return a > b
+                                    end
+                                    return tostring(a) > tostring(b)
+                                end)
                                 for i = 1, rmCount do
-                                    zoneSpawns[toRemove[i]] = nil
+                                    local key = toRemove[i]
+                                    if type(key) == "number" then
+                                        table.remove(zoneSpawns, key)
+                                    else
+                                        zoneSpawns[key] = nil
+                                    end
                                     changed = true
                                 end
                                 if changed then

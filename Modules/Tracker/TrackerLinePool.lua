@@ -35,6 +35,13 @@ local l10n = QuestieLoader:ImportModule("l10n")
 local C_Timer = QuestieCompat.C_Timer
 local C_QuestLog = QuestieCompat.C_QuestLog
 local GetQuestLogIndexByID = QuestieCompat.GetQuestLogIndexByID
+local function GetNumLines(label)
+    if label.GetNumLines then
+        return label:GetNumLines()
+    end
+
+    return QuestieCompat.GetNumLines(label)
+end
 
 local LibDropDown = QuestieCompat.LibUIDropDownMenu or LibStub:GetLibrary("LibUIDropDownMenuQuestie-4.0")
 local LSM30 = LibStub and LibStub("LibSharedMedia-3.0", true)
@@ -751,7 +758,7 @@ function TrackerLinePool.UpdateWrappedLineWidths(trackerLineWidth)
     for _, line in pairs(linePool) do
         if Questie.db.profile.TrackerWidth == 0 then
             if line.mode == "objective" then
-                if line.label:GetNumLines() > 1 and line:GetHeight() > Questie.db.profile.trackerFontSizeObjective then
+                if GetNumLines(line.label) > 1 and line:GetHeight() > Questie.db.profile.trackerFontSizeObjective then
                     line.label:SetText(line.label:GetText())
 
                     if line.altButton then
